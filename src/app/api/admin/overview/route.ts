@@ -36,6 +36,7 @@ export async function GET() {
             id: true,
             documentType: true,
             fileName: true,
+            fileUrl: true,
             mimeType: true,
             status: true,
             createdAt: true,
