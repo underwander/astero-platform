@@ -19,6 +19,8 @@ export default function SupportPage() {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountRole, setAccountRole] = useState("");
 
   const isRu = language === "ru";
 
@@ -68,13 +70,23 @@ export default function SupportPage() {
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId");
+    const storedRole = localStorage.getItem("role") || "";
+    const storedEmail = localStorage.getItem("email") || "";
 
     if (!storedUserId) {
       router.push("/login");
       return;
     }
 
+    setAccountRole(storedRole);
+    setAccountEmail(storedEmail);
     setUserId(storedUserId);
+
+    if (storedRole === "ADMIN" || storedRole === "MANAGER") {
+      setStatus(isRu ? "Вы открыли клиентскую поддержку из админ-аккаунта. Выйдите и зайдите клиентом." : "You opened client Support from an admin account. Log out and sign in as a client.");
+      return;
+    }
+
     loadMessages(storedUserId);
 
     const interval = setInterval(() => loadMessages(storedUserId), 15000);
@@ -89,6 +101,9 @@ export default function SupportPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/60">
           {isRu ? "Напишите сообщение менеджеру." : "Send a message to your manager."}
+        </p>
+        <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+          {accountEmail || "-"} · {accountRole || "CLIENT"}
         </p>
       </div>
 

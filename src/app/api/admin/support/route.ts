@@ -1,20 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { ensureSupportMessagesTable } from "@/lib/support-messages";
+import { randomUUID } from "crypto";
+
+type SupportMessageRow = {
+  id: string;
+  userId: string;
+  message: string;
+  sender: string | null;
+  createdAt: Date;
+};
 
 export async function GET() {
   try {
     await ensureSupportMessagesTable();
 
-    const messages = await prisma.supportMessage.findMany({
-      select: {
-        id: true,
-        userId: true,
-        message: true,
-        sender: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const messages = await prisma.$queryRaw<SupportMessageRow[]>`
+      SELECT "id", "userId", "message", "sender", "createdAt"
+      FROM "SupportMessage"
+      ORDER BY "createdAt" DESC
+    `;
 
     return Response.json(messages, {
       headers: { "Cache-Control": "no-store" },
@@ -36,22 +40,23 @@ export async function POST(req: Request) {
       return Response.json({ error: "UserId and message required" }, { status: 400 });
     }
 
-    const created = await prisma.supportMessage.create({
-      data: {
-        userId,
-        sender: "ADMIN",
-        message: text,
-      },
-      select: {
-        id: true,
-        userId: true,
-        message: true,
-        sender: true,
-        createdAt: true,
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
     });
 
-    return Response.json(created, {
+    if (!user) {
+      return Response.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    const id = randomUUID();
+    const created = await prisma.$queryRaw<SupportMessageRow[]>`
+      INSERT INTO "SupportMessage" ("id", "userId", "message", "sender", "fromRole")
+      VALUES (${id}, ${userId}, ${text}, 'ADMIN', 'ADMIN')
+      RETURNING "id", "userId", "message", "sender", "createdAt"
+    `;
+
+    return Response.json(created[0], {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
