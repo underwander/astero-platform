@@ -52,6 +52,9 @@ type SupportMessage = {
   message: string;
   sender?: string | null;
   fromRole?: string | null;
+  attachmentName?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentBase64?: string | null;
   createdAt: string;
   user?: {
     id?: string;
@@ -59,6 +62,13 @@ type SupportMessage = {
     firstName?: string | null;
     lastName?: string | null;
   };
+};
+
+type SupportConversation = {
+  userId: string;
+  status: "OPEN" | "CLOSED";
+  closedAt?: string | null;
+  updatedAt?: string | null;
 };
 
 type SupportToast = {
@@ -176,6 +186,7 @@ export default function AsteroCrm() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [verificationDocuments, setVerificationDocuments] = useState<VerificationDocument[]>([]);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [supportConversations, setSupportConversations] = useState<SupportConversation[]>([]);
   const [supportText, setSupportText] = useState("");
   const [supportClientId, setSupportClientId] = useState("");
   const [supportError, setSupportError] = useState("");
@@ -271,14 +282,13 @@ export default function AsteroCrm() {
     const res = await fetch("/api/admin/overview", { cache: "no-store" });
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
-    const supportData = supportRes.ok ? await supportRes.json() : [];
+    const supportPayload = await supportRes.json().catch(() => null);
     setSupportError("");
 
     if (!supportRes.ok) {
-      const supportErrorData = await supportRes.json().catch(() => null);
       setSupportError(
-        `${supportErrorData?.error || "Support load failed"}${
-          supportErrorData?.details ? `: ${supportErrorData.details}` : ""
+        `${supportPayload?.error || "Support load failed"}${
+          supportPayload?.details ? `: ${supportPayload.details}` : ""
         }`
       );
     }
@@ -336,13 +346,28 @@ export default function AsteroCrm() {
         : allVerificationDocs
     );
 
+    const allSupportMessages: SupportMessage[] = Array.isArray(supportPayload)
+      ? supportPayload
+      : supportPayload?.messages || [];
+    const allSupportConversations: SupportConversation[] = Array.isArray(supportPayload)
+      ? []
+      : supportPayload?.conversations || [];
+
     const visibleSupportMessages: SupportMessage[] =
       role === "MANAGER" && currentUserId
-        ? (supportData || []).filter((item: SupportMessage) => {
+        ? allSupportMessages.filter((item: SupportMessage) => {
             const client = allClients.find((client) => client.id === item.userId);
             return client?.managerId === currentUserId;
           })
-        : supportData || [];
+        : allSupportMessages;
+
+    const visibleSupportConversations: SupportConversation[] =
+      role === "MANAGER" && currentUserId
+        ? allSupportConversations.filter((item) => {
+            const client = allClients.find((client) => client.id === item.userId);
+            return client?.managerId === currentUserId;
+          })
+        : allSupportConversations;
 
     const newClientMessages = visibleSupportMessages
       .filter((item) => {
@@ -352,6 +377,7 @@ export default function AsteroCrm() {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     setSupportMessages(visibleSupportMessages);
+    setSupportConversations(visibleSupportConversations);
     setSupportClientId((prev) => prev || visibleSupportMessages[0]?.userId || visibleClients[0]?.id || "");
     setSelectedClientId((prev) => prev || visibleClients[0]?.id || "");
 
@@ -633,6 +659,23 @@ export default function AsteroCrm() {
     }
 
     setSupportText("");
+    await loadAdminData();
+  }
+
+  async function closeSupportConversation(userId: string) {
+    if (!userId) return;
+
+    const res = await fetch("/api/admin/support/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      return alert(data.error || "Не удалось закрыть обращение");
+    }
+
     await loadAdminData();
   }
 
@@ -957,15 +1000,17 @@ export default function AsteroCrm() {
         {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
         {activeTab === "verification" && <KycTable documents={verificationDocuments} onReview={reviewDocument} />}
         {activeTab === "support" && (
-          <SupportPanel
+          <SupportPanelV2
             clients={clients}
             messages={supportMessages}
+            conversations={supportConversations}
             error={supportError}
             selectedClientId={supportClientId}
             setSelectedClientId={setSupportClientId}
             text={supportText}
             setText={setSupportText}
             onSend={sendSupportMessage}
+            onClose={closeSupportConversation}
           />
         )}
         {activeTab === "quotes" && <ManualQuotesPanel />}
@@ -1122,6 +1167,177 @@ function SupportPanel({
                       }`}
                     >
                       <p>{message.message}</p>
+                      <p className={`mt-2 text-[11px] ${isAdmin ? "text-emerald-50/70" : "text-slate-400"}`}>
+                        {isAdmin ? "Администратор" : "Клиент"} · {new Date(message.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {dialog.length === 0 && <Empty text="История чата пуста" />}
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+              <textarea
+                className={areaClass}
+                placeholder="Ответ клиенту..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <button
+                onClick={onSend}
+                className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
+              >
+                Отправить
+              </button>
+            </div>
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function SupportPanelV2({
+  clients,
+  messages,
+  conversations,
+  error,
+  selectedClientId,
+  setSelectedClientId,
+  text,
+  setText,
+  onSend,
+  onClose,
+}: {
+  clients: User[];
+  messages: SupportMessage[];
+  conversations: SupportConversation[];
+  error: string;
+  selectedClientId: string;
+  setSelectedClientId: (id: string) => void;
+  text: string;
+  setText: (text: string) => void;
+  onSend: () => void;
+  onClose: (userId: string) => void;
+}) {
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
+  const selectedConversation = conversations.find((item) => item.userId === selectedClientId);
+  const dialog = messages
+    .filter((message) => message.userId === selectedClientId)
+    .slice()
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const clientsWithMessages = clients
+    .map((client) => ({
+      client,
+      count: messages.filter((message) => message.userId === client.id).length,
+      conversation: conversations.find((item) => item.userId === client.id),
+      last: messages
+        .filter((message) => message.userId === client.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0],
+    }))
+    .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime());
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
+      {error && (
+        <div className="xl:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      )}
+
+      <Panel title="Диалоги поддержки">
+        <div className="space-y-2">
+          {clientsWithMessages.map(({ client, count, conversation, last }) => (
+            <button
+              key={client.id}
+              onClick={() => setSelectedClientId(client.id)}
+              className={`w-full rounded-2xl border p-3 text-left transition ${
+                selectedClientId === client.id
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-emerald-100 bg-white hover:bg-emerald-50"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-black text-slate-950">{displayName(client)}</p>
+                  <p className="text-xs text-slate-500">{client.email}</p>
+                </div>
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                  {count}
+                </span>
+              </div>
+              <div className="mt-2">
+                <Badge value={conversation?.status || "OPEN"} />
+              </div>
+              <p className="mt-2 truncate text-xs text-slate-500">
+                {last?.message || (last?.attachmentName ? "Изображение" : "Сообщений пока нет")}
+              </p>
+            </button>
+          ))}
+
+          {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
+        </div>
+      </Panel>
+
+      <Panel title={selectedClient ? `Чат: ${displayName(selectedClient)}` : "Чат поддержки"}>
+        {!selectedClient ? (
+          <Empty text="Выберите клиента слева" />
+        ) : (
+          <div className="flex min-h-[560px] flex-col">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-100 bg-white p-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-slate-900">Статус обращения</span>
+                <Badge value={selectedConversation?.status || "OPEN"} />
+              </div>
+              <button
+                type="button"
+                onClick={() => onClose(selectedClient.id)}
+                disabled={selectedConversation?.status === "CLOSED"}
+                className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Закрыть обращение
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-emerald-100 bg-slate-50 p-3">
+              {dialog.map((message) => {
+                const isAdmin = message.sender === "ADMIN" || message.fromRole === "ADMIN";
+                const attachmentUrl = message.attachmentBase64 && message.attachmentMimeType
+                  ? `data:${message.attachmentMimeType};base64,${message.attachmentBase64}`
+                  : "";
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                        isAdmin
+                          ? "bg-emerald-600 text-white"
+                          : "bg-white text-slate-800 shadow-sm"
+                      }`}
+                    >
+                      {message.message && <p>{message.message}</p>}
+                      {attachmentUrl && (
+                        <div className="mt-3 space-y-2">
+                          {message.attachmentMimeType?.startsWith("image/") && (
+                            <img src={attachmentUrl} alt={message.attachmentName || "attachment"} className="max-h-72 rounded-xl object-contain" />
+                          )}
+                          <a
+                            href={attachmentUrl}
+                            download={message.attachmentName || "support-image"}
+                            className={`inline-flex rounded-xl px-3 py-2 text-xs font-black ${
+                              isAdmin ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700"
+                            }`}
+                          >
+                            Скачать изображение
+                          </a>
+                        </div>
+                      )}
                       <p className={`mt-2 text-[11px] ${isAdmin ? "text-emerald-50/70" : "text-slate-400"}`}>
                         {isAdmin ? "Администратор" : "Клиент"} · {new Date(message.createdAt).toLocaleString()}
                       </p>
