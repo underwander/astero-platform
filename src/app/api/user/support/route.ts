@@ -14,7 +14,9 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "asc" },
     });
 
-    return Response.json(messages);
+    return Response.json(messages, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Server error" }, { status: 500 });
@@ -24,8 +26,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { userId, message } = await req.json();
+    const text = String(message || "").trim();
 
-    if (!userId || !message) {
+    if (!userId || !text) {
       return Response.json({ error: "UserId and message required" }, { status: 400 });
     }
 
@@ -33,11 +36,14 @@ export async function POST(req: Request) {
       data: {
         userId,
         sender: "CLIENT",
-        message,
+        fromRole: "CLIENT",
+        message: text,
       },
     });
 
-    return Response.json(created);
+    return Response.json(created, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Server error" }, { status: 500 });

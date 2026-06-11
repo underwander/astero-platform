@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
 
@@ -60,6 +60,17 @@ type SupportMessage = {
     lastName?: string | null;
   };
 };
+
+type SupportToast = {
+  userId: string;
+  clientName: string;
+  message: string;
+};
+
+type WindowWithAudioContext = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+  };
 
 type User = {
   id: string;
@@ -167,6 +178,7 @@ export default function AsteroCrm() {
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [supportText, setSupportText] = useState("");
   const [supportClientId, setSupportClientId] = useState("");
+  const [supportToast, setSupportToast] = useState<SupportToast | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -204,9 +216,57 @@ export default function AsteroCrm() {
     lastName: "",
     phone: "",
   });
+  const seenSupportMessageIdsRef = useRef<Set<string>>(new Set());
+  const supportMessagesReadyRef = useRef(false);
+  const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function loadAdminData() {
-    setLoading(true);
+  function playSupportSound() {
+    try {
+      const AudioCtor =
+        window.AudioContext || (window as WindowWithAudioContext).webkitAudioContext;
+
+      if (!AudioCtor) return;
+
+      const audio = new AudioCtor();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audio.currentTime);
+      oscillator.frequency.setValueAtTime(660, audio.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.001, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, audio.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.28);
+
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 0.3);
+    } catch {
+      // Browsers can block sound until the admin interacts with the page.
+    }
+  }
+
+  function notifySupportMessage(supportMessage: SupportMessage, allClients: User[]) {
+    const client = allClients.find((item) => item.id === supportMessage.userId);
+    const clientName = client ? displayName(client) : supportMessage.user?.email || "Клиент";
+
+    setSupportToast({
+      userId: supportMessage.userId,
+      clientName,
+      message: supportMessage.message,
+    });
+
+    if (supportToastTimerRef.current) {
+      clearTimeout(supportToastTimerRef.current);
+    }
+
+    supportToastTimerRef.current = setTimeout(() => setSupportToast(null), 8000);
+    playSupportSound();
+  }
+
+  async function loadAdminData(options: { silent?: boolean } = {}) {
+    if (!options.silent) setLoading(true);
     const res = await fetch("/api/admin/overview", { cache: "no-store" });
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
@@ -273,10 +333,25 @@ export default function AsteroCrm() {
           })
         : supportData || [];
 
+    const newClientMessages = visibleSupportMessages
+      .filter((item) => {
+        const isClientMessage = item.sender === "CLIENT" || item.fromRole === "CLIENT";
+        return isClientMessage && !seenSupportMessageIdsRef.current.has(item.id);
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
     setSupportMessages(visibleSupportMessages);
     setSupportClientId((prev) => prev || visibleSupportMessages[0]?.userId || visibleClients[0]?.id || "");
     setSelectedClientId((prev) => prev || visibleClients[0]?.id || "");
-    setLoading(false);
+
+    if (supportMessagesReadyRef.current && newClientMessages.length > 0) {
+      notifySupportMessage(newClientMessages[newClientMessages.length - 1], allClients);
+    }
+
+    seenSupportMessageIdsRef.current = new Set(visibleSupportMessages.map((item) => item.id));
+    supportMessagesReadyRef.current = true;
+
+    if (!options.silent) setLoading(false);
   }
 
   useEffect(() => {
@@ -287,6 +362,17 @@ export default function AsteroCrm() {
     }
     setAllowed(true);
     loadAdminData();
+
+    const interval = setInterval(() => {
+      loadAdminData({ silent: true });
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      if (supportToastTimerRef.current) {
+        clearTimeout(supportToastTimerRef.current);
+      }
+    };
   }, [router]);
 
   const selectedClient = useMemo(
@@ -615,13 +701,43 @@ export default function AsteroCrm() {
               <h1 className="mt-1 text-2xl font-black sm:text-3xl">{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
               <p className="mt-1 text-sm text-emerald-50/60">Рабочая область администратора и менеджеров Astero.</p>
             </div>
-            <button onClick={loadAdminData} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400">
+            <button onClick={() => loadAdminData()} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400">
               Обновить данные
             </button>
           </div>
         </div>
 
         {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-100">{message}</div>}
+
+        {supportToast && (
+          <div className="fixed right-4 top-24 z-[80] w-[min(420px,calc(100vw-2rem))] rounded-3xl border border-sky-300/40 bg-slate-950 p-4 text-white shadow-2xl shadow-sky-950/30">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
+                <p className="mt-1 font-black">{supportToast.clientName}</p>
+                <p className="mt-2 line-clamp-3 text-sm text-slate-200">{supportToast.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSupportToast(null)}
+                className="rounded-xl bg-white/10 px-3 py-1 text-sm font-black text-white hover:bg-white/20"
+              >
+                x
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSupportClientId(supportToast.userId);
+                setActiveTab("support");
+                setSupportToast(null);
+              }}
+              className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white hover:bg-sky-400"
+            >
+              Открыть чат
+            </button>
+          </div>
+        )}
 
         {activeTab === "desktop" && (
           <div className="space-y-4">
