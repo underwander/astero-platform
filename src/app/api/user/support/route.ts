@@ -11,6 +11,13 @@ export async function GET(req: Request) {
 
     const messages = await prisma.supportMessage.findMany({
       where: { userId },
+      select: {
+        id: true,
+        userId: true,
+        message: true,
+        sender: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: "asc" },
     });
 
@@ -36,8 +43,14 @@ export async function POST(req: Request) {
       data: {
         userId,
         sender: "CLIENT",
-        fromRole: "CLIENT",
         message: text,
+      },
+      select: {
+        id: true,
+        userId: true,
+        message: true,
+        sender: true,
+        createdAt: true,
       },
     });
 

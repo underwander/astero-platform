@@ -3,8 +3,12 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   try {
     const messages = await prisma.supportMessage.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        message: true,
+        sender: true,
+        createdAt: true,
         user: {
           select: {
             id: true,
@@ -14,6 +18,7 @@ export async function GET() {
           },
         },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     return Response.json(messages, {
@@ -38,8 +43,14 @@ export async function POST(req: Request) {
       data: {
         userId,
         sender: "ADMIN",
-        fromRole: "ADMIN",
         message: text,
+      },
+      select: {
+        id: true,
+        userId: true,
+        message: true,
+        sender: true,
+        createdAt: true,
       },
     });
 
