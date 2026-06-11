@@ -34,9 +34,6 @@ export default function SupportPage() {
   const [conversationStatus, setConversationStatus] = useState<"OPEN" | "CLOSED">("OPEN");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
-  const [accountEmail, setAccountEmail] = useState("");
-  const [accountRole, setAccountRole] = useState("");
-  const [debugInfo, setDebugInfo] = useState("");
   const [attachment, setAttachment] = useState<AttachmentPayload | null>(null);
   const [toast, setToast] = useState("");
   const seenAdminMessageIdsRef = useRef<Set<string>>(new Set());
@@ -126,18 +123,8 @@ export default function SupportPage() {
 
     setMessage("");
     setAttachment(null);
-    setStatus(`${isRu ? "Сообщение отправлено" : "Message sent"}: ${data.id}`);
+    setStatus(isRu ? "Сообщение отправлено" : "Message sent");
     await loadMessages(userId);
-  }
-
-  async function loadDebugInfo() {
-    if (!userId) return;
-
-    const res = await fetch(`/api/support/debug?userId=${userId}`, {
-      cache: "no-store",
-    });
-    const data = await res.json();
-    setDebugInfo(JSON.stringify(data, null, 2));
   }
 
   async function attachImage(file: File | null) {
@@ -166,19 +153,16 @@ export default function SupportPage() {
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId");
     const storedRole = localStorage.getItem("role") || "";
-    const storedEmail = localStorage.getItem("email") || "";
 
     if (!storedUserId) {
       router.push("/login");
       return;
     }
 
-    setAccountRole(storedRole);
-    setAccountEmail(storedEmail);
     setUserId(storedUserId);
 
     if (storedRole === "ADMIN" || storedRole === "MANAGER") {
-      setStatus(isRu ? "Вы открыли клиентскую поддержку из админ-аккаунта. Выйдите и зайдите клиентом." : "You opened client Support from an admin account. Log out and sign in as a client.");
+      setStatus(isRu ? "Выйдите из админ-аккаунта и зайдите клиентом." : "Log out of the admin account and sign in as a client.");
       return;
     }
 
@@ -206,27 +190,12 @@ export default function SupportPage() {
         <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/60">
           {isRu ? "Напишите сообщение менеджеру." : "Send a message to your manager."}
         </p>
-        <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-          {accountEmail || "-"} · {accountRole || "CLIENT"} · {conversationStatus}
-        </p>
-        <button
-          type="button"
-          onClick={loadDebugInfo}
-          className="mt-3 rounded-2xl border border-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-400/10 dark:text-emerald-200 dark:hover:bg-white/10"
-        >
-          Support debug
-        </button>
-        {debugInfo && (
-          <pre className="mt-3 max-h-56 overflow-auto rounded-2xl bg-slate-950 p-3 text-xs text-emerald-100">
-            {debugInfo}
-          </pre>
-        )}
       </div>
 
       <div className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] md:p-6">
         {conversationStatus === "CLOSED" && (
           <div className="mb-4 rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm font-bold text-sky-800">
-            {isRu ? "Обращение закрыто. История чата очищена для клиента. Новое сообщение создаст новое открытое обращение." : "The request is closed. Chat history is cleared for the client. A new message will open a new request."}
+            {isRu ? "Обращение закрыто. Новое сообщение создаст новое обращение." : "The request is closed. A new message will open a new request."}
           </div>
         )}
 
@@ -274,9 +243,13 @@ export default function SupportPage() {
               placeholder={isRu ? "Напишите сообщение..." : "Write a message..."}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <input type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0] || null)} className="text-sm" />
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-black text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-400/10 dark:bg-white/[0.04] dark:text-emerald-200 dark:hover:bg-white/[0.08]">
+                <span className="text-lg leading-none">+</span>
+                {isRu ? "Прикрепить картинку" : "Attach image"}
+                <input type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0] || null)} className="hidden" />
+              </label>
               {attachment && (
-                <button type="button" onClick={() => setAttachment(null)} className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+                <button type="button" onClick={() => setAttachment(null)} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
                   {attachment.name} x
                 </button>
               )}
