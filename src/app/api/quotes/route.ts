@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getInstrument, marketInstruments } from "@/lib/market-instruments";
 
 type CachedQuote = {
   symbol: string;
@@ -12,34 +13,12 @@ type CachedQuote = {
 const quoteCache = new Map<string, CachedQuote>();
 const CACHE_TTL = 30 * 1000;
 
-const symbolMap: Record<string, string> = {
-  "EUR/USD": "EUR/USD",
-  "GBP/USD": "GBP/USD",
-  "USD/JPY": "USD/JPY",
-  "AUD/USD": "AUD/USD",
-  "USD/CAD": "USD/CAD",
-  "USD/CHF": "USD/CHF",
-  "NZD/USD": "NZD/USD",
-  "EUR/GBP": "EUR/GBP",
-  "EUR/JPY": "EUR/JPY",
-  "XAU/USD": "XAU/USD",
-  "XAG/USD": "XAG/USD",
-  "BTC/USD": "BTC/USD",
-  "ETH/USD": "ETH/USD",
-  "SOL/USD": "SOL/USD",
-  "US100": "NDX",
-  "SPX500": "SPX",
-  "US30": "DJI",
-  "AAPL": "AAPL",
-  "TSLA": "TSLA",
-  "NVDA": "NVDA",
-};
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const symbol = searchParams.get("symbol") || "EUR/USD";
-    const twelveSymbol = symbolMap[symbol];
+    const instrument = marketInstruments.find((item) => item.symbol === symbol);
+    const twelveSymbol = instrument?.quoteSymbol;
 
     if (!twelveSymbol) {
       return Response.json({ error: "Unsupported symbol" }, { status: 400 });
@@ -73,7 +52,14 @@ export async function GET(req: Request) {
     const apiKey = process.env.TWELVE_DATA_API_KEY;
 
     if (!apiKey) {
-      return Response.json({ error: "Missing TWELVE_DATA_API_KEY" }, { status: 500 });
+      const fallback = getInstrument(symbol).defaultPrice;
+      return Response.json({
+        symbol,
+        price: fallback,
+        change: "0",
+        time: new Date().toISOString(),
+        source: "default",
+      });
     }
 
     const response = await fetch(
@@ -84,7 +70,15 @@ export async function GET(req: Request) {
     const data = await response.json();
 
     if (data.status === "error") {
-      return Response.json({ error: data.message || "Quote error" }, { status: 400 });
+      const fallback = getInstrument(symbol).defaultPrice;
+      return Response.json({
+        symbol,
+        price: fallback,
+        change: "0",
+        time: new Date().toISOString(),
+        source: "default",
+        warning: data.message || "Quote fallback",
+      });
     }
 
     const quote: CachedQuote = {

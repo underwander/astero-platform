@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { calculateTradeProfit } from "@/lib/market-instruments";
 
 export async function POST(req: Request) {
   try {
@@ -38,19 +39,14 @@ export async function POST(req: Request) {
       );
     }
 
-    let profit = 0;
-
-    if (trade.side === "BUY") {
-      profit =
-        (numericClosePrice - trade.openPrice) *
-        10000 *
-        trade.volume;
-    } else {
-      profit =
-        (trade.openPrice - numericClosePrice) *
-        10000 *
-        trade.volume;
-    }
+    const profit = calculateTradeProfit(
+      trade.symbol,
+      trade.side,
+      trade.openPrice,
+      numericClosePrice,
+      trade.volume,
+      trade.swap
+    );
 
     const updatedTrade = await prisma.trade.update({
       where: { id: tradeId },

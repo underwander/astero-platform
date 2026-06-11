@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatPrice, marketGroups, marketInstruments, type MarketGroup } from "@/lib/market-instruments";
 
 export type MarketSymbol = {
   symbol: string;
-  group: "Forex" | "Metals" | "Crypto" | "Indices" | "Stocks";
+  group: MarketGroup;
 };
 
 type Quote = {
@@ -14,28 +15,7 @@ type Quote = {
   source?: string;
 };
 
-export const marketSymbols: MarketSymbol[] = [
-  { symbol: "EUR/USD", group: "Forex" },
-  { symbol: "GBP/USD", group: "Forex" },
-  { symbol: "USD/JPY", group: "Forex" },
-  { symbol: "AUD/USD", group: "Forex" },
-  { symbol: "USD/CAD", group: "Forex" },
-  { symbol: "USD/CHF", group: "Forex" },
-  { symbol: "NZD/USD", group: "Forex" },
-  { symbol: "EUR/GBP", group: "Forex" },
-  { symbol: "EUR/JPY", group: "Forex" },
-  { symbol: "XAU/USD", group: "Metals" },
-  { symbol: "XAG/USD", group: "Metals" },
-  { symbol: "BTC/USD", group: "Crypto" },
-  { symbol: "ETH/USD", group: "Crypto" },
-  { symbol: "SOL/USD", group: "Crypto" },
-  { symbol: "US100", group: "Indices" },
-  { symbol: "SPX500", group: "Indices" },
-  { symbol: "US30", group: "Indices" },
-  { symbol: "AAPL", group: "Stocks" },
-  { symbol: "TSLA", group: "Stocks" },
-  { symbol: "NVDA", group: "Stocks" },
-];
+export const marketSymbols: MarketSymbol[] = marketInstruments.map(({ symbol, group }) => ({ symbol, group }));
 
 export default function MarketWatch() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -84,7 +64,7 @@ export default function MarketWatch() {
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(["All", "Forex", "Metals", "Crypto", "Indices", "Stocks"] as const).map((group) => (
+        {marketGroups.map((group) => (
           <button
             key={group}
             onClick={() => setActiveGroup(group)}
@@ -116,7 +96,7 @@ export default function MarketWatch() {
                 </span>
               </div>
               <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                {quote ? quote.price.toLocaleString(undefined, { maximumFractionDigits: 5 }) : "..."}
+                {quote ? formatPrice(symbol, quote.price) : "..."}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-emerald-50/45">Source: {quote?.source || "loading"}</p>
             </div>

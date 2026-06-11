@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
+import { formatPrice } from "@/lib/market-instruments";
 
 type ManagerRef = {
   id: string;
@@ -143,6 +144,14 @@ type Trade = {
     lastName?: string | null;
     managerId?: string | null;
   };
+};
+
+type TradeUpdatePayload = {
+  openPrice?: number;
+  volume?: number;
+  swap?: number;
+  takeProfit?: number | null;
+  stopLoss?: number | null;
 };
 
 type Tab =
@@ -562,6 +571,17 @@ export default function AsteroCrm() {
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка закрытия сделки");
+    await loadAdminData();
+  }
+
+  async function updateClientTrade(tradeId: string, payload: TradeUpdatePayload) {
+    const res = await fetch("/api/admin/trades/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tradeId, ...payload }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Trade update error");
     await loadAdminData();
   }
 
@@ -996,7 +1016,7 @@ export default function AsteroCrm() {
           </div>
         )}
 
-        {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} />}
+        {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />}
         {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
         {activeTab === "verification" && <KycTable documents={verificationDocuments} onReview={reviewDocument} />}
         {activeTab === "support" && (
@@ -1454,11 +1474,19 @@ function ClientTimeline({
   );
 }
 
-function TradeTable({ trades, onClose }: { trades: Trade[]; onClose: (trade: Trade) => void }) {
+function TradeTable({
+  trades,
+  onClose,
+  onUpdate,
+}: {
+  trades: Trade[];
+  onClose: (trade: Trade) => void;
+  onUpdate: (tradeId: string, payload: TradeUpdatePayload) => void;
+}) {
   return (
     <Panel title="Сделки клиентов">
       <div className="overflow-x-auto">
-        <table className="min-w-[1250px] w-full text-sm">
+        <table className="min-w-[1420px] w-full text-sm">
           <thead>
             <tr className="border-b border-emerald-100 text-left text-slate-500">
               <th className="p-3">Клиент</th>
@@ -1475,31 +1503,136 @@ function TradeTable({ trades, onClose }: { trades: Trade[]; onClose: (trade: Tra
             </tr>
           </thead>
           <tbody>
-            {trades.map((trade) => (
-              <tr key={trade.id} className="border-b border-emerald-50">
-                <td className="p-3">{trade.user.email}</td>
-                <td className="p-3 font-bold">{trade.symbol}</td>
-                <td className={`p-3 font-bold ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
-                <td className="p-3">{trade.volume}</td>
-                <td className="p-3">{trade.openPrice}</td>
-                <td className="p-3">{trade.takeProfit ?? "-"}</td>
-                <td className="p-3">{trade.stopLoss ?? "-"}</td>
-                <td className="p-3">{trade.swap ?? 0}</td>
-                <td className="p-3">{trade.profit === null ? "-" : `$${Number(trade.profit).toFixed(2)}`}</td>
-                <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
-                <td className="p-3">
-                  {trade.closePrice === null ? (
-                    <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Close</button>
-                  ) : (
-                    <span className="text-xs text-slate-400">Closed</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {trades.map((trade) => {
+              const isOpen = trade.closePrice === null;
+              return (
+                <tr key={trade.id} className="border-b border-emerald-50 align-top">
+                  <td className="p-3">{trade.user.email}</td>
+                  <td className="p-3 font-bold">{trade.symbol}</td>
+                  <td className={`p-3 font-bold ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <TradeEditInput label="Volume" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} />
+                    ) : (
+                      trade.volume
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <TradeEditInput label="Open" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} />
+                    ) : (
+                      formatPrice(trade.symbol, trade.openPrice)
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <TradeEditInput label="TP" value={trade.takeProfit} allowEmpty onCommit={(value) => onUpdate(trade.id, { takeProfit: value })} />
+                    ) : trade.takeProfit === null || trade.takeProfit === undefined ? (
+                      "-"
+                    ) : (
+                      formatPrice(trade.symbol, trade.takeProfit)
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <TradeEditInput label="SL" value={trade.stopLoss} allowEmpty onCommit={(value) => onUpdate(trade.id, { stopLoss: value })} />
+                    ) : trade.stopLoss === null || trade.stopLoss === undefined ? (
+                      "-"
+                    ) : (
+                      formatPrice(trade.symbol, trade.stopLoss)
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <TradeEditInput label="Swap" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} />
+                    ) : (
+                      trade.swap ?? 0
+                    )}
+                  </td>
+                  <td className="p-3">{trade.profit === null ? "-" : `$${Number(trade.profit).toFixed(2)}`}</td>
+                  <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
+                  <td className="p-3">
+                    {isOpen ? (
+                      <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Close</button>
+                    ) : (
+                      <span className="text-xs text-slate-400">Closed</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
     </Panel>
+  );
+}
+
+function TradeEditInput({
+  label,
+  value,
+  step = "0.00001",
+  allowEmpty = false,
+  allowNegative = false,
+  onCommit,
+}: {
+  label: string;
+  value?: number | null;
+  step?: string;
+  allowEmpty?: boolean;
+  allowNegative?: boolean;
+  onCommit: (value: number | null) => void;
+}) {
+  const initialValue = value === null || value === undefined ? "" : String(value);
+  const [draft, setDraft] = useState(initialValue);
+
+  useEffect(() => {
+    setDraft(initialValue);
+  }, [initialValue]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (allowEmpty && trimmed === "") {
+      if (initialValue !== "") onCommit(null);
+      return;
+    }
+
+    const numericValue = Number(trimmed);
+    if (Number.isNaN(numericValue)) {
+      setDraft(initialValue);
+      return;
+    }
+
+    if (!allowNegative && numericValue < 0) {
+      setDraft(initialValue);
+      return;
+    }
+
+    if (String(numericValue) !== initialValue) {
+      onCommit(numericValue);
+    }
+  }
+
+  return (
+    <input
+      aria-label={label}
+      className="h-9 w-28 rounded-xl border border-emerald-100 bg-white px-3 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white"
+      inputMode="decimal"
+      step={step}
+      type="number"
+      value={draft}
+      onBlur={commit}
+      onChange={(event) => setDraft(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+        if (event.key === "Escape") {
+          setDraft(initialValue);
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }
 

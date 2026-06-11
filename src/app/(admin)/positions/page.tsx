@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 
 type Trade = {
   id: string;
@@ -11,6 +12,7 @@ type Trade = {
   volume: number;
   closePrice: number | null;
   profit: number | null;
+  swap?: number | null;
   createdAt: string;
 };
 
@@ -35,11 +37,14 @@ export default function OpenPositionsPage() {
       return 0;
     }
 
-    if (position.side === "BUY") {
-      return (price - position.openPrice) * 10000 * position.volume;
-    }
-
-    return (position.openPrice - price) * 10000 * position.volume;
+    return calculateTradeProfit(
+      position.symbol,
+      position.side,
+      position.openPrice,
+      price,
+      position.volume,
+      position.swap || 0
+    );
   }
 
   async function loadQuote(symbol: string) {
@@ -260,11 +265,11 @@ export default function OpenPositionsPage() {
                       </td>
 
                       <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                        {position.openPrice}
+                        {formatPrice(position.symbol, position.openPrice)}
                       </td>
 
                       <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white/90">
-                        {currentPrice}
+                        {formatPrice(position.symbol, currentPrice)}
                       </td>
 
                       <td

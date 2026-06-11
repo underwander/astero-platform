@@ -21,7 +21,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
-    const { symbol, price } = await req.json();
+    const { symbol, price, enabled } = await req.json();
 
     if (!symbol || price === undefined || price === null) {
       return Response.json(
@@ -45,10 +45,12 @@ export async function PATCH(req: Request) {
       },
       update: {
         price: numericPrice,
+        enabled: typeof enabled === "boolean" ? enabled : true,
       },
       create: {
         symbol,
         price: numericPrice,
+        enabled: typeof enabled === "boolean" ? enabled : true,
       },
     });
 

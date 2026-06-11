@@ -1,57 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { marketSymbols } from "@/components/broker/MarketWatch";
+import {
+  calculateTradeProfit,
+  formatPrice,
+  getInstrument,
+  marketGroups,
+  marketInstruments,
+  type MarketGroup,
+} from "@/lib/market-instruments";
 
-const tradingViewSymbols: Record<string, string> = {
-  "EUR/USD": "FX_IDC%3AEURUSD",
-  "GBP/USD": "FX_IDC%3AGBPUSD",
-  "USD/JPY": "FX_IDC%3AUSDJPY",
-  "AUD/USD": "FX_IDC%3AAUDUSD",
-  "USD/CAD": "FX_IDC%3AUSDCAD",
-  "USD/CHF": "FX_IDC%3AUSDCHF",
-  "NZD/USD": "FX_IDC%3ANZDUSD",
-  "EUR/GBP": "FX_IDC%3AEURGBP",
-  "EUR/JPY": "FX_IDC%3AEURJPY",
-  "XAU/USD": "OANDA%3AXAUUSD",
-  "XAG/USD": "OANDA%3AXAGUSD",
-  "BTC/USD": "BITSTAMP%3ABTCUSD",
-  "ETH/USD": "BITSTAMP%3AETHUSD",
-  "SOL/USD": "BINANCE%3ASOLUSDT",
-  US100: "TVC%3ANDX",
-  SPX500: "SP%3ASPX",
-  US30: "DJ%3ADJI",
-  AAPL: "NASDAQ%3AAAPL",
-  TSLA: "NASDAQ%3ATSLA",
-  NVDA: "NASDAQ%3ANVDA",
+type Quote = {
+  symbol: string;
+  price: number;
+  change?: string;
+  time?: string;
+  source?: string;
 };
 
-const defaultPrices: Record<string, string> = {
-  "EUR/USD": "1.0850",
-  "GBP/USD": "1.2700",
-  "USD/JPY": "157.50",
-  "AUD/USD": "0.6650",
-  "USD/CAD": "1.3700",
-  "USD/CHF": "0.8900",
-  "NZD/USD": "0.6100",
-  "EUR/GBP": "0.8550",
-  "EUR/JPY": "170.50",
-  "XAU/USD": "2320.00",
-  "XAG/USD": "29.00",
-  "BTC/USD": "69000.00",
-  "ETH/USD": "3600.00",
-  "SOL/USD": "165.00",
-  US100: "19000.00",
-  SPX500: "5300.00",
-  US30: "39000.00",
-  AAPL: "190.00",
-  TSLA: "175.00",
-  NVDA: "120.00",
+type Trade = {
+  id: string;
+  symbol: string;
+  side: "BUY" | "SELL";
+  openPrice: number;
+  closePrice: number | null;
+  volume: number;
+  profit: number | null;
+  swap?: number | null;
+  takeProfit?: number | null;
+  stopLoss?: number | null;
+  createdAt: string;
 };
 
 const inputClass =
-  "h-12 w-full rounded-2xl border border-emerald-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
+  "h-9 w-full rounded border border-[#303544] bg-[#141824] px-2 text-xs font-semibold text-slate-100 outline-none transition focus:border-[#4c8dff]";
 
 export default function TradingTerminalPage() {
   const router = useRouter();
@@ -59,30 +42,64 @@ export default function TradingTerminalPage() {
   const [userId, setUserId] = useState("");
   const [symbol, setSymbol] = useState("EUR/USD");
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
-  const [openPrice, setOpenPrice] = useState(defaultPrices["EUR/USD"]);
-  const [volume, setVolume] = useState("1");
+  const [openPrice, setOpenPrice] = useState("");
+  const [volume, setVolume] = useState("0.10");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
-  const [comment, setComment] = useState("");
   const [message, setMessage] = useState("");
   const [quoteTime, setQuoteTime] = useState("");
-  const [activeGroup, setActiveGroup] = useState("Forex");
+  const [quoteSource, setQuoteSource] = useState("");
+  const [activeGroup, setActiveGroup] = useState<MarketGroup | "All">("Forex");
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
+  const [trades, setTrades] = useState<Trade[]>([]);
 
-  const visibleSymbols = marketSymbols.filter(
-    (item) => activeGroup === "All" || item.group === activeGroup
+  const instrument = getInstrument(symbol);
+  const visibleSymbols = useMemo(
+    () => marketInstruments.filter((item) => activeGroup === "All" || item.group === activeGroup),
+    [activeGroup]
   );
 
   async function loadQuote(currentSymbol: string) {
-    const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(currentSymbol)}`);
+    const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(currentSymbol)}`, {
+      cache: "no-store",
+    });
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Ошибка котировки");
+      setMessage(data.error || "Quote error");
       return;
     }
 
-    setOpenPrice(String(data.price));
-    setQuoteTime(data.time);
+    setQuotes((prev) => ({
+      ...prev,
+      [currentSymbol]: {
+        symbol: currentSymbol,
+        price: Number(data.price),
+        change: data.change,
+        time: data.time,
+        source: data.source,
+      },
+    }));
+
+    if (currentSymbol === symbol) {
+      setOpenPrice(String(data.price));
+      setQuoteTime(data.time);
+      setQuoteSource(data.source);
+    }
+  }
+
+  async function loadVisibleQuotes() {
+    await Promise.all(visibleSymbols.slice(0, 18).map((item) => loadQuote(item.symbol)));
+  }
+
+  async function loadTrades(currentUserId = userId) {
+    if (!currentUserId) return;
+    const res = await fetch(`/api/trades?userId=${encodeURIComponent(currentUserId)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setTrades(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {
@@ -94,17 +111,30 @@ export default function TradingTerminalPage() {
     }
 
     setUserId(storedUserId);
+    loadTrades(storedUserId);
   }, [router]);
 
   useEffect(() => {
     loadQuote(symbol);
-
-    const interval = setInterval(() => {
-      loadQuote(symbol);
-    }, 15000);
-
+    const interval = setInterval(() => loadQuote(symbol), 5000);
     return () => clearInterval(interval);
   }, [symbol]);
+
+  useEffect(() => {
+    loadVisibleQuotes();
+    const interval = setInterval(loadVisibleQuotes, 15000);
+    return () => clearInterval(interval);
+  }, [activeGroup]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const interval = setInterval(() => loadTrades(userId), 10000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  function setVolumePreset(next: string) {
+    setVolume(next);
+  }
 
   async function openTrade() {
     if (!userId) {
@@ -114,7 +144,7 @@ export default function TradingTerminalPage() {
     }
 
     if (!openPrice || !volume || Number(volume) <= 0) {
-      setMessage("Введите корректную цену и объём");
+      setMessage("Введите корректную цену и объем");
       return;
     }
 
@@ -126,16 +156,13 @@ export default function TradingTerminalPage() {
       volume: Number(volume),
       stopLoss: stopLoss ? Number(stopLoss) : null,
       takeProfit: takeProfit ? Number(takeProfit) : null,
-      comment: comment.trim() || null,
     };
 
     setMessage("Открытие сделки...");
 
     const res = await fetch("/api/trade/open", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
@@ -146,213 +173,313 @@ export default function TradingTerminalPage() {
       return;
     }
 
-    setMessage(
-      `Сделка открыта: ${data.symbol} ${data.side}, объём ${data.volume}, цена ${data.openPrice}`
-    );
-
+    setMessage(`Сделка открыта: ${data.symbol} ${data.side}, объем ${data.volume}, цена ${data.openPrice}`);
     setStopLoss("");
     setTakeProfit("");
-    setComment("");
+    await loadTrades();
+  }
+
+  async function closeTrade(trade: Trade) {
+    const quote = quotes[trade.symbol]?.price || trade.openPrice;
+    const res = await fetch("/api/trade/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tradeId: trade.id, closePrice: quote }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error || "Close trade error");
+      return;
+    }
+    setMessage(`Closed ${trade.symbol} at ${formatPrice(trade.symbol, quote)}`);
+    await loadTrades();
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] sm:p-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
-              Торговый терминал
-            </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/60">
-              Выберите рынок, укажите объём, Stop Loss / Take Profit и откройте сделку.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right dark:border-emerald-400/10 dark:bg-slate-950/70">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-              Инструмент
-            </p>
-            <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
-              {symbol}
-            </p>
-          </div>
+    <div className="min-h-[calc(100vh-96px)] bg-[#151821] p-2 text-slate-100 shadow-2xl shadow-slate-950/30">
+      <div className="mb-2 flex flex-col gap-2 border border-[#2a2f3d] bg-[#1b1f2b] px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8290aa]">Astero Trader Room</p>
+          <h1 className="text-base font-black text-white">Trading terminal</h1>
+        </div>
+        <div className="grid grid-cols-2 gap-1 text-xs md:grid-cols-6">
+          <InfoPill label="Symbol" value={symbol} />
+          <InfoPill label="Price" value={openPrice ? formatPrice(symbol, Number(openPrice)) : "..."} />
+          <InfoPill label="Source" value={quoteSource || "..."} />
+          <InfoPill label="Point" value={String(instrument.pointSize)} />
+          <InfoPill label="Tick value" value={`$${instrument.tickValue}`} />
+          <InfoPill label="Contract" value={String(instrument.contractSize)} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-3 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] sm:p-4 xl:col-span-9">
-          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                График
-              </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/55">
-                TradingView market view.
-              </p>
-            </div>
-
-            <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-              LIVE
-            </span>
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-[295px_minmax(0,1fr)_315px]">
+        <aside className="border border-[#2a2f3d] bg-[#1b1f2b]">
+          <div className="flex items-center justify-between border-b border-[#2a2f3d] px-3 py-2">
+            <p className="text-xs font-black uppercase text-[#b8c0d4]">Market watch</p>
+            <span className="rounded bg-[#242a38] px-2 py-1 text-[10px] font-bold text-[#8290aa]">{visibleSymbols.length} symbols</span>
+          </div>
+          <div className="flex gap-1 overflow-x-auto border-b border-[#2a2f3d] p-2">
+            {marketGroups.map((group) => (
+              <button
+                key={group}
+                onClick={() => setActiveGroup(group)}
+                className={`rounded px-2 py-1 text-[11px] font-black transition ${
+                  activeGroup === group ? "bg-[#2f7cff] text-white" : "bg-[#242a38] text-[#b8c0d4] hover:bg-[#30384a]"
+                }`}
+              >
+                {group}
+              </button>
+            ))}
           </div>
 
+          <div className="grid grid-cols-[1fr_72px_72px_54px] border-b border-[#2a2f3d] px-3 py-2 text-[10px] font-black uppercase text-[#69758f]">
+            <span>Symbol</span>
+            <span className="text-right">Bid</span>
+            <span className="text-right">Ask</span>
+            <span className="text-right">Chg</span>
+          </div>
+
+          <div className="max-h-[865px] overflow-y-auto">
+            {visibleSymbols.map((item) => {
+              const quote = quotes[item.symbol];
+              const change = Number(quote?.change || 0);
+              const price = quote?.price || item.defaultPrice;
+              const spread = item.pointSize * 14;
+
+              return (
+                <button
+                  key={item.symbol}
+                  onClick={() => {
+                    setSymbol(item.symbol);
+                    setMessage("");
+                    const nextQuote = quotes[item.symbol]?.price || item.defaultPrice;
+                    setOpenPrice(String(nextQuote));
+                  }}
+                  className={`grid w-full grid-cols-[1fr_72px_72px_54px] items-center gap-1 border-b border-[#252b38] px-3 py-2 text-left transition ${
+                    symbol === item.symbol ? "bg-[#24324b]" : "bg-[#1b1f2b] hover:bg-[#222838]"
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-black text-white">{item.symbol}</p>
+                    <p className="text-[10px] text-[#69758f]">{item.group}</p>
+                  </div>
+                  <p className="text-right text-xs font-bold text-[#d8def0]">{formatPrice(item.symbol, price)}</p>
+                  <p className="text-right text-xs font-bold text-[#d8def0]">{formatPrice(item.symbol, price + spread)}</p>
+                  <p className={change >= 0 ? "text-right text-[11px] font-black text-[#0fd47a]" : "text-right text-[11px] font-black text-[#ff4d5e]"}>
+                    {quote ? `${change.toFixed(2)}%` : "0.00%"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <main className="min-w-0 border border-[#2a2f3d] bg-[#1b1f2b]">
+          <div className="flex gap-1 overflow-x-auto border-b border-[#2a2f3d] bg-[#171b25] px-2 pt-2">
+            {marketInstruments.slice(0, 9).map((item) => (
+              <button
+                key={item.symbol}
+                onClick={() => setSymbol(item.symbol)}
+                className={`min-w-28 border-x border-t border-[#2a2f3d] px-3 py-2 text-left text-[11px] font-black ${
+                  symbol === item.symbol ? "bg-[#1b1f2b] text-white" : "bg-[#11151e] text-[#8290aa] hover:text-white"
+                }`}
+              >
+                {item.symbol}
+              </button>
+            ))}
+          </div>
+          <div className="border-b border-[#2a2f3d] bg-[#10131b] px-3 py-2 text-xs font-bold text-[#b8c0d4]">
+            {symbol} · M15 · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."} · Tick value ${instrument.tickValue} · Point {instrument.pointSize}
+          </div>
           <iframe
             key={symbol}
             src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${
-              tradingViewSymbols[symbol] || tradingViewSymbols["EUR/USD"]
-            }&interval=60&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=F1F3F6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&hideideas=1&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=ru`}
-            className="h-[460px] w-full rounded-2xl border border-emerald-100 bg-slate-950 dark:border-emerald-400/10 md:h-[760px]"
+              instrument.tvSymbol
+            }&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&hideideas=1&locale=ru`}
+            className="h-[610px] w-full border-0 bg-[#10131b] xl:h-[650px] 2xl:h-[720px]"
             allowFullScreen
           />
-        </div>
+          <PositionsPanel trades={trades} quotes={quotes} onClose={closeTrade} />
+        </main>
 
-        <div className="space-y-4 xl:col-span-3">
-          <div className="rounded-[1.5rem] border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04]">
-            <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-400/10 dark:bg-slate-950/70">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-500 dark:text-emerald-50/55">
-                  Текущая цена
-                </p>
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                  15s
-                </span>
-              </div>
+        <aside className="space-y-2">
+          <div className="border border-[#2a2f3d] bg-[#1b1f2b]">
+            <div className="border-b border-[#2a2f3d] px-3 py-2">
+              <p className="text-xs font-black uppercase text-[#b8c0d4]">New order</p>
+            </div>
+            <div className="p-3">
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setSide("BUY")}
+                className={`px-4 py-4 text-lg font-black ${side === "BUY" ? "bg-[#0bbf73] text-white" : "bg-[#153927] text-[#80e4b5]"}`}
+              >
+                <span className="block text-[10px] uppercase">Buy</span>
+                {openPrice ? formatPrice(symbol, Number(openPrice) + instrument.pointSize * 14) : "..."}
+              </button>
+              <button
+                onClick={() => setSide("SELL")}
+                className={`px-4 py-4 text-lg font-black ${side === "SELL" ? "bg-[#e83b4b] text-white" : "bg-[#421d25] text-[#ff9aa5]"}`}
+              >
+                <span className="block text-[10px] uppercase">Sell</span>
+                {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}
+              </button>
+            </div>
 
-              <p className="mt-2 text-4xl font-black text-slate-900 dark:text-white">
-                {openPrice}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500 dark:text-emerald-50/45">
-                Обновлено: {quoteTime ? new Date(quoteTime).toLocaleTimeString("ru-RU") : "..."}
+            <div className="mb-3 border border-[#2a2f3d] bg-[#11151e] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#69758f]">Market price</p>
+              <p className="mt-1 text-3xl font-black text-white">{openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}</p>
+              <p className="mt-1 text-[11px] text-[#8290aa]">
+                Updated: {quoteTime ? new Date(quoteTime).toLocaleTimeString("ru-RU") : "..."}
               </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {(["All", "Forex", "Metals", "Crypto", "Indices", "Stocks"] as const).map(
-                  (group) => (
-                    <button
-                      key={group}
-                      onClick={() => setActiveGroup(group)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                        activeGroup === group
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-white/5 dark:text-emerald-200"
-                      }`}
-                    >
-                      {group}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-emerald-50/60">Volume</label>
+                <input value={volume} onChange={(e) => setVolume(e.target.value)} className={inputClass} type="number" step={instrument.lotStep} min={instrument.minLot} max={instrument.maxLot} />
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {["0.01", "0.10", "1", "5"].map((value) => (
+                    <button key={value} onClick={() => setVolumePreset(value)} className="rounded bg-[#242a38] py-2 text-xs font-bold text-[#d8def0] hover:bg-[#30384a]">
+                      {value}
                     </button>
-                  )
-                )}
-              </div>
-
-              <div className="grid max-h-[260px] grid-cols-2 gap-2 overflow-y-auto pr-1">
-                {visibleSymbols.map((item) => (
-                  <button
-                    key={item.symbol}
-                    onClick={() => {
-                      setSymbol(item.symbol);
-                      setOpenPrice(defaultPrices[item.symbol] || "0");
-                      setMessage("");
-                    }}
-                    className={`rounded-2xl border px-3 py-3 text-xs font-bold transition ${
-                      symbol === item.symbol
-                        ? "border-emerald-500 bg-emerald-600 text-white"
-                        : "border-emerald-100 bg-white text-slate-700 hover:bg-emerald-50 dark:border-emerald-400/10 dark:bg-slate-950/60 dark:text-emerald-50/80 dark:hover:bg-white/10"
-                    }`}
-                  >
-                    {item.symbol}
-                  </button>
-                ))}
-              </div>
-
-              <div className="sticky top-3 grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSide("BUY")}
-                  className={`rounded-2xl px-4 py-3 text-sm font-black text-white transition ${
-                    side === "BUY"
-                      ? "bg-emerald-600"
-                      : "bg-emerald-600/40 hover:bg-emerald-600/70"
-                  }`}
-                >
-                  BUY
-                </button>
-
-                <button
-                  onClick={() => setSide("SELL")}
-                  className={`rounded-2xl px-4 py-3 text-sm font-black text-white transition ${
-                    side === "SELL"
-                      ? "bg-red-600"
-                      : "bg-red-600/40 hover:bg-red-600/70"
-                  }`}
-                >
-                  SELL
-                </button>
-              </div>
-
-              <input
-                value={volume}
-                onChange={(e) => setVolume(e.target.value)}
-                className={inputClass}
-                placeholder="Объём / Lot"
-                type="number"
-                step="0.01"
-                min="0.01"
-              />
-
-              <input
-                value={openPrice}
-                onChange={(e) => setOpenPrice(e.target.value)}
-                className={inputClass}
-                placeholder="Цена открытия"
-                type="number"
-                step="0.0001"
-              />
-
-              <input
-                value={stopLoss}
-                onChange={(e) => setStopLoss(e.target.value)}
-                className={inputClass}
-                placeholder="Stop Loss"
-                type="number"
-                step="0.0001"
-              />
-
-              <input
-                value={takeProfit}
-                onChange={(e) => setTakeProfit(e.target.value)}
-                className={inputClass}
-                placeholder="Take Profit"
-                type="number"
-                step="0.0001"
-              />
-
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                className="min-h-[90px] w-full rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white"
-                placeholder="Комментарий к сделке"
-              />
-
-              <button
-                onClick={openTrade}
-                className={`w-full rounded-2xl px-4 py-3.5 text-sm font-black text-white shadow-lg transition ${
-                  side === "BUY"
-                    ? "bg-emerald-600 shadow-emerald-900/20 hover:bg-emerald-500"
-                    : "bg-red-600 shadow-red-900/20 hover:bg-red-500"
-                }`}
-              >
-                Открыть {side}
-              </button>
-
-              {message && (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-slate-700 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-emerald-50/80">
-                  {message}
+                  ))}
                 </div>
-              )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-emerald-50/60">Open price</label>
+                  <input value={openPrice} onChange={(e) => setOpenPrice(e.target.value)} className={inputClass} type="number" step={instrument.pointSize} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-emerald-50/60">Digits</label>
+                  <div className="flex h-11 items-center rounded-lg border border-slate-700 bg-[#111827] px-3 text-sm font-black">{instrument.digits}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-emerald-50/60">Stop Loss</label>
+                  <input value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className={inputClass} type="number" step={instrument.pointSize} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-emerald-50/60">Take Profit</label>
+                  <input value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className={inputClass} type="number" step={instrument.pointSize} />
+                </div>
+              </div>
+              <button onClick={openTrade} className={`w-full px-4 py-4 text-sm font-black text-white shadow-lg ${side === "BUY" ? "bg-[#0bbf73] hover:bg-[#13d684]" : "bg-[#e83b4b] hover:bg-[#ff4d5e]"}`}>
+                Open {side}
+              </button>
+            </div>
             </div>
           </div>
-        </div>
+
+          <div className="border border-[#2a2f3d] bg-[#1b1f2b] p-3">
+            <h2 className="text-xs font-black uppercase text-[#b8c0d4]">Instrument settings</h2>
+            <div className="mt-3 grid grid-cols-2 gap-1 text-xs">
+              <InfoPill label="Min lot" value={String(instrument.minLot)} />
+              <InfoPill label="Lot step" value={String(instrument.lotStep)} />
+              <InfoPill label="Max lot" value={String(instrument.maxLot)} />
+              <InfoPill label="Group" value={instrument.group} />
+            </div>
+          </div>
+
+          {message && (
+            <div className="border border-[#2f7cff]/40 bg-[#102441] p-3 text-xs font-bold text-[#d8def0]">
+              {message}
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-[#2a2f3d] bg-[#11151e] px-2 py-1.5">
+      <p className="text-[9px] font-black uppercase tracking-[0.08em] text-[#69758f]">{label}</p>
+      <p className="mt-0.5 truncate text-xs font-black text-[#d8def0]">{value}</p>
+    </div>
+  );
+}
+
+function PositionsPanel({
+  trades,
+  quotes,
+  onClose,
+}: {
+  trades: Trade[];
+  quotes: Record<string, Quote>;
+  onClose: (trade: Trade) => void;
+}) {
+  const openTrades = trades.filter((trade) => trade.closePrice === null);
+  const closedTrades = trades.filter((trade) => trade.closePrice !== null).slice(0, 4);
+
+  return (
+    <div className="border-t border-[#2a2f3d] bg-[#171b25]">
+      <div className="flex items-center gap-2 border-b border-[#2a2f3d] px-3 py-2">
+        <button className="bg-[#2f7cff] px-3 py-1 text-[11px] font-black text-white">Open positions</button>
+        <button className="bg-[#242a38] px-3 py-1 text-[11px] font-black text-[#b8c0d4]">History</button>
+        <span className="ml-auto text-[11px] font-bold text-[#8290aa]">{openTrades.length} open</span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[980px] w-full text-xs">
+          <thead>
+            <tr className="border-b border-[#2a2f3d] text-left text-[10px] uppercase text-[#69758f]">
+              <th className="px-3 py-2">Symbol</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Volume</th>
+              <th className="px-3 py-2">Open price</th>
+              <th className="px-3 py-2">Market</th>
+              <th className="px-3 py-2">S/L</th>
+              <th className="px-3 py-2">T/P</th>
+              <th className="px-3 py-2">Swap</th>
+              <th className="px-3 py-2">Profit</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...openTrades, ...closedTrades].map((trade) => {
+              const marketPrice = quotes[trade.symbol]?.price || trade.closePrice || trade.openPrice;
+              const profit =
+                trade.closePrice === null
+                  ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0)
+                  : Number(trade.profit || 0);
+
+              return (
+                <tr key={trade.id} className="border-b border-[#252b38] text-[#d8def0]">
+                  <td className="px-3 py-2 font-black text-white">{trade.symbol}</td>
+                  <td className={`px-3 py-2 font-black ${trade.side === "BUY" ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>{trade.side}</td>
+                  <td className="px-3 py-2">{trade.volume}</td>
+                  <td className="px-3 py-2">{formatPrice(trade.symbol, trade.openPrice)}</td>
+                  <td className="px-3 py-2">{formatPrice(trade.symbol, marketPrice)}</td>
+                  <td className="px-3 py-2">{trade.stopLoss ? formatPrice(trade.symbol, trade.stopLoss) : "-"}</td>
+                  <td className="px-3 py-2">{trade.takeProfit ? formatPrice(trade.symbol, trade.takeProfit) : "-"}</td>
+                  <td className="px-3 py-2">{trade.swap ?? 0}</td>
+                  <td className={`px-3 py-2 font-black ${profit >= 0 ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>${profit.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {trade.closePrice === null ? (
+                      <button onClick={() => onClose(trade)} className="bg-[#30384a] px-3 py-1 font-black text-white hover:bg-[#e83b4b]">
+                        Close
+                      </button>
+                    ) : (
+                      <span className="text-[#69758f]">Closed</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {trades.length === 0 && (
+              <tr>
+                <td className="px-3 py-8 text-center text-[#69758f]" colSpan={10}>
+                  No positions yet
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
