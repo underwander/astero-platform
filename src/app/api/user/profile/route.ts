@@ -33,8 +33,11 @@ export async function GET(req: Request) {
         verificationDocs: {
           select: {
             id: true,
+            type: true,
             documentType: true,
             fileName: true,
+            fileUrl: true,
+            mimeType: true,
             status: true,
             createdAt: true,
           },
@@ -52,7 +55,10 @@ export async function GET(req: Request) {
       );
     }
 
-    return Response.json(user);
+    return Response.json({
+      ...user,
+      verificationDocuments: user.verificationDocs || [],
+    });
   } catch (error) {
     console.error("User profile error:", error);
 
