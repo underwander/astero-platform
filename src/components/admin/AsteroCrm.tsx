@@ -1341,34 +1341,53 @@ function maskCard(value: string) {
   return `•••• ${clean.slice(-4)}`;
 }
 function KycTable({ documents, onReview }: { documents: VerificationDocument[]; onReview: (id: string, status: "APPROVED" | "REJECTED") => void }) {
-  function openDocument(doc: VerificationDocument) {
+  async function openDocument(doc: VerificationDocument) {
     if (!doc.fileUrl) {
       alert("Файл документа недоступен");
       return;
     }
 
-    const win = window.open();
+    const win = window.open("", "_blank");
     if (!win) {
       alert("Браузер заблокировал открытие документа");
       return;
     }
 
-    win.document.title = doc.fileName;
-    win.document.body.style.margin = "0";
+    try {
+      win.document.title = doc.fileName;
+      win.document.body.style.margin = "0";
+      win.document.body.style.background = "#f8fafc";
+      win.document.body.textContent = "Загрузка документа...";
 
-    if (doc.mimeType?.startsWith("image/")) {
-      const image = win.document.createElement("img");
-      image.src = doc.fileUrl;
-      image.alt = doc.fileName;
-      image.style.display = "block";
-      image.style.maxWidth = "100%";
-      image.style.height = "auto";
-      image.style.margin = "0 auto";
-      win.document.body.appendChild(image);
-      return;
+      const response = await fetch(doc.fileUrl);
+      const blob = await response.blob();
+      const fileUrl = URL.createObjectURL(blob);
+      const mimeType = doc.mimeType || blob.type || "application/octet-stream";
+
+      win.document.body.textContent = "";
+
+      if (mimeType.startsWith("image/")) {
+        const image = win.document.createElement("img");
+        image.src = fileUrl;
+        image.alt = doc.fileName;
+        image.style.display = "block";
+        image.style.maxWidth = "100%";
+        image.style.height = "auto";
+        image.style.margin = "0 auto";
+        win.document.body.appendChild(image);
+        return;
+      }
+
+      const frame = win.document.createElement("iframe");
+      frame.src = fileUrl;
+      frame.title = doc.fileName;
+      frame.style.width = "100vw";
+      frame.style.height = "100vh";
+      frame.style.border = "0";
+      win.document.body.appendChild(frame);
+    } catch {
+      win.document.body.textContent = "Не удалось открыть документ";
     }
-
-    win.location.href = doc.fileUrl;
   }
 
   return <Panel title="Верификация клиентов"><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead><tr className="border-b border-emerald-100 text-left text-slate-500"><th className="p-3">Клиент</th><th className="p-3">Документ</th><th className="p-3">Файл</th><th className="p-3">Статус</th><th className="p-3">Действие</th></tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className="border-b border-emerald-50"><td className="p-3">{doc.user?.email}</td><td className="p-3">{doc.documentType || "DOCUMENT"}</td><td className="p-3"><div className="flex flex-col gap-2"><span className="break-all">{doc.fileName}</span><button type="button" onClick={() => openDocument(doc)} disabled={!doc.fileUrl} className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400">Открыть</button></div></td><td className="p-3"><Badge value={doc.status} /></td><td className="p-3">{doc.status === "PENDING" ? <div className="flex gap-2"><button onClick={() => onReview(doc.id, "APPROVED")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button><button onClick={() => onReview(doc.id, "REJECTED")} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Reject</button></div> : <span className="text-xs text-slate-400">Reviewed</span>}</td></tr>)}</tbody></table></div></Panel>;
