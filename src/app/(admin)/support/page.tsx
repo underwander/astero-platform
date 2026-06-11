@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext";
 
 type SupportMessage = {
   id: string;
-  sender: string;
+  sender: string | null;
   message: string;
   createdAt: string;
 };
@@ -23,8 +23,16 @@ export default function SupportPage() {
   const isRu = language === "ru";
 
   async function loadMessages(currentUserId: string) {
-    const res = await fetch(`/api/user/support?userId=${currentUserId}`);
+    const res = await fetch(`/api/user/support?userId=${currentUserId}`, {
+      cache: "no-store",
+    });
     const data = await res.json();
+
+    if (!res.ok) {
+      setStatus(data.error || (isRu ? "Не удалось загрузить сообщения" : "Could not load messages"));
+      return;
+    }
+
     setMessages(Array.isArray(data) ? data : []);
   }
 
@@ -42,13 +50,14 @@ export default function SupportPage() {
     const res = await fetch("/api/user/support", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify({ userId, message }),
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      setStatus(data.error || "Support error");
+      setStatus(data.error || (isRu ? "Сообщение не отправлено" : "Message was not sent"));
       return;
     }
 
@@ -91,22 +100,26 @@ export default function SupportPage() {
             </p>
           )}
 
-          {messages.map((item) => (
-            <div
-              key={item.id}
-              className={`max-w-[85%] rounded-3xl p-4 text-sm ${
-                item.sender === "CLIENT"
-                  ? "ml-auto bg-emerald-600 text-white"
-                  : "mr-auto bg-white text-slate-800 shadow-sm dark:bg-white/[0.08] dark:text-white"
-              }`}
-            >
-              <p className="font-semibold">
-                {item.sender === "CLIENT" ? (isRu ? "Вы" : "You") : (isRu ? "Менеджер" : "Manager")}
-              </p>
-              <p className="mt-1 leading-6">{item.message}</p>
-              <p className="mt-2 text-xs opacity-70">{new Date(item.createdAt).toLocaleString()}</p>
-            </div>
-          ))}
+          {messages.map((item) => {
+            const isClient = item.sender === "CLIENT";
+
+            return (
+              <div
+                key={item.id}
+                className={`max-w-[85%] rounded-3xl p-4 text-sm ${
+                  isClient
+                    ? "ml-auto bg-emerald-600 text-white"
+                    : "mr-auto bg-white text-slate-800 shadow-sm dark:bg-white/[0.08] dark:text-white"
+                }`}
+              >
+                <p className="font-semibold">
+                  {isClient ? (isRu ? "Вы" : "You") : (isRu ? "Менеджер" : "Manager")}
+                </p>
+                <p className="mt-1 leading-6">{item.message}</p>
+                <p className="mt-2 text-xs opacity-70">{new Date(item.createdAt).toLocaleString()}</p>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">

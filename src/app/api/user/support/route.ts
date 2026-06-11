@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { ensureSupportMessagesTable } from "@/lib/support-messages";
 
 export async function GET(req: Request) {
   try {
+    await ensureSupportMessagesTable();
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
@@ -32,6 +35,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    await ensureSupportMessagesTable();
+
     const { userId, message } = await req.json();
     const text = String(message || "").trim();
 

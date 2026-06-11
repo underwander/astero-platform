@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { ensureSupportMessagesTable } from "@/lib/support-messages";
 
 export async function GET() {
   try {
+    await ensureSupportMessagesTable();
+
     const messages = await prisma.supportMessage.findMany({
       select: {
         id: true,
@@ -9,14 +12,6 @@ export async function GET() {
         message: true,
         sender: true,
         createdAt: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -32,6 +27,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await ensureSupportMessagesTable();
+
     const { userId, message } = await req.json();
     const text = String(message || "").trim();
 
