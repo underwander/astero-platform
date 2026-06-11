@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureSupportMessagesTable } from "@/lib/support-messages";
+import { supportErrorMessage } from "@/lib/support-errors";
 import { randomUUID } from "crypto";
 
 type SupportMessageRow = {
@@ -25,7 +26,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error(error);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    return Response.json(
+      { error: "Admin support load failed", details: supportErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -61,6 +65,9 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error(error);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    return Response.json(
+      { error: "Admin support send failed", details: supportErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }

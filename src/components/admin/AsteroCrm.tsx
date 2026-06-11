@@ -178,6 +178,7 @@ export default function AsteroCrm() {
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [supportText, setSupportText] = useState("");
   const [supportClientId, setSupportClientId] = useState("");
+  const [supportError, setSupportError] = useState("");
   const [supportToast, setSupportToast] = useState<SupportToast | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -271,6 +272,16 @@ export default function AsteroCrm() {
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
     const supportData = supportRes.ok ? await supportRes.json() : [];
+    setSupportError("");
+
+    if (!supportRes.ok) {
+      const supportErrorData = await supportRes.json().catch(() => null);
+      setSupportError(
+        `${supportErrorData?.error || "Support load failed"}${
+          supportErrorData?.details ? `: ${supportErrorData.details}` : ""
+        }`
+      );
+    }
     const role = localStorage.getItem("role");
     const currentUserId = localStorage.getItem("userId");
 
@@ -949,6 +960,7 @@ export default function AsteroCrm() {
           <SupportPanel
             clients={clients}
             messages={supportMessages}
+            error={supportError}
             selectedClientId={supportClientId}
             setSelectedClientId={setSupportClientId}
             text={supportText}
@@ -1017,6 +1029,7 @@ function ActionList({ actions, onUpdate, managers, showClient }: { actions: (Cli
 function SupportPanel({
   clients,
   messages,
+  error,
   selectedClientId,
   setSelectedClientId,
   text,
@@ -1025,6 +1038,7 @@ function SupportPanel({
 }: {
   clients: User[];
   messages: SupportMessage[];
+  error: string;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
   text: string;
@@ -1049,6 +1063,12 @@ function SupportPanel({
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
+      {error && (
+        <div className="xl:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      )}
+
       <Panel title="Диалоги поддержки">
         <div className="space-y-2">
           {clientsWithMessages.map(({ client, count, last }) => (

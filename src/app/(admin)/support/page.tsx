@@ -21,6 +21,7 @@ export default function SupportPage() {
   const [status, setStatus] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
   const [accountRole, setAccountRole] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
 
   const isRu = language === "ru";
 
@@ -31,7 +32,11 @@ export default function SupportPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setStatus(data.error || (isRu ? "Не удалось загрузить сообщения" : "Could not load messages"));
+      setStatus(
+        `${data.error || (isRu ? "Не удалось загрузить сообщения" : "Could not load messages")}${
+          data.details ? `: ${data.details}` : ""
+        }`
+      );
       return;
     }
 
@@ -59,13 +64,27 @@ export default function SupportPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setStatus(data.error || (isRu ? "Сообщение не отправлено" : "Message was not sent"));
+      setStatus(
+        `${data.error || (isRu ? "Сообщение не отправлено" : "Message was not sent")}${
+          data.details ? `: ${data.details}` : ""
+        }`
+      );
       return;
     }
 
     setMessage("");
-    setStatus(isRu ? "Сообщение отправлено" : "Message sent");
+    setStatus(`${isRu ? "Сообщение отправлено" : "Message sent"}: ${data.id}`);
     await loadMessages(userId);
+  }
+
+  async function loadDebugInfo() {
+    if (!userId) return;
+
+    const res = await fetch(`/api/support/debug?userId=${userId}`, {
+      cache: "no-store",
+    });
+    const data = await res.json();
+    setDebugInfo(JSON.stringify(data, null, 2));
   }
 
   useEffect(() => {
@@ -105,6 +124,18 @@ export default function SupportPage() {
         <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
           {accountEmail || "-"} · {accountRole || "CLIENT"}
         </p>
+        <button
+          type="button"
+          onClick={loadDebugInfo}
+          className="mt-3 rounded-2xl border border-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-400/10 dark:text-emerald-200 dark:hover:bg-white/10"
+        >
+          Support debug
+        </button>
+        {debugInfo && (
+          <pre className="mt-3 max-h-56 overflow-auto rounded-2xl bg-slate-950 p-3 text-xs text-emerald-100">
+            {debugInfo}
+          </pre>
+        )}
       </div>
 
       <div className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] md:p-6">
