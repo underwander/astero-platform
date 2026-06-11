@@ -57,6 +57,10 @@ export default function AppHeader() {
             <span className="size-2 rounded-full bg-emerald-500" /> {t("live")}
           </div>
 
+          <Link href="/support" className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-500">
+            {t("support")}
+          </Link>
+
           {role === "ADMIN" && (
             <Link href="/crm" className="hidden rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 md:inline-flex">
               {t("crm")}

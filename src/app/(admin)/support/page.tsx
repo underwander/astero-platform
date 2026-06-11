@@ -75,8 +75,12 @@ export default function SupportPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] sm:p-5">
-        <h1 className="text-xl font-black text-slate-900 dark:text-white sm:text-2xl">Поддержка</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/60">Напишите сообщение менеджеру.</p>
+        <h1 className="text-xl font-black text-slate-900 dark:text-white sm:text-2xl">
+          {isRu ? "Поддержка" : "Support"}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/60">
+          {isRu ? "Напишите сообщение менеджеру." : "Send a message to your manager."}
+        </p>
       </div>
 
       <div className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] md:p-6">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import React from "react";
+import Link from "next/link";
 
 import BalanceHistoryChart from "@/components/ecommerce/BalanceHistoryChart";
 import BrokerMetrics from "@/components/ecommerce/BrokerMetrics";
@@ -28,6 +29,12 @@ export default function DashboardPage() {
               <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/75">
                 Live markets, equity analytics, open positions, finance journal and secure client account management in one clean interface.
               </p>
+              <Link
+                href="/support"
+                className="mt-5 inline-flex rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-white transition hover:bg-sky-400"
+              >
+                Support
+              </Link>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center">

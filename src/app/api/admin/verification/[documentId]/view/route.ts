@@ -1,7 +1,20 @@
 import { prisma } from "@/lib/prisma";
 
+function getDataUrlParts(value: string) {
+  const match = value.match(/^data:([^;]+);base64,(.+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    mimeType: match[1],
+    contentBase64: match[2],
+  };
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
   try {
@@ -25,14 +38,18 @@ export async function GET(
       return Response.json({ error: "Document not found" }, { status: 404 });
     }
 
-    const contentBase64 =
-      document.contentBase64 || document.fileUrl.match(/^data:[^;]+;base64,(.+)$/)?.[1];
+    const dataUrl = getDataUrlParts(document.fileUrl || "");
+    const contentBase64 = document.contentBase64 || dataUrl?.contentBase64;
+
+    if (!contentBase64 && document.fileUrl) {
+      return Response.redirect(new URL(document.fileUrl, req.url));
+    }
 
     if (!contentBase64) {
       return Response.json({ error: "Document file is empty" }, { status: 404 });
     }
 
-    const mimeType = document.mimeType || document.fileUrl.match(/^data:([^;]+);base64,/)?.[1] || "application/octet-stream";
+    const mimeType = document.mimeType || dataUrl?.mimeType || "application/octet-stream";
     const fileName = encodeURIComponent(document.fileName || "document");
     const fileBuffer = Buffer.from(contentBase64, "base64");
 

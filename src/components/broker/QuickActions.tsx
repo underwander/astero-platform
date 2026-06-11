@@ -14,6 +14,7 @@ export default function QuickActions() {
     { title: "Open trade", text: "Launch terminal", href: "/terminal", tone: "bg-emerald-600 text-white" },
     { title: "Fund account", text: "Deposit form", href: "/deposits", tone: "bg-lime-500 text-slate-950" },
     { title: "Withdraw", text: "Card, wallet or account", href: "/withdrawals", tone: "bg-slate-950 text-white dark:bg-white dark:text-slate-950" },
+    { title: "Support", text: "Message your manager", href: "/support", tone: "bg-sky-600 text-white" },
     ...(role === "ADMIN" ? [{ title: "Astero CRM", text: "Admin only", href: "/crm", tone: "bg-green-700 text-white" }] : []),
   ];
 

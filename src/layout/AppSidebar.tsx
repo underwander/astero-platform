@@ -5,6 +5,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   GridIcon,
+  ChatIcon,
   ListIcon,
   PageIcon,
   PieChartIcon,
@@ -31,6 +32,7 @@ const clientNavItems: NavItem[] = [
   { key: "history", name: "History", path: "/history", icon: <ListIcon /> },
   { key: "deposits", name: "Deposits", path: "/deposits", icon: <PageIcon /> },
   { key: "withdrawals", name: "Withdrawals", path: "/withdrawals", icon: <PlugInIcon /> },
+  { key: "support", name: "Support", path: "/support", icon: <ChatIcon /> },
   { key: "profile", name: "Profile", path: "/profile", icon: <UserCircleIcon /> },
 ];
 
