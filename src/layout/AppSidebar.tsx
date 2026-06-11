@@ -61,17 +61,6 @@ export default function AppSidebar() {
         </Link>
       </div>
 
-      {showText && (
-        <div className="mb-6 rounded-3xl border border-emerald-400/15 bg-emerald-400/10 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-            {t("liveDesk")}
-          </p>
-          <p className="mt-2 text-sm leading-5 text-emerald-50/75">
-            {t("liveDeskText")}
-          </p>
-        </div>
-      )}
-
       <nav className="flex-1 overflow-y-auto pb-6">
         {showText && (
           <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-200/45">
@@ -114,14 +103,6 @@ export default function AppSidebar() {
         </ul>
       </nav>
 
-      {showText && (
-        <div className="mb-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-          <p className="text-sm font-bold text-white">Separate CRM</p>
-          <p className="mt-1 text-xs leading-5 text-emerald-50/60">
-            Admin panel is isolated at /crm and hidden from the client menu.
-          </p>
-        </div>
-      )}
     </aside>
   );
 }

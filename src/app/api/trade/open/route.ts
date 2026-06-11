@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getInstrument } from "@/lib/market-instruments";
 
 export async function POST(req: Request) {
   try {
@@ -21,15 +22,16 @@ export async function POST(req: Request) {
 
     const numericOpenPrice = Number(openPrice);
     const numericVolume = Number(volume);
+    const instrument = getInstrument(symbol);
 
     if (
       Number.isNaN(numericOpenPrice) ||
       numericOpenPrice <= 0 ||
       Number.isNaN(numericVolume) ||
-      numericVolume <= 0
+      numericVolume < instrument.minLot
     ) {
       return Response.json(
-        { error: "Invalid price or volume" },
+        { error: `Invalid price or volume. Minimum volume is ${instrument.minLot}` },
         { status: 400 }
       );
     }

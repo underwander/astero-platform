@@ -50,16 +50,13 @@ export default function MarketWatch() {
   }, [activeGroup]);
 
   return (
-    <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] sm:p-6">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Market Watch</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-emerald-50/55">
-            Forex, metals, crypto, indices and stocks with manual override support.
-          </p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">Котировки</h2>
         </div>
-        <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-          30s refresh
+        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+          Обновление 30 сек.
         </span>
       </div>
 
@@ -71,7 +68,7 @@ export default function MarketWatch() {
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
               activeGroup === group
                 ? "bg-emerald-600 text-white"
-                : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-white/5 dark:text-emerald-200 dark:hover:bg-white/10"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             }`}
           >
             {group}
@@ -85,7 +82,7 @@ export default function MarketWatch() {
           const change = Number(quote?.change || 0);
 
           return (
-            <div key={symbol} className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 dark:border-emerald-400/10 dark:bg-slate-950/60">
+            <div key={symbol} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">{symbol}</p>
@@ -98,7 +95,7 @@ export default function MarketWatch() {
               <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
                 {quote ? formatPrice(symbol, quote.price) : "..."}
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-emerald-50/45">Source: {quote?.source || "loading"}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Источник: {quote?.source || "загрузка"}</p>
             </div>
           );
         })}

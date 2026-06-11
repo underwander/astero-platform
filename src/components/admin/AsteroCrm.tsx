@@ -167,16 +167,16 @@ type Tab =
   | "quotes";
 
 const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
-  { id: "desktop", label: "Рабочий стол", hint: "сводка и задачи", icon: "▦" },
-  { id: "clients", label: "Клиенты", hint: "база и менеджеры", icon: "◉" },
-  { id: "clientCard", label: "Карточка клиента", hint: "профиль и журнал", icon: "▣" },
-  { id: "actions", label: "Действия", hint: "звонки и задачи", icon: "◷" },
-  { id: "managers", label: "Менеджеры", hint: "роли CRM", icon: "♟" },
-  { id: "trades", label: "Сделки", hint: "позиции клиентов", icon: "↕" },
-  { id: "withdrawals", label: "Выводы", hint: "финансовые заявки", icon: "⇅" },
-  { id: "verification", label: "Верификация", hint: "KYC документы", icon: "✓" },
-  { id: "support", label: "Поддержка", hint: "чат с клиентами", icon: "✉" },
-  { id: "quotes", label: "Котировки", hint: "ручная настройка", icon: "⌁" },
+  { id: "desktop", label: "Обзор", hint: "Сводка", icon: "□" },
+  { id: "clients", label: "Клиенты", hint: "База", icon: "◎" },
+  { id: "clientCard", label: "Карточка", hint: "Профиль", icon: "▣" },
+  { id: "actions", label: "Действия", hint: "Задачи", icon: "◇" },
+  { id: "managers", label: "Менеджеры", hint: "Команда", icon: "♟" },
+  { id: "trades", label: "Сделки", hint: "Позиции", icon: "↕" },
+  { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
+  { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
+  { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
+  { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
 
 const inputClass =
@@ -204,6 +204,7 @@ export default function AsteroCrm() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [now, setNow] = useState(() => Date.now());
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [depositAmount, setDepositAmount] = useState("100");
@@ -406,20 +407,28 @@ export default function AsteroCrm() {
       router.push("/");
       return;
     }
-    setAllowed(true);
-    loadAdminData();
+    const initialTimer = window.setTimeout(() => {
+      setAllowed(true);
+      loadAdminData();
+    }, 0);
 
     const interval = setInterval(() => {
       loadAdminData({ silent: true });
     }, 10000);
 
     return () => {
+      window.clearTimeout(initialTimer);
       clearInterval(interval);
       if (supportToastTimerRef.current) {
         clearTimeout(supportToastTimerRef.current);
       }
     };
   }, [router]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === selectedClientId) || clients[0],
@@ -439,7 +448,7 @@ export default function AsteroCrm() {
     (client.clientActions || []).map((action) => ({ ...action, client }))
   );
   const openActions = allActions.filter((action) => action.status !== "CLOSED");
-  const overdueActions = openActions.filter((action) => new Date(action.dueAt).getTime() < Date.now());
+  const overdueActions = openActions.filter((action) => new Date(action.dueAt).getTime() < now);
   const pendingWithdrawals = withdrawals.filter((item) => item.status === "PENDING");
   const pendingKyc = verificationDocuments.filter((doc) => doc.status === "PENDING");
   const totalBalance = clients.reduce((sum, client) => sum + Number(client.balance || 0), 0);
@@ -768,15 +777,13 @@ export default function AsteroCrm() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-emerald-400/10 bg-white/[0.04] p-4 sm:p-5">
+        <div className="rounded-xl border border-emerald-400/10 bg-white/[0.04] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">CRM</p>
-              <h1 className="mt-1 text-2xl font-black sm:text-3xl">{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
-              <p className="mt-1 text-sm text-emerald-50/60">Рабочая область администратора и менеджеров Astero.</p>
+              <h1 className="text-2xl font-black sm:text-3xl">{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
-            <button onClick={() => loadAdminData()} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400">
-              Обновить данные
+            <button onClick={() => loadAdminData()} className="rounded-lg bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400">
+              Обновить
             </button>
           </div>
         </div>
@@ -1512,14 +1519,14 @@ function TradeTable({
                   <td className={`p-3 font-bold ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="Volume" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} />
+                      <TradeEditInput label="Объём" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} />
                     ) : (
                       trade.volume
                     )}
                   </td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="Open" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} />
+                      <TradeEditInput label="Цена открытия" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} />
                     ) : (
                       formatPrice(trade.symbol, trade.openPrice)
                     )}
@@ -1544,7 +1551,7 @@ function TradeTable({
                   </td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="Swap" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} />
+                      <TradeEditInput label="Своп" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} />
                     ) : (
                       trade.swap ?? 0
                     )}
@@ -1553,9 +1560,9 @@ function TradeTable({
                   <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
                   <td className="p-3">
                     {isOpen ? (
-                      <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Close</button>
+                      <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Закрыть</button>
                     ) : (
-                      <span className="text-xs text-slate-400">Closed</span>
+                      <span className="text-xs text-slate-400">Закрыта</span>
                     )}
                   </td>
                 </tr>

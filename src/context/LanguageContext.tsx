@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 
 type Language = "en" | "ru";
 
@@ -17,10 +17,10 @@ const dictionaries: Record<Language, Dictionary> = {
     support: "Support",
     profile: "Profile",
     clientCabinet: "Client cabinet",
-    liveDesk: "Astero live desk",
-    liveDeskText: "Trading, finance and portfolio analytics in one secure cabinet.",
+    liveDesk: "Astero",
+    liveDeskText: "Trading cabinet",
     traderRoom: "Astero Trader Room",
-    realTimeDashboard: "Real-time portfolio and finance dashboard",
+    realTimeDashboard: "Portfolio, finance and trading data",
     secureLogin: "Secure login",
     welcomeBack: "Welcome back",
     signInText: "Sign in to your Astero trading account.",
@@ -47,10 +47,10 @@ const dictionaries: Record<Language, Dictionary> = {
     support: "Поддержка",
     profile: "Профиль",
     clientCabinet: "Кабинет клиента",
-    liveDesk: "Рабочее место Astero",
-    liveDeskText: "Торговля, финансы и аналитика портфеля в защищённом кабинете.",
+    liveDesk: "Astero",
+    liveDeskText: "Торговый кабинет",
     traderRoom: "Кабинет Astero",
-    realTimeDashboard: "Портфель, финансы и торговые данные в реальном времени",
+    realTimeDashboard: "Портфель, финансы и торговые данные",
     secureLogin: "Безопасный вход",
     welcomeBack: "Добро пожаловать",
     signInText: "Войдите в торговый кабинет Astero.",
@@ -78,12 +78,11 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("ru");
-
-  useEffect(() => {
-    const stored = localStorage.getItem("language");
-    if (stored === "ru" || stored === "en") setLanguageState(stored);
-  }, []);
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window === "undefined") return "ru";
+    const stored = window.localStorage.getItem("language");
+    return stored === "ru" || stored === "en" ? stored : "ru";
+  });
 
   function setLanguage(next: Language) {
     setLanguageState(next);

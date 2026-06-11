@@ -37,11 +37,11 @@ export const marketInstruments: MarketInstrument[] = [
   { symbol: "SPX500", group: "Indices", tvSymbol: "SP%3ASPX", quoteSymbol: "SPX", digits: 2, pointSize: 0.1, tickValue: 1, contractSize: 10, lotStep: 0.01, minLot: 0.01, maxLot: 100, defaultPrice: 5300 },
   { symbol: "US30", group: "Indices", tvSymbol: "DJ%3ADJI", quoteSymbol: "DJI", digits: 2, pointSize: 1, tickValue: 1, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 100, defaultPrice: 39000 },
   { symbol: "DAX40", group: "Indices", tvSymbol: "XETR%3ADAX", quoteSymbol: "DAX", digits: 2, pointSize: 0.1, tickValue: 1, contractSize: 10, lotStep: 0.01, minLot: 0.01, maxLot: 100, defaultPrice: 18500 },
-  { symbol: "AAPL", group: "Stocks", tvSymbol: "NASDAQ%3AAAPL", quoteSymbol: "AAPL", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 1, minLot: 1, maxLot: 10000, defaultPrice: 190 },
-  { symbol: "TSLA", group: "Stocks", tvSymbol: "NASDAQ%3ATSLA", quoteSymbol: "TSLA", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 1, minLot: 1, maxLot: 10000, defaultPrice: 175 },
-  { symbol: "NVDA", group: "Stocks", tvSymbol: "NASDAQ%3ANVDA", quoteSymbol: "NVDA", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 1, minLot: 1, maxLot: 10000, defaultPrice: 120 },
-  { symbol: "MSFT", group: "Stocks", tvSymbol: "NASDAQ%3AMSFT", quoteSymbol: "MSFT", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 1, minLot: 1, maxLot: 10000, defaultPrice: 430 },
-  { symbol: "AMZN", group: "Stocks", tvSymbol: "NASDAQ%3AAMZN", quoteSymbol: "AMZN", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 1, minLot: 1, maxLot: 10000, defaultPrice: 180 },
+  { symbol: "AAPL", group: "Stocks", tvSymbol: "NASDAQ%3AAAPL", quoteSymbol: "AAPL", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 10000, defaultPrice: 190 },
+  { symbol: "TSLA", group: "Stocks", tvSymbol: "NASDAQ%3ATSLA", quoteSymbol: "TSLA", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 10000, defaultPrice: 175 },
+  { symbol: "NVDA", group: "Stocks", tvSymbol: "NASDAQ%3ANVDA", quoteSymbol: "NVDA", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 10000, defaultPrice: 120 },
+  { symbol: "MSFT", group: "Stocks", tvSymbol: "NASDAQ%3AMSFT", quoteSymbol: "MSFT", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 10000, defaultPrice: 430 },
+  { symbol: "AMZN", group: "Stocks", tvSymbol: "NASDAQ%3AAMZN", quoteSymbol: "AMZN", digits: 2, pointSize: 0.01, tickValue: 0.01, contractSize: 1, lotStep: 0.01, minLot: 0.01, maxLot: 10000, defaultPrice: 180 },
 ];
 
 export const marketGroups: Array<MarketGroup | "All"> = ["All", "Forex", "Metals", "Energy", "Crypto", "Indices", "Stocks"];

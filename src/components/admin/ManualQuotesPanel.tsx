@@ -30,7 +30,7 @@ export default function ManualQuotesPanel() {
   }
 
   async function saveQuote() {
-    setMessage("Saving quote...");
+    setMessage("Сохранение...");
 
     const res = await fetch("/api/admin/quotes", {
       method: "PATCH",
@@ -41,11 +41,11 @@ export default function ManualQuotesPanel() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Quote update error");
+      setMessage(data.error || "Ошибка обновления котировки");
       return;
     }
 
-    setMessage(`${data.symbol} saved as ${data.enabled ? "manual" : "live"} quote`);
+    setMessage(`${data.symbol}: ${data.enabled ? "ручная цена" : "рыночная цена"}`);
     await loadQuotes();
   }
 
@@ -59,61 +59,55 @@ export default function ManualQuotesPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[2rem] border border-emerald-400/15 bg-[#07130d] p-5 text-white shadow-xl shadow-emerald-950/20 md:p-6">
+      <div className="rounded-xl border border-emerald-400/15 bg-[#07130d] p-5 text-white shadow-xl shadow-emerald-950/20 md:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">
-              Quotes control
-            </span>
-            <h2 className="mt-3 text-2xl font-black">Manual market prices</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/65">
-              Admin can override any quote. Terminal, open positions and client P/L will use the manual price while enabled.
-            </p>
+            <h2 className="text-2xl font-black">Котировки</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 lg:min-w-[760px]">
-            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="h-12 rounded-2xl border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold text-white outline-none focus:border-emerald-400">
-              {marketGroups.map((group) => (
+            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="h-12 rounded-lg border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold text-white outline-none focus:border-emerald-400">
+              {marketGroups.filter((group) => group !== "All").map((group) => (
                 <optgroup key={group} label={group} className="text-slate-950">
                   {marketInstruments
-                    .filter((item) => group === "All" || item.group === group)
+                    .filter((item) => item.group === group)
                     .map((item) => (
                       <option key={`${group}-${item.symbol}`} value={item.symbol}>{item.symbol}</option>
                     ))}
                 </optgroup>
               ))}
             </select>
-            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" step={instrument.pointSize} className="h-12 rounded-2xl border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold text-white outline-none focus:border-emerald-400" placeholder="Manual price" />
-            <label className="flex h-12 items-center gap-2 rounded-2xl border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold">
+            <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" step={instrument.pointSize} className="h-12 rounded-lg border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold text-white outline-none focus:border-emerald-400" placeholder="Цена" />
+            <label className="flex h-12 items-center gap-2 rounded-lg border border-emerald-400/15 bg-white/10 px-4 text-sm font-semibold">
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-              Enabled
+              Ручная
             </label>
-            <button onClick={saveQuote} className="h-12 rounded-2xl bg-emerald-500 px-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400">Save</button>
+            <button onClick={saveQuote} className="h-12 rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400">Сохранить</button>
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2 text-xs md:grid-cols-6">
-          <Spec label="Group" value={instrument.group} />
-          <Spec label="Digits" value={String(instrument.digits)} />
-          <Spec label="Point" value={String(instrument.pointSize)} />
-          <Spec label="Point value" value={`$${instrument.tickValue}`} />
-          <Spec label="Contract" value={String(instrument.contractSize)} />
-          <Spec label="Lot step" value={String(instrument.lotStep)} />
+          <Spec label="Группа" value={instrument.group} />
+          <Spec label="Знаки" value={String(instrument.digits)} />
+          <Spec label="Пункт" value={String(instrument.pointSize)} />
+          <Spec label="Цена пункта" value={`$${instrument.tickValue}`} />
+          <Spec label="Контракт" value={String(instrument.contractSize)} />
+          <Spec label="Шаг лота" value={String(instrument.lotStep)} />
         </div>
 
         {message && <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/10 p-3 text-sm text-emerald-100">{message}</div>}
       </div>
 
-      <div className="rounded-[2rem] border border-emerald-100 bg-white p-5 text-slate-950 shadow-sm">
-        <h3 className="text-lg font-black">Configured overrides</h3>
+      <div className="rounded-xl border border-emerald-100 bg-white p-5 text-slate-950 shadow-sm">
+        <h3 className="text-lg font-black">Ручные цены</h3>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-emerald-100 text-left text-slate-500">
-                <th className="p-3">Symbol</th>
-                <th className="p-3">Manual price</th>
-                <th className="p-3">Mode</th>
-                <th className="p-3">Updated</th>
+                <th className="p-3">Символ</th>
+                <th className="p-3">Цена</th>
+                <th className="p-3">Режим</th>
+                <th className="p-3">Обновлено</th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +117,7 @@ export default function ManualQuotesPanel() {
                   <td className="p-3">{formatPrice(quote.symbol, quote.price)}</td>
                   <td className="p-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-black ${quote.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                      {quote.enabled ? "manual" : "live"}
+                      {quote.enabled ? "ручная" : "рынок"}
                     </span>
                   </td>
                   <td className="p-3">{new Date(quote.updatedAt).toLocaleString()}</td>
@@ -131,7 +125,7 @@ export default function ManualQuotesPanel() {
               ))}
               {quotes.length === 0 && (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={4}>No manual quotes yet.</td>
+                  <td className="p-4 text-slate-500" colSpan={4}>Ручных котировок пока нет.</td>
                 </tr>
               )}
             </tbody>
