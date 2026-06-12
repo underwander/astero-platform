@@ -897,94 +897,35 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "clientCard" && selectedClient && (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
-            <Panel title="Список клиентов">
-              <input className={`${inputClass} mb-3`} placeholder="Поиск клиента" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
-              <div className="max-h-[690px] space-y-2 overflow-y-auto pr-1">
-                {filteredClients.map((client) => <ClientRow key={client.id} client={client} active={client.id === selectedClient.id} onOpen={() => setSelectedClientId(client.id)} />)}
-              </div>
-            </Panel>
-            <div className="space-y-4">
-              <Panel title="Карточка клиента">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <Info label="Клиент" value={displayName(selectedClient)} sub={selectedClient.email} />
-                  <Info label="Телефон" value={selectedClient.phone || "-"} sub={`${selectedClient.country || "-"}, ${selectedClient.city || ""}`} />
-                  <Info label="Баланс" value={`$${Number(selectedClient.balance).toFixed(2)}`} />
-                  <Info label="Менеджер" value={selectedClient.manager ? displayName(selectedClient.manager) : "Не назначен"} />
-                </div>
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-emerald-100 p-3">
-                    <label className="text-xs font-bold text-slate-500">Назначить менеджера</label>
-                    <select className={`${inputClass} mt-2`} value={selectedClient.managerId || ""} onChange={(e) => assignManager(selectedClient.id, e.target.value)}>
-                      <option value="">Без менеджера</option>
-                      {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
-                    </select>
-                  </div>
-                  <div className="rounded-2xl border border-emerald-100 p-3">
-                    <label className="text-xs font-bold text-slate-500">Депозит</label>
-                    <div className="mt-2 flex gap-2">
-                      <input className={inputClass} type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-                      <button onClick={() => depositToUser(selectedClient.id)} className="rounded-xl bg-emerald-500 px-4 text-sm font-black text-slate-950">OK</button>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-emerald-100 p-3">
-                    <label className="text-xs font-bold text-slate-500">Смена пароля</label>
-                    <div className="mt-2 flex gap-2">
-                      <input className={inputClass} value={passwords[selectedClient.id] || ""} onChange={(e) => setPasswords({ ...passwords, [selectedClient.id]: e.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
-                      <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-xl bg-slate-900 px-4 text-sm font-black text-white">OK</button>
-                    </div>
-                  </div>
-                </div>
-              </Panel>
-
-              <ClientTimeline
-                client={selectedClient}
-                withdrawals={withdrawals}
-                trades={trades}
-                documents={verificationDocuments}
-              />
-
-              <Panel title="Создать действие">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-                  <input className={inputClass} placeholder="Название действия" value={actionForm.title} onChange={(e) => setActionForm({ ...actionForm, title: e.target.value })} />
-                  <input className={inputClass} type="datetime-local" value={actionForm.dueAt} onChange={(e) => setActionForm({ ...actionForm, dueAt: e.target.value })} />
-                  <select className={inputClass} value={actionForm.status} onChange={(e) => setActionForm({ ...actionForm, status: e.target.value })}>
-                    <option value="OPEN">Открыто</option>
-                    <option value="IN_PROGRESS">В работе</option>
-                    <option value="POSTPONED">Перенесено</option>
-                    <option value="CLOSED">Закрыто</option>
-                  </select>
-                  <select className={inputClass} value={actionForm.managerId} onChange={(e) => setActionForm({ ...actionForm, managerId: e.target.value })}>
-                    <option value="">Текущий менеджер</option>
-                    {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
-                  </select>
-                  <button onClick={addAction} className="rounded-xl bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
-                </div>
-                <textarea className={`${areaClass} mt-3`} placeholder="Описание действия" value={actionForm.description} onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })} />
-              </Panel>
-
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <Panel title="Действия клиента">
-                  <ActionList actions={(selectedClient.clientActions || []).map((action) => ({ ...action, client: selectedClient }))} managers={managers} onUpdate={updateAction} />
-                </Panel>
-                <Panel title="Комментарии">
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px_auto]">
-                    <textarea className={areaClass} placeholder="Комментарий по клиенту" value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-                    <select className={inputClass} value={noteStatus} onChange={(e) => setNoteStatus(e.target.value)}>
-                      <option value="OPEN">Открыто</option>
-                      <option value="IMPORTANT">Важно</option>
-                      <option value="CLOSED">Закрыто</option>
-                    </select>
-                    <button onClick={addNote} className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-slate-950">Добавить</button>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {(selectedClient.clientNotes || []).map((note) => <NoteCard key={note.id} note={note} onStatus={updateNote} />)}
-                    {(selectedClient.clientNotes || []).length === 0 && <Empty text="Комментариев пока нет" />}
-                  </div>
-                </Panel>
-              </div>
-            </div>
-          </div>
+          <ClientProfileUtip
+            selectedClient={selectedClient}
+            filteredClients={filteredClients}
+            managers={managers}
+            clientSearch={clientSearch}
+            setClientSearch={setClientSearch}
+            setSelectedClientId={setSelectedClientId}
+            assignManager={assignManager}
+            depositAmount={depositAmount}
+            setDepositAmount={setDepositAmount}
+            depositToUser={depositToUser}
+            passwords={passwords}
+            setPasswords={setPasswords}
+            showPasswords={showPasswords}
+            changeClientPassword={changeClientPassword}
+            actionForm={actionForm}
+            setActionForm={setActionForm}
+            addAction={addAction}
+            updateAction={updateAction}
+            noteText={noteText}
+            setNoteText={setNoteText}
+            noteStatus={noteStatus}
+            setNoteStatus={setNoteStatus}
+            addNote={addNote}
+            updateNote={updateNote}
+            withdrawals={withdrawals}
+            trades={trades}
+            documents={verificationDocuments}
+          />
         )}
 
         {activeTab === "actions" && (
@@ -1076,6 +1017,275 @@ function displayName(user: { email?: string; firstName?: string | null; lastName
 
 function ClientRow({ client, onOpen, active }: { client: User; onOpen: () => void; active?: boolean }) {
   return <button onClick={onOpen} className={`w-full rounded-2xl border p-3 text-left transition ${active ? "border-emerald-500 bg-emerald-50" : "border-emerald-100 bg-white hover:bg-emerald-50"}`}><p className="font-black text-slate-950">{displayName(client)}</p><p className="text-xs text-slate-500">{client.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></button>;
+}
+
+function ClientProfileUtip({
+  selectedClient,
+  filteredClients,
+  managers,
+  clientSearch,
+  setClientSearch,
+  setSelectedClientId,
+  assignManager,
+  depositAmount,
+  setDepositAmount,
+  depositToUser,
+  passwords,
+  setPasswords,
+  showPasswords,
+  changeClientPassword,
+  actionForm,
+  setActionForm,
+  addAction,
+  updateAction,
+  noteText,
+  setNoteText,
+  noteStatus,
+  setNoteStatus,
+  addNote,
+  updateNote,
+  withdrawals,
+  trades,
+  documents,
+}: {
+  selectedClient: User;
+  filteredClients: User[];
+  managers: User[];
+  clientSearch: string;
+  setClientSearch: (value: string) => void;
+  setSelectedClientId: (value: string) => void;
+  assignManager: (userId: string, managerId: string) => void;
+  depositAmount: string;
+  setDepositAmount: (value: string) => void;
+  depositToUser: (userId: string) => void;
+  passwords: Record<string, string>;
+  setPasswords: (value: Record<string, string>) => void;
+  showPasswords: boolean;
+  changeClientPassword: (userId: string) => void;
+  actionForm: { title: string; description: string; dueAt: string; status: string; managerId: string };
+  setActionForm: (value: { title: string; description: string; dueAt: string; status: string; managerId: string }) => void;
+  addAction: () => void;
+  updateAction: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void;
+  noteText: string;
+  setNoteText: (value: string) => void;
+  noteStatus: string;
+  setNoteStatus: (value: string) => void;
+  addNote: () => void;
+  updateNote: (noteId: string, status: string) => void;
+  withdrawals: Withdrawal[];
+  trades: Trade[];
+  documents: VerificationDocument[];
+}) {
+  const clientActions = (selectedClient.clientActions || []).map((action) => ({ ...action, client: selectedClient }));
+  const clientTrades = trades.filter((trade) => trade.user.id === selectedClient.id || trade.user.email === selectedClient.email);
+  const clientWithdrawals = withdrawals.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
+  const clientDocs = documents.filter((doc) => doc.user?.id === selectedClient.id || doc.user?.email === selectedClient.email);
+
+  return (
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[300px_1fr]">
+      <Panel title="Клиенты">
+        <input className={`${inputClass} mb-3 h-9 rounded-lg`} placeholder="Поиск клиента" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} />
+        <div className="max-h-[760px] space-y-1 overflow-y-auto pr-1">
+          {filteredClients.map((client) => (
+            <button
+              key={client.id}
+              onClick={() => setSelectedClientId(client.id)}
+              className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                client.id === selectedClient.id ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <p className="truncate text-sm font-black text-slate-950">{displayName(client)}</p>
+              <p className="truncate text-[11px] text-slate-500">{client.email}</p>
+              <div className="mt-1 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">{client.id.slice(-6).toUpperCase()}</span>
+                <span className={client.isBlocked ? "text-red-600" : "text-emerald-700"}>{client.isBlocked ? "BLOCKED" : "ACTIVE"}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </Panel>
+
+      <div className="space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-col gap-2 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400">Клиент</p>
+              <h2 className="text-xl font-black text-slate-950">{displayName(selectedClient)}</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge value={selectedClient.kycStatus} />
+              <Badge value={selectedClient.isBlocked ? "BLOCKED" : "ACTIVE"} />
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">ID {selectedClient.id.slice(-8).toUpperCase()}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <UtipInfoPanel title="Общая информация">
+              <UtipRow label="Имя" value={selectedClient.firstName || "-"} />
+              <UtipRow label="Фамилия" value={selectedClient.lastName || "-"} />
+              <UtipRow label="Статус" value={selectedClient.kycStatus} />
+              <UtipRow label="Баланс" value={`$${Number(selectedClient.balance || 0).toFixed(2)}`} />
+              <UtipRow label="Создан" value={new Date(selectedClient.createdAt).toLocaleString("ru-RU")} />
+              <UtipRow label="Менеджер" value={selectedClient.manager ? displayName(selectedClient.manager) : "Не назначен"} />
+            </UtipInfoPanel>
+
+            <UtipInfoPanel title="Контактная информация">
+              <UtipRow label="Email" value={selectedClient.email} />
+              <UtipRow label="Телефон" value={selectedClient.phone || "-"} />
+              <UtipRow label="Страна" value={selectedClient.country || "-"} />
+              <UtipRow label="Город" value={selectedClient.city || "-"} />
+              <UtipRow label="Адрес" value={selectedClient.address || "-"} />
+              <UtipRow label="Роль" value={selectedClient.role} />
+            </UtipInfoPanel>
+
+            <UtipInfoPanel title="Управление">
+              <label className="text-[11px] font-bold uppercase text-slate-400">Ответственный</label>
+              <select className={`${inputClass} h-9 rounded-lg`} value={selectedClient.managerId || ""} onChange={(event) => assignManager(selectedClient.id, event.target.value)}>
+                <option value="">Без менеджера</option>
+                {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
+              </select>
+              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Депозит</label>
+              <div className="flex gap-2">
+                <input className={`${inputClass} h-9 rounded-lg`} type="number" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
+                <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-black text-slate-950">OK</button>
+              </div>
+              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Смена пароля</label>
+              <div className="flex gap-2">
+                <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
+                <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-black text-white">OK</button>
+              </div>
+            </UtipInfoPanel>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
+          <Panel title="Описание">
+            <div className="space-y-2 text-sm text-slate-700">
+              <p>Сделок: <b>{clientTrades.length}</b></p>
+              <p>Выводов: <b>{clientWithdrawals.length}</b></p>
+              <p>Документов: <b>{clientDocs.length}</b></p>
+              <p>Открытых действий: <b>{clientActions.filter((action) => action.status !== "CLOSED").length}</b></p>
+            </div>
+          </Panel>
+          <Panel title="Заметки">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_auto]">
+              <textarea className={`${areaClass} min-h-20 rounded-lg`} placeholder="Заметка по клиенту" value={noteText} onChange={(event) => setNoteText(event.target.value)} />
+              <select className={`${inputClass} h-10 rounded-lg`} value={noteStatus} onChange={(event) => setNoteStatus(event.target.value)}>
+                <option value="OPEN">Открыто</option>
+                <option value="IMPORTANT">Важно</option>
+                <option value="CLOSED">Закрыто</option>
+              </select>
+              <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
+            </div>
+            <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+              {(selectedClient.clientNotes || []).map((note) => <NoteCard key={note.id} note={note} onStatus={updateNote} />)}
+              {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
+            </div>
+          </Panel>
+        </div>
+
+        <Panel title="Действия">
+          <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_150px_190px_auto]">
+            <input className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
+            <input className={`${inputClass} h-10 rounded-lg`} type="datetime-local" value={actionForm.dueAt} onChange={(event) => setActionForm({ ...actionForm, dueAt: event.target.value })} />
+            <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.status} onChange={(event) => setActionForm({ ...actionForm, status: event.target.value })}>
+              <option value="OPEN">Открыто</option>
+              <option value="IN_PROGRESS">В работе</option>
+              <option value="POSTPONED">Перенесено</option>
+              <option value="CLOSED">Закрыто</option>
+            </select>
+            <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.managerId} onChange={(event) => setActionForm({ ...actionForm, managerId: event.target.value })}>
+              <option value="">Текущий менеджер</option>
+              {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
+            </select>
+            <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
+          </div>
+          <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
+          <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} />
+        </Panel>
+
+        <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />
+      </div>
+    </div>
+  );
+}
+
+function UtipInfoPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+      <h3 className="mb-2 text-sm font-black text-slate-950">{title}</h3>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function UtipRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[130px_1fr] border-b border-slate-200 py-1.5 text-xs last:border-b-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="break-words font-bold text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function UtipActionsTable({
+  actions,
+  managers,
+  onUpdate,
+}: {
+  actions: (ClientAction & { client?: User })[];
+  managers: User[];
+  onUpdate: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="min-w-[980px] w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
+            <th className="px-3 py-2">Дата</th>
+            <th className="px-3 py-2">Тип</th>
+            <th className="px-3 py-2">Создатель</th>
+            <th className="px-3 py-2">Описание</th>
+            <th className="px-3 py-2">Ответственный</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((action) => (
+            <tr key={action.id} className="border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50">
+              <td className="px-3 py-2">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "-"}</td>
+              <td className="px-3 py-2 font-black">{action.title}</td>
+              <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
+              <td className="px-3 py-2">{action.description || "-"}</td>
+              <td className="px-3 py-2">
+                <select className="h-8 w-44 rounded border border-slate-200 px-2 text-xs" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}>
+                  <option value="">Без менеджера</option>
+                  {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
+                </select>
+              </td>
+              <td className="px-3 py-2">
+                <select className="h-8 rounded border border-slate-200 px-2 text-xs" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}>
+                  <option value="OPEN">Открыто</option>
+                  <option value="IN_PROGRESS">В работе</option>
+                  <option value="POSTPONED">Перенесено</option>
+                  <option value="CLOSED">Закрыто</option>
+                </select>
+              </td>
+              <td className="px-3 py-2 text-right">
+                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-3 py-1.5 font-black text-white">Закрыть</button>
+              </td>
+            </tr>
+          ))}
+          {actions.length === 0 && (
+            <tr>
+              <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>Действий нет</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function ClientsTable({
