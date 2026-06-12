@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { calculateTradeProfit } from "@/lib/market-instruments";
 
 type Trade = {
   id: string;
@@ -10,6 +12,7 @@ type Trade = {
   volume: number;
   closePrice: number | null;
   profit: number | null;
+  swap?: number | null;
 };
 
 type QuoteMap = Record<string, number>;
@@ -17,263 +20,124 @@ type QuoteMap = Record<string, number>;
 export default function BrokerMetrics() {
   const [balance, setBalance] = useState(0);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
-  const [openTrades, setOpenTrades] = useState(0);
-  const [closedTrades, setClosedTrades] = useState(0);
-  const [totalVolume, setTotalVolume] = useState(0);
-  const [totalProfit, setTotalProfit] = useState(0);
+  const [equity, setEquity] = useState(0);
   const [floatingProfit, setFloatingProfit] = useState(0);
-  const [margin, setMargin] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState("");
+  const [available, setAvailable] = useState(0);
+  const [openTrades, setOpenTrades] = useState(0);
   const [loading, setLoading] = useState(true);
 
   async function loadQuote(symbol: string) {
     const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(symbol)}`);
     const data = await res.json();
-
-    if (!res.ok) {
-      return null;
-    }
-
+    if (!res.ok) return null;
     return Number(data.price);
   }
 
-  async function loadDashboard(isInitialLoad = false) {
-    if (isInitialLoad) {
-      setLoading(true);
-    }
-
+  async function loadDashboard() {
     const userId = localStorage.getItem("userId");
-    const storedRole = localStorage.getItem("role");
 
     if (!userId) {
       window.location.href = "/login";
       return;
     }
 
-    setRole(storedRole || "CLIENT");
+    const [balanceRes, tradesRes] = await Promise.all([
+      fetch(`/api/user/balance?userId=${userId}`, { cache: "no-store" }),
+      fetch(`/api/trades?userId=${userId}`, { cache: "no-store" }),
+    ]);
 
-    const balanceRes = await fetch(`/api/user/balance?userId=${userId}`);
-
-    if (!balanceRes.ok) {
-      throw new Error("Balance API error");
+    if (!balanceRes.ok || !tradesRes.ok) {
+      throw new Error("Dashboard load error");
     }
 
     const balanceData = await balanceRes.json();
-    const numericBalance = Number(balanceData.balance);
-
-    setBalance(numericBalance);
-    setEmail(balanceData.email);
-
-    const tradesRes = await fetch(`/api/trades?userId=${userId}`);
-
-    if (!tradesRes.ok) {
-      throw new Error("Trades API error");
-    }
-
     const trades: Trade[] = await tradesRes.json();
-
+    const numericBalance = Number(balanceData.balance || 0);
     const open = trades.filter((trade) => trade.closePrice === null);
-    const closed = trades.filter((trade) => trade.closePrice !== null);
-
-    const profit = closed.reduce(
-      (sum, trade) => sum + Number(trade.profit || 0),
-      0
-    );
-
-    const volume = trades.reduce(
-      (sum, trade) => sum + Number(trade.volume || 0),
-      0
-    );
-
     const symbols = Array.from(new Set(open.map((trade) => trade.symbol)));
 
     const quoteEntries = await Promise.all(
-      symbols.map(async (symbol) => {
-        const price = await loadQuote(symbol);
-        return [symbol, price] as const;
-      })
+      symbols.map(async (symbol) => [symbol, await loadQuote(symbol)] as const)
     );
 
     const quotes: QuoteMap = {};
-
     quoteEntries.forEach(([symbol, price]) => {
-      if (price) {
-        quotes[symbol] = price;
-      }
+      if (price) quotes[symbol] = price;
     });
 
     const floating = open.reduce((sum, trade) => {
       const currentPrice = quotes[trade.symbol] || trade.openPrice;
-
-      if (trade.side === "BUY") {
-        return (
-          sum +
-          (currentPrice - trade.openPrice) *
-            10000 *
-            Number(trade.volume)
-        );
-      }
-
-      return (
-        sum +
-        (trade.openPrice - currentPrice) *
-          10000 *
-          Number(trade.volume)
-      );
+      return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0);
     }, 0);
 
-    const usedMargin = open.reduce((sum, trade) => {
-      return sum + Number(trade.openPrice) * Number(trade.volume) * 100;
-    }, 0);
-
-    setOpenTrades(open.length);
-    setClosedTrades(closed.length);
-    setTotalProfit(profit);
-    setTotalVolume(volume);
+    setBalance(numericBalance);
+    setEmail(balanceData.email || "");
     setFloatingProfit(floating);
-    setMargin(usedMargin);
-    setLastUpdate(new Date().toLocaleTimeString());
+    setEquity(numericBalance + floating);
+    setAvailable(numericBalance + floating);
+    setOpenTrades(open.length);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadDashboard(true).catch(() => {
-      setLoading(false);
-      setEmail("Could not load data");
-    });
-
-    const interval = setInterval(() => {
-      loadDashboard(false).catch(() => {
-        setLoading(false);
-      });
-    }, 30000);
-
+    loadDashboard().catch(() => setLoading(false));
+    const interval = setInterval(() => loadDashboard().catch(() => setLoading(false)), 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const equity = balance + floatingProfit;
-  const freeMargin = equity - margin;
-  const marginLevel = margin > 0 ? (equity / margin) * 100 : 0;
-
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Real Equity updates every 30 seconds
-          {lastUpdate ? ` • Last update: ${lastUpdate}` : ""}
-        </p>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
+        <AccountCard label="Счёт" value={email || "Клиент"} sub="Account ID" loading={loading} />
+        <AccountCard label="Equity" value={`€${equity.toFixed(2)}`} sub="Средства" loading={loading} />
+        <AccountCard label="Доступно" value={`€${available.toFixed(2)}`} sub={`${openTrades} открытых позиций`} loading={loading} />
+        <Link
+          href="/terminal"
+          className="flex min-h-28 items-center justify-center rounded-xl border border-slate-700/40 bg-gradient-to-br from-[#1c2b5d] to-[#10214a] p-5 text-center text-white shadow-sm transition hover:brightness-110"
+        >
+          <div>
+            <p className="text-sm font-black">Trading Terminal</p>
+            <p className="mt-1 text-xs text-white/60">Открыть терминал</p>
+          </div>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Balance</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-800 dark:text-white/90">
-            {loading ? "..." : `$${balance.toFixed(2)}`}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <SmallAccountCard label="Прибыль / убыток" value={`€${floatingProfit.toFixed(2)}`} positive={floatingProfit >= 0} loading={loading} />
+        <SmallAccountCard label="Бонусы" value="€0.00" loading={loading} />
+        <SmallAccountCard label="Кредитное плечо" value="1:100" loading={loading} />
+      </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Equity</h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              equity >= balance ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : `$${equity.toFixed(2)}`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Margin</h3>
-          <p className="mt-2 text-3xl font-bold text-yellow-500">
-            {loading ? "..." : `$${margin.toFixed(2)}`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Free Margin
-          </h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              freeMargin >= 0 ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : `$${freeMargin.toFixed(2)}`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Floating P/L
-          </h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              floatingProfit >= 0 ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : `$${floatingProfit.toFixed(2)}`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Margin Level
-          </h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              marginLevel >= 100 || margin === 0
-                ? "text-green-500"
-                : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : margin === 0 ? "∞" : `${marginLevel.toFixed(2)}%`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Client</h3>
-          <p className="mt-2 truncate text-sm font-semibold text-gray-800 dark:text-white/90">
-            {email}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Role: {role}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Trades</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-800 dark:text-white/90">
-            {loading ? "..." : `${openTrades}/${closedTrades}`}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Open / Closed
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Total Volume
-          </h3>
-          <p className="mt-2 text-3xl font-bold text-gray-800 dark:text-white/90">
-            {loading ? "..." : totalVolume.toFixed(2)}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Closed Profit
-          </h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              totalProfit >= 0 ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : `$${totalProfit.toFixed(2)}`}
-          </p>
+      <div className="rounded-xl border border-blue-300/20 bg-[#14275b] p-4 text-white shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-black">Быстрые депозиты временно недоступны</p>
+            <p className="mt-1 text-xs text-white/65">Заполните профиль и пройдите верификацию, чтобы открыть все функции кабинета.</p>
+          </div>
+          <Link href="/profile" className="rounded-lg border border-white/20 px-4 py-2 text-xs font-black text-white hover:bg-white/10">
+            Перейти в профиль
+          </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AccountCard({ label, value, sub, loading }: { label: string; value: string; sub: string; loading: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-700/30 bg-[#1b2d62] p-4 text-white shadow-sm">
+      <p className="text-xs font-bold uppercase text-white/45">{label}</p>
+      <p className="mt-3 truncate text-xl font-black">{loading ? "..." : value}</p>
+      <p className="mt-1 text-xs text-white/55">{sub}</p>
+    </div>
+  );
+}
+
+function SmallAccountCard({ label, value, loading, positive = true }: { label: string; value: string; loading: boolean; positive?: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">{label}</p>
+      <p className={`mt-2 text-lg font-black ${positive ? "text-emerald-600" : "text-red-500"}`}>{loading ? "..." : value}</p>
     </div>
   );
 }

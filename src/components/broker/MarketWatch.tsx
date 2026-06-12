@@ -17,7 +17,7 @@ type Quote = {
 
 export const marketSymbols: MarketSymbol[] = marketInstruments.map(({ symbol, group }) => ({ symbol, group }));
 
-export default function MarketWatch() {
+export default function MarketWatch({ compact = false }: { compact?: boolean }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeGroup, setActiveGroup] = useState<MarketSymbol["group"] | "All">("All");
 
@@ -76,7 +76,7 @@ export default function MarketWatch() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className={compact ? "grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
         {visibleSymbols.slice(0, 12).map(({ symbol, group }) => {
           const quote = quotes.find((item) => item.symbol === symbol);
           const change = Number(quote?.change || 0);
@@ -92,10 +92,10 @@ export default function MarketWatch() {
                   {quote ? `${change.toFixed(2)}%` : "..."}
                 </span>
               </div>
-              <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              <p className={compact ? "mt-2 text-lg font-black text-slate-900 dark:text-white" : "mt-3 text-2xl font-black text-slate-900 dark:text-white"}>
                 {quote ? formatPrice(symbol, quote.price) : "..."}
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Источник: {quote?.source || "загрузка"}</p>
+              {!compact && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Источник: {quote?.source || "загрузка"}</p>}
             </div>
           );
         })}
