@@ -184,20 +184,10 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-gradient-to-br from-[#06130d] via-[#092016] to-emerald-950 p-5 text-white shadow-xl shadow-emerald-950/10 md:p-8">
-        <span className="rounded-full border border-emerald-300/30 bg-emerald-400/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">
-          Astero profile
-        </span>
-
-        <h1 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">
+      <div className="border-b border-emerald-100 pb-4 dark:border-emerald-400/10">
+        <h1 className="text-xl font-black text-slate-900 dark:text-white">
           {t("profile")}
         </h1>
-
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/70">
-          {language === "ru"
-            ? "Личные данные, верификация документов и смена пароля."
-            : "Personal data, document verification and password management."}
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

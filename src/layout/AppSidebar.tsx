@@ -5,11 +5,9 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   GridIcon,
-  ListIcon,
   PageIcon,
   PieChartIcon,
   PlugInIcon,
-  TableIcon,
   UserCircleIcon,
 } from "@/icons";
 import Link from "next/link";
@@ -27,8 +25,6 @@ type NavItem = {
 const clientNavItems: NavItem[] = [
   { key: "dashboard", name: "Dashboard", path: "/", icon: <GridIcon /> },
   { key: "trading", name: "Trading", path: "/terminal", icon: <PieChartIcon />, badge: "LIVE" },
-  { key: "positions", name: "Positions", path: "/positions", icon: <TableIcon /> },
-  { key: "history", name: "History", path: "/history", icon: <ListIcon /> },
   { key: "deposits", name: "Deposits", path: "/deposits", icon: <PageIcon /> },
   { key: "withdrawals", name: "Withdrawals", path: "/withdrawals", icon: <PlugInIcon /> },
   { key: "profile", name: "Profile", path: "/profile", icon: <UserCircleIcon /> },
