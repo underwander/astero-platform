@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 import { getInstrument, marketInstruments } from "@/lib/market-instruments";
 
 type CachedQuote = {
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
     if (!twelveSymbol) {
       return Response.json({ error: "Unsupported symbol" }, { status: 400 });
     }
+
+    await ensureManualQuotesTable();
 
     const manualQuote = await prisma.manualQuote.findUnique({ where: { symbol } });
 

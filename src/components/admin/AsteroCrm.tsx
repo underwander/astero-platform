@@ -881,20 +881,17 @@ export default function AsteroCrm() {
             </Panel>
             <Panel title="Клиентская база">
               <input className={`${inputClass} mb-4`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                {filteredClients.map((client) => (
-                  <ClientListCard
-                    key={client.id}
-                    client={client}
-                    managers={managers}
-                    onAssign={assignManager}
-                    onOpen={() => { setSelectedClientId(client.id); setActiveTab("clientCard"); }}
-                    onBlock={() => toggleBlockUser(client.id, client.isBlocked)}
-                    onDelete={() => deleteUser(client.id, client.email)}
-                  />
-                ))}
-                {filteredClients.length === 0 && <Empty text="Клиенты не найдены" />}
-              </div>
+              <ClientsTable
+                clients={filteredClients}
+                managers={managers}
+                onAssign={assignManager}
+                onOpen={(client) => {
+                  setSelectedClientId(client.id);
+                  setActiveTab("clientCard");
+                }}
+                onBlock={(client) => toggleBlockUser(client.id, client.isBlocked)}
+                onDelete={(client) => deleteUser(client.id, client.email)}
+              />
             </Panel>
           </div>
         )}
@@ -1079,6 +1076,90 @@ function displayName(user: { email?: string; firstName?: string | null; lastName
 
 function ClientRow({ client, onOpen, active }: { client: User; onOpen: () => void; active?: boolean }) {
   return <button onClick={onOpen} className={`w-full rounded-2xl border p-3 text-left transition ${active ? "border-emerald-500 bg-emerald-50" : "border-emerald-100 bg-white hover:bg-emerald-50"}`}><p className="font-black text-slate-950">{displayName(client)}</p><p className="text-xs text-slate-500">{client.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></button>;
+}
+
+function ClientsTable({
+  clients,
+  managers,
+  onAssign,
+  onOpen,
+  onBlock,
+  onDelete,
+}: {
+  clients: User[];
+  managers: User[];
+  onAssign: (userId: string, managerId: string) => void;
+  onOpen: (client: User) => void;
+  onBlock: (client: User) => void;
+  onDelete: (client: User) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className="min-w-[1280px] w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
+            <th className="px-3 py-2">ID</th>
+            <th className="px-3 py-2">Клиент</th>
+            <th className="px-3 py-2">Email</th>
+            <th className="px-3 py-2">Телефон</th>
+            <th className="px-3 py-2">Страна</th>
+            <th className="px-3 py-2">Баланс</th>
+            <th className="px-3 py-2">KYC</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2">Менеджер</th>
+            <th className="px-3 py-2 text-right">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clients.map((client, index) => (
+            <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
+              <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{client.id.slice(-6).toUpperCase()}</td>
+              <td className="px-3 py-2">
+                <button onClick={() => onOpen(client)} className="text-left font-black text-slate-950 hover:text-emerald-700">
+                  {displayName(client)}
+                </button>
+                <p className="text-[11px] text-slate-400">#{index + 1}</p>
+              </td>
+              <td className="px-3 py-2">{client.email}</td>
+              <td className="px-3 py-2">{client.phone || "-"}</td>
+              <td className="px-3 py-2">{client.country || "-"}</td>
+              <td className="px-3 py-2 font-black text-emerald-700">${Number(client.balance || 0).toFixed(2)}</td>
+              <td className="px-3 py-2"><Badge value={client.kycStatus} /></td>
+              <td className="px-3 py-2"><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></td>
+              <td className="px-3 py-2">
+                <select
+                  className="h-8 w-44 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none focus:border-emerald-500"
+                  value={client.managerId || ""}
+                  onChange={(event) => onAssign(client.id, event.target.value)}
+                >
+                  <option value="">Не назначен</option>
+                  {managers.map((manager) => (
+                    <option key={manager.id} value={manager.id}>{displayName(manager)}</option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-3 py-2">
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => onOpen(client)} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">Открыть</button>
+                  <button onClick={() => onBlock(client)} className="rounded bg-orange-500 px-2 py-1.5 font-black text-white">
+                    {client.isBlocked ? "Разблок." : "Блок"}
+                  </button>
+                  <button onClick={() => onDelete(client)} className="rounded bg-red-600 px-2 py-1.5 font-black text-white">Удалить</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {clients.length === 0 && (
+            <tr>
+              <td className="px-3 py-8 text-center text-slate-500" colSpan={10}>
+                Клиенты не найдены
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function ClientListCard({ client, managers, onAssign, onOpen, onBlock, onDelete }: { client: User; managers: User[]; onAssign: (userId: string, managerId: string) => void; onOpen: () => void; onBlock: () => void; onDelete: () => void }) {

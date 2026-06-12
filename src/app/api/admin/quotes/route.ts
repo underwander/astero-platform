@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 
 export async function GET() {
   try {
+    await ensureManualQuotesTable();
+
     const quotes = await prisma.manualQuote.findMany({
       orderBy: {
         symbol: "asc",
@@ -21,6 +24,8 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
+    await ensureManualQuotesTable();
+
     const { symbol, price, enabled } = await req.json();
 
     if (!symbol || price === undefined || price === null) {
