@@ -44,28 +44,12 @@ export default function AppHeader() {
             <AsteroLogo />
           </div>
 
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{t("traderRoom")}</p>
-            <p className="hidden text-xs text-slate-500 dark:text-emerald-50/50 sm:block">
-              {t("realTimeDashboard")}
-            </p>
-          </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 sm:flex">
             <span className="size-2 rounded-full bg-emerald-500" /> {t("live")}
           </div>
-
-          <Link href="/support" className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-500">
-            {t("support")}
-          </Link>
-
-          {role === "ADMIN" && (
-            <Link href="/crm" className="hidden rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 md:inline-flex">
-              {t("crm")}
-            </Link>
-          )}
 
           <LanguageSwitcher />
 

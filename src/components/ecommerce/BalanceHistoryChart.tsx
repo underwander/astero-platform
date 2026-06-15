@@ -72,9 +72,6 @@ export default function BalanceHistoryChart() {
             Equity Curve
           </h2>
 
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Balance growth history, updated every 30 seconds.
-          </p>
         </div>
 
         {history.length > 0 && (

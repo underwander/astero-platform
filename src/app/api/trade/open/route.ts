@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 import { getInstrument } from "@/lib/market-instruments";
 
 export async function POST(req: Request) {
@@ -24,6 +25,26 @@ export async function POST(req: Request) {
     const numericVolume = Number(volume);
     const instrument = getInstrument(symbol);
 
+    await ensureManualQuotesTable();
+
+    const manualQuote = await prisma.manualQuote.findUnique({
+      where: { symbol },
+    });
+
+    if (manualQuote?.symbolEnabled === false || manualQuote?.tradeForbidden) {
+      return Response.json(
+        { error: "Trading symbol disabled" },
+        { status: 403 }
+      );
+    }
+
+    if (manualQuote?.tradingHours && !isTradingAllowed(manualQuote.tradingHours)) {
+      return Response.json(
+        { error: "Trading is closed for this symbol" },
+        { status: 403 }
+      );
+    }
+
     if (
       Number.isNaN(numericOpenPrice) ||
       numericOpenPrice <= 0 ||
@@ -43,6 +64,10 @@ export async function POST(req: Request) {
         side,
         openPrice: numericOpenPrice,
         volume: numericVolume,
+        swap:
+          side === "BUY"
+            ? Number(manualQuote?.swapLong || 0) - Number(manualQuote?.commission || 0)
+            : Number(manualQuote?.swapShort || 0) - Number(manualQuote?.commission || 0),
         stopLoss:
           stopLoss !== null && stopLoss !== undefined && stopLoss !== ""
             ? Number(stopLoss)
@@ -63,4 +88,18 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+function isTradingAllowed(tradingHours: string) {
+  const value = tradingHours.trim().toLowerCase();
+
+  if (!value || value === "24/7") return true;
+  if (value === "closed" || value === "disabled") return false;
+
+  if (value === "24/5") {
+    const day = new Date().getUTCDay();
+    return day !== 0 && day !== 6;
+  }
+
+  return true;
 }

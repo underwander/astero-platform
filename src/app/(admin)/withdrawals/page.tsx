@@ -16,7 +16,32 @@ type Withdrawal = {
 type Method = "CARD" | "CRYPTO" | "BANK";
 
 const inputClass =
-  "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10";
+  "h-12 w-full rounded-xl border border-emerald-100 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
+
+const methodConfig: Record<
+  Method,
+  {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+  }
+> = {
+  CARD: {
+    title: "Карта",
+    description: "Visa, Mastercard или банковская карта клиента",
+    icon: <CardIcon />,
+  },
+  CRYPTO: {
+    title: "Крипто",
+    description: "USDT, BTC, ETH и другие криптокошельки",
+    icon: <WalletIcon />,
+  },
+  BANK: {
+    title: "Банк",
+    description: "IBAN, SWIFT или банковский счет",
+    icon: <BankIcon />,
+  },
+};
 
 export default function WithdrawalsPage() {
   const router = useRouter();
@@ -58,39 +83,33 @@ export default function WithdrawalsPage() {
 
   const destination = useMemo(() => {
     if (method === "CARD") {
-      return `${card.holder} • ${maskCard(card.number)} • ${card.expiry}`;
+      return `${card.holder} - ${maskCard(card.number)} - ${card.expiry}`;
     }
 
     if (method === "CRYPTO") {
-      return `${crypto.currency} • ${shorten(crypto.wallet)}`;
+      return `${crypto.currency} - ${shorten(crypto.wallet)}`;
     }
 
-    return `${bank.beneficiary} • ${bank.bankName} • ${bank.accountNumber} • ${bank.swift}`;
+    return `${bank.beneficiary} - ${bank.bankName} - ${bank.accountNumber} - ${bank.swift}`;
   }, [method, card, crypto, bank]);
 
   function validateForm() {
     const numericAmount = Number(amount);
 
     if (!numericAmount || numericAmount <= 0) {
-      return "Введите корректную сумму";
+      return "Введите корректную сумму вывода";
     }
 
-    if (method === "CARD") {
-      if (!card.number || !card.holder || !card.expiry) {
-        return "Заполните номер карты, имя владельца и срок действия";
-      }
+    if (method === "CARD" && (!card.number || !card.holder || !card.expiry)) {
+      return "Заполните номер карты, имя владельца и срок действия";
     }
 
-    if (method === "CRYPTO") {
-      if (!crypto.currency || !crypto.wallet) {
-        return "Выберите криптовалюту и введите адрес кошелька";
-      }
+    if (method === "CRYPTO" && (!crypto.currency || !crypto.wallet)) {
+      return "Выберите криптовалюту и введите адрес кошелька";
     }
 
-    if (method === "BANK") {
-      if (!bank.beneficiary || !bank.bankName || !bank.accountNumber || !bank.swift) {
-        return "Заполните получателя, банк, счёт/IBAN и SWIFT";
-      }
+    if (method === "BANK" && (!bank.beneficiary || !bank.bankName || !bank.accountNumber || !bank.swift)) {
+      return "Заполните получателя, банк, счет/IBAN и SWIFT";
     }
 
     return "";
@@ -131,11 +150,13 @@ export default function WithdrawalsPage() {
               swift: bank.swift,
             };
 
-    setMessage("Создание заявки...");
+    setMessage("Создаем заявку...");
 
     const res = await fetch("/api/withdrawals/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         userId,
         amount: Number(amount),
@@ -148,7 +169,7 @@ export default function WithdrawalsPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Ошибка вывода средств");
+      setMessage(data.error || "Не удалось создать заявку на вывод");
       return;
     }
 
@@ -175,220 +196,218 @@ export default function WithdrawalsPage() {
   }, [router]);
 
   return (
-    <div className="space-y-6 bg-slate-50 p-2 text-slate-950 sm:p-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-black tracking-tight">
-          Вывод средств
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Создайте заявку на вывод на карту, криптокошелёк или банковский счёт.
-        </p>
-      </div>
+    <div className="min-h-[calc(100vh-88px)] space-y-4 text-slate-950 dark:text-white">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[430px_0.5fr]">
+        <section className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <h2 className="text-base font-black text-slate-900 dark:text-white">Новая заявка</h2>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-5 text-xl font-black">Новая заявка</h2>
-
-          <div className="mb-5 grid grid-cols-3 gap-2">
-            <MethodButton active={method === "CARD"} onClick={() => setMethod("CARD")}>
-              💳 Карта
-            </MethodButton>
-
-            <MethodButton active={method === "CRYPTO"} onClick={() => setMethod("CRYPTO")}>
-              ₿ Крипто
-            </MethodButton>
-
-            <MethodButton active={method === "BANK"} onClick={() => setMethod("BANK")}>
-              🏦 Банк
-            </MethodButton>
-          </div>
-
-          <div className="space-y-4">
-            <Field label="Сумма">
-              <div className="relative">
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className={`${inputClass} pr-10`}
-                  placeholder="Введите сумму"
-                  type="number"
-                  min="1"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black">
-                  $
-                </span>
-              </div>
-            </Field>
-
-            {method === "CARD" && (
-              <>
-                <Field label="Номер карты">
-                  <input
-                    value={card.number}
-                    onChange={(e) => setCard({ ...card, number: formatCard(e.target.value) })}
-                    className={inputClass}
-                    placeholder="0000 0000 0000 0000"
-                    maxLength={19}
-                  />
-                </Field>
-
-                <Field label="Имя владельца">
-                  <input
-                    value={card.holder}
-                    onChange={(e) => setCard({ ...card, holder: e.target.value.toUpperCase() })}
-                    className={inputClass}
-                    placeholder="Имя и фамилия на карте"
-                  />
-                </Field>
-
-                <Field label="Срок действия">
-                  <input
-                    value={card.expiry}
-                    onChange={(e) => setCard({ ...card, expiry: formatExpiry(e.target.value) })}
-                    className={inputClass}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                  />
-                </Field>
-              </>
-            )}
-
-            {method === "CRYPTO" && (
-              <>
-                <Field label="Криптовалюта">
-                  <select
-                    value={crypto.currency}
-                    onChange={(e) => setCrypto({ ...crypto, currency: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="USDT TRC20">USDT TRC20</option>
-                    <option value="USDT ERC20">USDT ERC20</option>
-                    <option value="BTC">BTC</option>
-                    <option value="ETH">ETH</option>
-                  </select>
-                </Field>
-
-                <Field label="Адрес кошелька">
-                  <input
-                    value={crypto.wallet}
-                    onChange={(e) => setCrypto({ ...crypto, wallet: e.target.value })}
-                    className={inputClass}
-                    placeholder="Введите адрес кошелька"
-                  />
-                </Field>
-              </>
-            )}
-
-            {method === "BANK" && (
-              <>
-                <Field label="Имя получателя">
-                  <input
-                    value={bank.beneficiary}
-                    onChange={(e) => setBank({ ...bank, beneficiary: e.target.value })}
-                    className={inputClass}
-                    placeholder="Имя получателя"
-                  />
-                </Field>
-
-                <Field label="Название банка">
-                  <input
-                    value={bank.bankName}
-                    onChange={(e) => setBank({ ...bank, bankName: e.target.value })}
-                    className={inputClass}
-                    placeholder="Название банка"
-                  />
-                </Field>
-
-                <Field label="IBAN / номер счёта">
-                  <input
-                    value={bank.accountNumber}
-                    onChange={(e) => setBank({ ...bank, accountNumber: e.target.value })}
-                    className={inputClass}
-                    placeholder="IBAN или номер счёта"
-                  />
-                </Field>
-
-                <Field label="SWIFT / BIC">
-                  <input
-                    value={bank.swift}
-                    onChange={(e) => setBank({ ...bank, swift: e.target.value.toUpperCase() })}
-                    className={inputClass}
-                    placeholder="SWIFT / BIC"
-                  />
-                </Field>
-              </>
-            )}
-
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-              <p className="font-black text-emerald-700">Безопасность</p>
-              <p className="mt-1 text-sm text-slate-600">
-                Заявка будет обработана финансовым отделом после проверки.
-              </p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {(Object.keys(methodConfig) as Method[]).map((item) => (
+                <MethodButton key={item} active={method === item} onClick={() => setMethod(item)} config={methodConfig[item]} />
+              ))}
             </div>
 
-            <button
-              onClick={createWithdrawal}
-              className="h-12 w-full rounded-xl bg-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-500"
-            >
-              Отправить заявку
-            </button>
-
-            {message && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-slate-700">
-                {message}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-5 text-xl font-black">История заявок</h2>
-
-          <div className="space-y-3">
-            {loading && (
-              <div className="rounded-2xl border border-slate-100 p-5 text-slate-500">
-                Загрузка...
-              </div>
-            )}
-
-            {!loading && withdrawals.length === 0 && (
-              <div className="rounded-2xl border border-slate-100 p-5 text-slate-500">
-                Заявок пока нет
-              </div>
-            )}
-
-            {!loading &&
-              withdrawals.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-100 p-4 md:grid-cols-[120px_150px_1fr_130px_150px] md:items-center"
-                >
-                  <div className="font-black">
-                    ${Number(item.amount).toFixed(2)}
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <span>{methodIcon(item.method)}</span>
-                    <span>{methodLabel(item.method)}</span>
-                  </div>
-
-                  <div className="min-w-0 text-sm">
-                    <p className="truncate font-bold text-slate-900">
-                      {formatDestination(item)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <StatusBadge status={item.status} />
-                  </div>
-
-                  <div className="text-sm text-slate-500">
-                    {new Date(item.createdAt).toLocaleString("ru-RU")}
-                  </div>
+            <div className="mt-5 space-y-4">
+              <Field label="Сумма вывода">
+                <div className="relative">
+                  <input
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    className={`${inputClass} pr-12`}
+                    placeholder="0.00"
+                    type="number"
+                    min="1"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500 dark:text-slate-300">
+                    USD
+                  </span>
                 </div>
-              ))}
+              </Field>
+
+              {method === "CARD" && (
+                <>
+                  <Field label="Номер карты">
+                    <input
+                      value={card.number}
+                      onChange={(event) => setCard({ ...card, number: formatCard(event.target.value) })}
+                      className={inputClass}
+                      placeholder="0000 0000 0000 0000"
+                      maxLength={19}
+                    />
+                  </Field>
+
+                  <Field label="Имя владельца">
+                    <input
+                      value={card.holder}
+                      onChange={(event) => setCard({ ...card, holder: event.target.value.toUpperCase() })}
+                      className={inputClass}
+                      placeholder="Имя и фамилия на карте"
+                    />
+                  </Field>
+
+                  <Field label="Срок действия">
+                    <input
+                      value={card.expiry}
+                      onChange={(event) => setCard({ ...card, expiry: formatExpiry(event.target.value) })}
+                      className={inputClass}
+                      placeholder="MM/YY"
+                      maxLength={5}
+                    />
+                  </Field>
+                </>
+              )}
+
+              {method === "CRYPTO" && (
+                <>
+                  <Field label="Сеть и валюта">
+                    <select
+                      value={crypto.currency}
+                      onChange={(event) => setCrypto({ ...crypto, currency: event.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="USDT TRC20">USDT TRC20</option>
+                      <option value="USDT ERC20">USDT ERC20</option>
+                      <option value="BTC">BTC</option>
+                      <option value="ETH">ETH</option>
+                    </select>
+                  </Field>
+
+                  <Field label="Адрес кошелька">
+                    <input
+                      value={crypto.wallet}
+                      onChange={(event) => setCrypto({ ...crypto, wallet: event.target.value })}
+                      className={inputClass}
+                      placeholder="Введите адрес кошелька"
+                    />
+                  </Field>
+                </>
+              )}
+
+              {method === "BANK" && (
+                <>
+                  <Field label="Получатель">
+                    <input
+                      value={bank.beneficiary}
+                      onChange={(event) => setBank({ ...bank, beneficiary: event.target.value })}
+                      className={inputClass}
+                      placeholder="Имя получателя"
+                    />
+                  </Field>
+
+                  <Field label="Банк">
+                    <input
+                      value={bank.bankName}
+                      onChange={(event) => setBank({ ...bank, bankName: event.target.value })}
+                      className={inputClass}
+                      placeholder="Название банка"
+                    />
+                  </Field>
+
+                  <Field label="IBAN / номер счета">
+                    <input
+                      value={bank.accountNumber}
+                      onChange={(event) => setBank({ ...bank, accountNumber: event.target.value })}
+                      className={inputClass}
+                      placeholder="IBAN или номер счета"
+                    />
+                  </Field>
+
+                  <Field label="SWIFT / BIC">
+                    <input
+                      value={bank.swift}
+                      onChange={(event) => setBank({ ...bank, swift: event.target.value.toUpperCase() })}
+                      className={inputClass}
+                      placeholder="SWIFT / BIC"
+                    />
+                  </Field>
+                </>
+              )}
+
+              <button
+                onClick={createWithdrawal}
+                className="h-12 w-full rounded-xl bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              >
+                Отправить заявку
+              </button>
+
+              {message && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 dark:border-emerald-400/10 dark:bg-emerald-500/10 dark:text-emerald-200">
+                  {message}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">История заявок</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Все заявки на вывод средств по вашему счету</p>
+            </div>
+            <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+              {loading ? "Загрузка" : `${withdrawals.length} заявок`}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-[620px] w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                  <th className="px-4 py-3">Сумма</th>
+                  <th className="px-4 py-3">Способ</th>
+                  <th className="px-4 py-3">Реквизиты</th>
+                  <th className="px-4 py-3">Статус</th>
+                  <th className="px-4 py-3">Дата</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
+                      Загрузка...
+                    </td>
+                  </tr>
+                )}
+
+                {!loading && withdrawals.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-10 text-center text-slate-500" colSpan={5}>
+                      Заявок на вывод пока нет
+                    </td>
+                  </tr>
+                )}
+
+                {!loading &&
+                  withdrawals.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-100 last:border-0 dark:border-white/10">
+                      <td className="px-4 py-4 font-black text-slate-950 dark:text-white">
+                        ${Number(item.amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
+                          <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            {methodSmallIcon(item.method)}
+                          </span>
+                          {methodLabel(item.method)}
+                        </div>
+                      </td>
+                      <td className="max-w-[360px] px-4 py-4">
+                        <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{formatDestination(item)}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
+                        {new Date(item.createdAt).toLocaleString("ru-RU")}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -403,9 +422,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-black text-slate-900">
-        {label}
-      </label>
+      <label className="mb-2 block text-sm font-black text-slate-900 dark:text-white">{label}</label>
       {children}
     </div>
   );
@@ -414,23 +431,31 @@ function Field({
 function MethodButton({
   active,
   onClick,
-  children,
+  config,
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  config: {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+  };
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`h-12 rounded-xl border px-3 text-sm font-black transition ${
+      className={`min-h-24 rounded-xl border p-3 text-left transition ${
         active
-          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm dark:bg-emerald-500/10 dark:text-emerald-200"
+          : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.06]"
       }`}
     >
-      {children}
+      <span className="mb-2 flex size-9 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm dark:bg-slate-950 dark:text-emerald-300">
+        {config.icon}
+      </span>
+      <span className="block text-sm font-black">{config.title}</span>
+      <span className="mt-1 hidden text-[11px] leading-4 opacity-70 sm:block">{config.description}</span>
     </button>
   );
 }
@@ -438,16 +463,12 @@ function MethodButton({
 function StatusBadge({ status }: { status: string }) {
   const className =
     status === "APPROVED"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-400/20"
       : status === "REJECTED"
-        ? "bg-red-50 text-red-700 border-red-200"
-        : "bg-yellow-50 text-yellow-700 border-yellow-200";
+        ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-400/20"
+        : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-400/20";
 
-  return (
-    <span className={`inline-flex rounded-lg border px-3 py-1 text-xs font-black ${className}`}>
-      {statusLabel(status)}
-    </span>
-  );
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>{statusLabel(status)}</span>;
 }
 
 function formatCard(value: string) {
@@ -472,10 +493,10 @@ function maskCard(value: string) {
   const clean = value.replace(/\D/g, "");
 
   if (clean.length < 4) {
-    return "••••";
+    return "****";
   }
 
-  return `•••• ${clean.slice(-4)}`;
+  return `**** ${clean.slice(-4)}`;
 }
 
 function shorten(value: string) {
@@ -497,11 +518,11 @@ function methodLabel(value: string) {
   return value;
 }
 
-function methodIcon(value: string) {
-  if (value === "CARD" || value === "Bank Card") return "💳";
-  if (value === "CRYPTO" || value === "Crypto Wallet") return "₿";
-  if (value === "BANK" || value === "Bank Account") return "🏦";
-  return "•";
+function methodSmallIcon(value: string) {
+  if (value === "CARD" || value === "Bank Card") return <CardIcon />;
+  if (value === "CRYPTO" || value === "Crypto Wallet") return <WalletIcon />;
+  if (value === "BANK" || value === "Bank Account") return <BankIcon />;
+  return <DotIcon />;
 }
 
 function statusLabel(value: string) {
@@ -524,21 +545,51 @@ function formatDestination(item: Withdrawal) {
     const details = JSON.parse(item.details);
 
     if (details.type === "CARD") {
-      return `${details.cardHolder || "-"} • ${maskCard(details.cardNumber || "")}`;
+      return `${details.cardHolder || "-"} - ${maskCard(details.cardNumber || "")}`;
     }
 
     if (details.type === "CRYPTO") {
-      return `${details.currency || "-"} • ${shorten(details.wallet || "")}`;
+      return `${details.currency || "-"} - ${shorten(details.wallet || "")}`;
     }
 
     if (details.type === "BANK") {
-      return `${details.beneficiary || "-"} • ${details.bankName || "-"} • ${
-        details.accountNumber || "-"
-      }`;
+      return `${details.beneficiary || "-"} - ${details.bankName || "-"} - ${details.accountNumber || "-"}`;
     }
 
     return "-";
   } catch {
     return item.details;
   }
+}
+
+function CardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 8.5H21M6.5 16H10.5M5 5H19C20.1 5 21 5.9 21 7V17C21 18.1 20.1 19 19 19H5C3.9 19 3 18.1 3 17V7C3 5.9 3.9 5 5 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M19 7V6C19 4.9 18.1 4 17 4H5C3.9 4 3 4.9 3 6V18C3 19.1 3.9 20 5 20H19C20.1 20 21 19.1 21 18V10C21 8.9 20.1 8 19 8H15C13.9 8 13 8.9 13 10V12C13 13.1 13.9 14 15 14H21M17 11H17.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BankIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 10H20M6 10V18M10 10V18M14 10V18M18 10V18M3 20H21M12 4L21 8H3L12 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DotIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 13C12.55 13 13 12.55 13 12C13 11.45 12.55 11 12 11C11.45 11 11 11.45 11 12C11 12.55 11.45 13 12 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }

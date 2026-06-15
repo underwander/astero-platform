@@ -16,14 +16,12 @@ type Trade = {
 };
 
 type QuoteMap = Record<string, number>;
+const DASHBOARD_REFRESH_MS = 5000;
 
 export default function BrokerMetrics() {
-  const [balance, setBalance] = useState(0);
   const [email, setEmail] = useState("");
   const [equity, setEquity] = useState(0);
-  const [floatingProfit, setFloatingProfit] = useState(0);
   const [available, setAvailable] = useState(0);
-  const [openTrades, setOpenTrades] = useState(0);
   const [loading, setLoading] = useState(true);
 
   async function loadQuote(symbol: string) {
@@ -70,74 +68,52 @@ export default function BrokerMetrics() {
       return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0);
     }, 0);
 
-    setBalance(numericBalance);
     setEmail(balanceData.email || "");
-    setFloatingProfit(floating);
     setEquity(numericBalance + floating);
     setAvailable(numericBalance + floating);
-    setOpenTrades(open.length);
     setLoading(false);
   }
 
   useEffect(() => {
     loadDashboard().catch(() => setLoading(false));
-    const interval = setInterval(() => loadDashboard().catch(() => setLoading(false)), 30000);
+    const interval = setInterval(() => loadDashboard().catch(() => setLoading(false)), DASHBOARD_REFRESH_MS);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
-        <AccountCard label="Счёт" value={email || "Клиент"} sub="Account ID" loading={loading} />
-        <AccountCard label="Equity" value={`€${equity.toFixed(2)}`} sub="Средства" loading={loading} />
-        <AccountCard label="Доступно" value={`€${available.toFixed(2)}`} sub={`${openTrades} открытых позиций`} loading={loading} />
-        <Link
-          href="/terminal"
-          className="flex min-h-28 items-center justify-center rounded-xl border border-slate-700/40 bg-gradient-to-br from-[#1c2b5d] to-[#10214a] p-5 text-center text-white shadow-sm transition hover:brightness-110"
-        >
-          <div>
-            <p className="text-sm font-black">Trading Terminal</p>
-            <p className="mt-1 text-xs text-white/60">Открыть терминал</p>
-          </div>
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <SmallAccountCard label="Прибыль / убыток" value={`€${floatingProfit.toFixed(2)}`} positive={floatingProfit >= 0} loading={loading} />
-        <SmallAccountCard label="Бонусы" value="€0.00" loading={loading} />
-        <SmallAccountCard label="Кредитное плечо" value="1:100" loading={loading} />
-      </div>
-
-      <div className="rounded-xl border border-blue-300/20 bg-[#14275b] p-4 text-white shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-black">Быстрые депозиты временно недоступны</p>
-            <p className="mt-1 text-xs text-white/65">Заполните профиль и пройдите верификацию, чтобы открыть все функции кабинета.</p>
-          </div>
-          <Link href="/profile" className="rounded-lg border border-white/20 px-4 py-2 text-xs font-black text-white hover:bg-white/10">
-            Перейти в профиль
-          </Link>
-        </div>
+        <AccountCard label="Счет" value={email || "Клиент"} loading={loading} />
+        <AccountCard label="Капитал" value={`€${equity.toFixed(2)}`} loading={loading} />
+        <AccountCard label="Доступно для вывода средств" value={`€${available.toFixed(2)}`} loading={loading} />
+        <TerminalCard />
       </div>
     </div>
   );
 }
 
-function AccountCard({ label, value, sub, loading }: { label: string; value: string; sub: string; loading: boolean }) {
+function TerminalCard() {
   return (
-    <div className="rounded-xl border border-slate-700/30 bg-[#1b2d62] p-4 text-white shadow-sm">
-      <p className="text-xs font-bold uppercase text-white/45">{label}</p>
-      <p className="mt-3 truncate text-xl font-black">{loading ? "..." : value}</p>
-      <p className="mt-1 text-xs text-white/55">{sub}</p>
-    </div>
+    <Link
+      href="/terminal"
+      className="group relative flex min-h-32 items-center justify-center overflow-hidden rounded-xl border border-emerald-300/25 bg-gradient-to-br from-[#07130d] via-[#0d2f22] to-[#10b981] p-5 text-center text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:border-white/45 hover:shadow-xl hover:shadow-emerald-950/25"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(16,185,129,0.14)_42%,rgba(0,0,0,0.28))]" />
+      <div className="relative z-10 flex items-center gap-3">
+        <p className="text-lg font-black tracking-wide text-white drop-shadow-sm">Торговый терминал</p>
+      </div>
+    </Link>
   );
 }
 
-function SmallAccountCard({ label, value, loading, positive = true }: { label: string; value: string; loading: boolean; positive?: boolean }) {
+function AccountCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">{label}</p>
-      <p className={`mt-2 text-lg font-black ${positive ? "text-emerald-600" : "text-red-500"}`}>{loading ? "..." : value}</p>
+    <div className="relative min-h-32 overflow-hidden rounded-xl border border-emerald-200/25 bg-gradient-to-br from-[#0f5132] via-[#15803d] to-[#37c871] p-4 text-white shadow-lg shadow-emerald-950/15">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_42%,rgba(0,0,0,0.18))]" />
+      <div className="relative flex h-full flex-col justify-between">
+        <p className="text-xs font-black uppercase tracking-[0.08em] text-white/85 drop-shadow-sm">{label}</p>
+        <p className="mt-5 truncate text-2xl font-black text-white drop-shadow-sm">{loading ? "..." : value}</p>
+      </div>
     </div>
   );
 }

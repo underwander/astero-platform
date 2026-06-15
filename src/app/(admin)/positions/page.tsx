@@ -148,9 +148,6 @@ export default function OpenPositionsPage() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
           Open Positions
         </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Открытые сделки с автоматическим обновлением цены и Floating P/L.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -160,9 +157,6 @@ export default function OpenPositionsPage() {
           </h3>
           <p className="mt-2 text-3xl font-bold text-green-500">
             Active
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Updates every 3 seconds
           </p>
         </div>
 

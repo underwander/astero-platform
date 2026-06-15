@@ -5,9 +5,6 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   GridIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
   UserCircleIcon,
 } from "@/icons";
 import Link from "next/link";
@@ -23,10 +20,9 @@ type NavItem = {
 };
 
 const clientNavItems: NavItem[] = [
-  { key: "dashboard", name: "Dashboard", path: "/", icon: <GridIcon /> },
-  { key: "trading", name: "Trading", path: "/terminal", icon: <PieChartIcon />, badge: "LIVE" },
-  { key: "deposits", name: "Deposits", path: "/deposits", icon: <PageIcon /> },
-  { key: "withdrawals", name: "Withdrawals", path: "/withdrawals", icon: <PlugInIcon /> },
+  { key: "dashboard", name: "Dashboard", path: "/dashboard", icon: <GridIcon /> },
+  { key: "deposits", name: "Deposits", path: "/deposits", icon: <DepositMenuIcon /> },
+  { key: "withdrawals", name: "Withdrawals", path: "/withdrawals", icon: <WithdrawalMenuIcon /> },
   { key: "profile", name: "Profile", path: "/profile", icon: <UserCircleIcon /> },
 ];
 
@@ -52,7 +48,7 @@ export default function AppSidebar() {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className={`flex items-center py-7 ${showText ? "justify-start" : "justify-center"}`}>
-        <Link href="/" aria-label="Astero home">
+        <Link href="/dashboard" aria-label="Astero dashboard">
           <AsteroLogo compact={!showText} />
         </Link>
       </div>
@@ -78,7 +74,7 @@ export default function AppSidebar() {
                       : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
                   } ${!showText ? "justify-center px-3" : ""}`}
                 >
-                  <span className={`flex size-5 shrink-0 items-center justify-center ${active ? "text-slate-950" : "text-emerald-200/70 group-hover:text-white"}`}>
+                  <span className={`flex size-5 shrink-0 items-center justify-center [&_svg]:size-5 [&_svg]:shrink-0 ${active ? "text-slate-950" : "text-emerald-200/70 group-hover:text-white"}`}>
                     {item.icon}
                   </span>
 
@@ -100,5 +96,27 @@ export default function AppSidebar() {
       </nav>
 
     </aside>
+  );
+}
+
+function DepositMenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 8.25C6 6.73 8.46 5.5 11.5 5.5C14.54 5.5 17 6.73 17 8.25C17 9.77 14.54 11 11.5 11C8.46 11 6 9.77 6 8.25Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6 8.25V12.25C6 13.77 8.46 15 11.5 15C12.16 15 12.79 14.94 13.38 14.83" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M6 12.25V16.25C6 17.77 8.46 19 11.5 19C12.05 19 12.57 18.96 13.07 18.88" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18 14V20M15 17H21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function WithdrawalMenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4.5 7.75C4.5 6.65 5.4 5.75 6.5 5.75H17.5C18.6 5.75 19.5 6.65 19.5 7.75V16.25C19.5 17.35 18.6 18.25 17.5 18.25H6.5C5.4 18.25 4.5 17.35 4.5 16.25V7.75Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M15.25 11.25H19.5V14.75H15.25C14.28 14.75 13.5 13.97 13.5 13C13.5 12.03 14.28 11.25 15.25 11.25Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M15.75 13H15.76" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M8 9.25H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }

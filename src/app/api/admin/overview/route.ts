@@ -66,9 +66,28 @@ export async function GET() {
       include: {
         user: {
           select: {
+            id: true,
             email: true,
             firstName: true,
             lastName: true,
+            managerId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const deposits = await prisma.deposit.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            managerId: true,
           },
         },
       },
@@ -81,9 +100,11 @@ export async function GET() {
       include: {
         user: {
           select: {
+            id: true,
             email: true,
             firstName: true,
             lastName: true,
+            managerId: true,
           },
         },
       },
@@ -94,6 +115,7 @@ export async function GET() {
 
     return Response.json({
       users,
+      deposits,
       withdrawals,
       trades,
     });

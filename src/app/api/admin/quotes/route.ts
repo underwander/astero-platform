@@ -26,7 +26,43 @@ export async function PATCH(req: Request) {
   try {
     await ensureManualQuotesTable();
 
-    const { symbol, price, enabled } = await req.json();
+    const {
+      symbol,
+      price,
+      enabled,
+      aBookEnabled,
+      aBookAccountIds,
+      ddeEnabled,
+      mt4DdeServer,
+      symbolEnabled,
+      tradingHours,
+      quoteSource,
+      binanceEnabled,
+      bitfinexEnabled,
+      hitbtcEnabled,
+      margin,
+      leverage,
+      swapLong,
+      swapShort,
+      spread,
+      commission,
+      riskMode,
+      description,
+      calculationType,
+      symbolGroup,
+      quotesFeed,
+      spreadBid,
+      spreadAsk,
+      stopLevel,
+      gapLevel,
+      percentage,
+      contractSize,
+      marginCurrency,
+      profitCurrency,
+      digits,
+      delay,
+      tradeForbidden,
+    } = await req.json();
 
     if (!symbol || price === undefined || price === null) {
       return Response.json(
@@ -44,18 +80,54 @@ export async function PATCH(req: Request) {
       );
     }
 
+    const settings = {
+      enabled: typeof enabled === "boolean" ? enabled : true,
+      aBookEnabled: typeof aBookEnabled === "boolean" ? aBookEnabled : false,
+      aBookAccountIds: typeof aBookAccountIds === "string" ? aBookAccountIds : null,
+      ddeEnabled: typeof ddeEnabled === "boolean" ? ddeEnabled : false,
+      mt4DdeServer: typeof mt4DdeServer === "string" ? mt4DdeServer : null,
+      symbolEnabled: typeof symbolEnabled === "boolean" ? symbolEnabled : true,
+      tradingHours: typeof tradingHours === "string" && tradingHours.trim() ? tradingHours.trim() : "24/5",
+      quoteSource: typeof quoteSource === "string" && quoteSource.trim() ? quoteSource.trim() : "TwelveData",
+      binanceEnabled: typeof binanceEnabled === "boolean" ? binanceEnabled : false,
+      bitfinexEnabled: typeof bitfinexEnabled === "boolean" ? bitfinexEnabled : false,
+      hitbtcEnabled: typeof hitbtcEnabled === "boolean" ? hitbtcEnabled : false,
+      margin: normalizeNumber(margin, 1),
+      leverage: Math.max(1, Math.round(normalizeNumber(leverage, 100))),
+      swapLong: normalizeNumber(swapLong, 0),
+      swapShort: normalizeNumber(swapShort, 0),
+      spread: normalizeNumber(spread, 14),
+      commission: normalizeNumber(commission, 0),
+      riskMode: typeof riskMode === "string" && riskMode.trim() ? riskMode.trim() : "B-Book",
+      description: typeof description === "string" ? description : null,
+      calculationType: normalizeText(calculationType, "forex"),
+      symbolGroup: normalizeText(symbolGroup, "Currencies"),
+      quotesFeed: normalizeText(quotesFeed, "Extra quotes feed"),
+      spreadBid: normalizeNumber(spreadBid, 0),
+      spreadAsk: normalizeNumber(spreadAsk, normalizeNumber(spread, 14)),
+      stopLevel: normalizeNumber(stopLevel, 50),
+      gapLevel: normalizeNumber(gapLevel, 100),
+      percentage: normalizeNumber(percentage, 100),
+      contractSize: normalizeNumber(contractSize, 100000),
+      marginCurrency: normalizeText(marginCurrency, "USD"),
+      profitCurrency: normalizeText(profitCurrency, "USD"),
+      digits: Math.max(0, Math.round(normalizeNumber(digits, 5))),
+      delay: Math.max(0, Math.round(normalizeNumber(delay, 0))),
+      tradeForbidden: typeof tradeForbidden === "boolean" ? tradeForbidden : false,
+    };
+
     const quote = await prisma.manualQuote.upsert({
       where: {
         symbol,
       },
       update: {
         price: numericPrice,
-        enabled: typeof enabled === "boolean" ? enabled : true,
+        ...settings,
       },
       create: {
         symbol,
         price: numericPrice,
-        enabled: typeof enabled === "boolean" ? enabled : true,
+        ...settings,
       },
     });
 
@@ -68,4 +140,13 @@ export async function PATCH(req: Request) {
       { status: 500 }
     );
   }
+}
+
+function normalizeNumber(value: unknown, fallback: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeText(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }

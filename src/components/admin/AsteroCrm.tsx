@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
-import { formatPrice } from "@/lib/market-instruments";
+import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 
 type ManagerRef = {
   id: string;
@@ -124,6 +124,22 @@ type Withdrawal = {
   };
 };
 
+type Deposit = {
+  id: string;
+  amount: number;
+  method?: string | null;
+  status: string;
+  details?: string | null;
+  createdAt: string;
+  user: {
+    id?: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    managerId?: string | null;
+  };
+};
+
 type Trade = {
   id: string;
   symbol: string;
@@ -160,6 +176,7 @@ type Tab =
   | "clientCard"
   | "actions"
   | "managers"
+  | "tradeOperations"
   | "trades"
   | "withdrawals"
   | "verification"
@@ -172,6 +189,7 @@ const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "clientCard", label: "Карточка", hint: "Профиль", icon: "▣" },
   { id: "actions", label: "Действия", hint: "Задачи", icon: "◇" },
   { id: "managers", label: "Менеджеры", hint: "Команда", icon: "♟" },
+  { id: "tradeOperations", label: "Торговые операции", hint: "Операции", icon: "TO" },
   { id: "trades", label: "Сделки", hint: "Позиции", icon: "↕" },
   { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
   { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
@@ -186,11 +204,13 @@ const areaClass =
 
 export default function AsteroCrm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [allowed, setAllowed] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("desktop");
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<User[]>([]);
   const [managers, setManagers] = useState<User[]>([]);
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [verificationDocuments, setVerificationDocuments] = useState<VerificationDocument[]>([]);
@@ -207,6 +227,7 @@ export default function AsteroCrm() {
   const [now, setNow] = useState(() => Date.now());
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "blocked" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("100");
   const [balanceAmount, setBalanceAmount] = useState("1000");
   const [passwords, setPasswords] = useState<Record<string, string>>({});
@@ -241,6 +262,12 @@ export default function AsteroCrm() {
   const seenSupportMessageIdsRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
   const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openTab(tabId: Tab) {
+    setActiveTab(tabId);
+    const nextUrl = tabId === "desktop" ? "/crm" : `/crm?tab=${tabId}`;
+    window.history.replaceState(null, "", nextUrl);
+  }
 
   function playSupportSound() {
     try {
@@ -325,6 +352,11 @@ export default function AsteroCrm() {
     setUsers(allUsers);
     setClients(visibleClients);
     setManagers(allManagers);
+    setDeposits(
+      role === "MANAGER" && currentUserId
+        ? (data.deposits || []).filter((item: Deposit) => item.user.managerId === currentUserId)
+        : data.deposits || []
+    );
     setWithdrawals(
       role === "MANAGER" && currentUserId
         ? (data.withdrawals || []).filter((item: Withdrawal) => item.user.managerId === currentUserId)
@@ -402,6 +434,13 @@ export default function AsteroCrm() {
   }
 
   useEffect(() => {
+    const tabFromUrl = searchParams.get("tab") as Tab | null;
+    if (tabFromUrl && tabs.some((tab) => tab.id === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const role = localStorage.getItem("role");
     if (role !== "ADMIN" && role !== "MANAGER") {
       router.push("/");
@@ -437,12 +476,20 @@ export default function AsteroCrm() {
 
   const filteredClients = useMemo(() => {
     const q = clientSearch.toLowerCase();
-    return clients.filter((client) =>
-      `${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""}`
+    return clients.filter((client) => {
+      const matchesSearch = `${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""}`
         .toLowerCase()
-        .includes(q)
-    );
-  }, [clients, clientSearch]);
+        .includes(q);
+      const matchesQuickFilter =
+        clientQuickFilter === "all" ||
+        (clientQuickFilter === "active" && !client.isBlocked) ||
+        (clientQuickFilter === "blocked" && client.isBlocked) ||
+        (clientQuickFilter === "kyc" && client.kycStatus === "APPROVED") ||
+        (clientQuickFilter === "unverified" && client.kycStatus !== "APPROVED");
+
+      return matchesSearch && matchesQuickFilter;
+    });
+  }, [clients, clientQuickFilter, clientSearch]);
 
   const allActions = clients.flatMap((client) =>
     (client.clientActions || []).map((action) => ({ ...action, client }))
@@ -565,6 +612,28 @@ export default function AsteroCrm() {
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка отклонения");
+    await loadAdminData();
+  }
+
+  async function approveDeposit(depositId: string) {
+    const res = await fetch("/api/admin/deposits/approve", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ depositId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Ошибка подтверждения пополнения");
+    await loadAdminData();
+  }
+
+  async function rejectDeposit(depositId: string) {
+    const res = await fetch("/api/admin/deposits/reject", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ depositId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Ошибка отклонения пополнения");
     await loadAdminData();
   }
 
@@ -728,7 +797,7 @@ export default function AsteroCrm() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => openTab(tab.id)}
               className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
                 activeTab === tab.id
                   ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
@@ -761,7 +830,7 @@ export default function AsteroCrm() {
                 <button
                   key={tab.id}
                   onClick={() => {
-                    setActiveTab(tab.id);
+                    openTab(tab.id);
                     setMobileMenuOpen(false);
                   }}
                   className={`rounded-xl px-3 py-3 text-left text-sm font-bold ${
@@ -782,9 +851,6 @@ export default function AsteroCrm() {
             <div>
               <h1 className="text-2xl font-black sm:text-3xl">{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
-            <button onClick={() => loadAdminData()} className="rounded-lg bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400">
-              Обновить
-            </button>
           </div>
         </div>
 
@@ -810,7 +876,7 @@ export default function AsteroCrm() {
               type="button"
               onClick={() => {
                 setSupportClientId(supportToast.userId);
-                setActiveTab("support");
+                openTab("support");
                 setSupportToast(null);
               }}
               className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white hover:bg-sky-400"
@@ -880,14 +946,38 @@ export default function AsteroCrm() {
               <button onClick={() => createUser("CLIENT")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать клиента</button>
             </Panel>
             <Panel title="Клиентская база">
-              <input className={`${inputClass} mb-4`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ["all", "Все"],
+                    ["active", "Активные"],
+                    ["blocked", "Блокированные"],
+                    ["kyc", "KYC"],
+                    ["unverified", "Без KYC"],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setClientQuickFilter(key as typeof clientQuickFilter)}
+                      className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                        clientQuickFilter === key
+                          ? "border-emerald-500 bg-emerald-500 text-slate-950"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <input className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+              </div>
               <ClientsTable
                 clients={filteredClients}
                 managers={managers}
                 onAssign={assignManager}
                 onOpen={(client) => {
                   setSelectedClientId(client.id);
-                  setActiveTab("clientCard");
+                  openTab("clientCard");
                 }}
                 onBlock={(client) => toggleBlockUser(client.id, client.isBlocked)}
                 onDelete={(client) => deleteUser(client.id, client.email)}
@@ -922,9 +1012,14 @@ export default function AsteroCrm() {
             setNoteStatus={setNoteStatus}
             addNote={addNote}
             updateNote={updateNote}
+            deposits={deposits}
             withdrawals={withdrawals}
             trades={trades}
             documents={verificationDocuments}
+            onCloseTrade={closeClientTrade}
+            onUpdateTrade={updateClientTrade}
+            onApproveDeposit={approveDeposit}
+            onRejectDeposit={rejectDeposit}
           />
         )}
 
@@ -961,6 +1056,9 @@ export default function AsteroCrm() {
           </div>
         )}
 
+        {activeTab === "tradeOperations" && (
+          <TradingOperationsDesk clients={clients} trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />
+        )}
         {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />}
         {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
         {activeTab === "verification" && <KycTable documents={verificationDocuments} onReview={reviewDocument} />}
@@ -1044,9 +1142,14 @@ function ClientProfileUtip({
   setNoteStatus,
   addNote,
   updateNote,
+  deposits,
   withdrawals,
   trades,
   documents,
+  onCloseTrade,
+  onUpdateTrade,
+  onApproveDeposit,
+  onRejectDeposit,
 }: {
   selectedClient: User;
   filteredClients: User[];
@@ -1072,12 +1175,21 @@ function ClientProfileUtip({
   setNoteStatus: (value: string) => void;
   addNote: () => void;
   updateNote: (noteId: string, status: string) => void;
+  deposits: Deposit[];
   withdrawals: Withdrawal[];
   trades: Trade[];
   documents: VerificationDocument[];
+  onCloseTrade: (trade: Trade) => void;
+  onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
+  onApproveDeposit: (depositId: string) => void;
+  onRejectDeposit: (depositId: string) => void;
 }) {
+  const [clientSection, setClientSection] = useState<
+    "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
+  >("overview");
   const clientActions = (selectedClient.clientActions || []).map((action) => ({ ...action, client: selectedClient }));
   const clientTrades = trades.filter((trade) => trade.user.id === selectedClient.id || trade.user.email === selectedClient.email);
+  const clientDeposits = deposits.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientWithdrawals = withdrawals.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientDocs = documents.filter((doc) => doc.user?.id === selectedClient.id || doc.user?.email === selectedClient.email);
 
@@ -1119,7 +1231,32 @@ function ClientProfileUtip({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+          <div className="mb-3 flex gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1">
+            {[
+              ["overview", "Обзор"],
+              ["history", "История"],
+              ["documents", "Документы"],
+              ["accounts", "Торговые счета"],
+              ["operations", "Торговые операции"],
+              ["deposits", "Депозиты"],
+              ["requests", "Заявки"],
+              ["tickets", "Тикеты"],
+              ["mailing", "Рассылка"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setClientSection(key as typeof clientSection)}
+                className={`shrink-0 rounded-md px-3 py-2 text-xs font-black transition ${
+                  clientSection === key ? "bg-emerald-500 text-slate-950" : "text-slate-600 hover:bg-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
             <UtipInfoPanel title="Общая информация">
               <UtipRow label="Имя" value={selectedClient.firstName || "-"} />
               <UtipRow label="Фамилия" value={selectedClient.lastName || "-"} />
@@ -1155,10 +1292,26 @@ function ClientProfileUtip({
                 <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-black text-white">OK</button>
               </div>
             </UtipInfoPanel>
-          </div>
+          </div>}
+
+          {clientSection !== "overview" && (
+            <ClientUtipSection
+              section={clientSection}
+              client={selectedClient}
+              trades={clientTrades}
+              deposits={clientDeposits}
+              withdrawals={clientWithdrawals}
+              documents={clientDocs}
+              actions={clientActions}
+              onCloseTrade={onCloseTrade}
+              onUpdateTrade={onUpdateTrade}
+              onApproveDeposit={onApproveDeposit}
+              onRejectDeposit={onRejectDeposit}
+            />
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
+        {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
           <Panel title="Описание">
             <div className="space-y-2 text-sm text-slate-700">
               <p>Сделок: <b>{clientTrades.length}</b></p>
@@ -1182,9 +1335,9 @@ function ClientProfileUtip({
               {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
             </div>
           </Panel>
-        </div>
+        </div>}
 
-        <Panel title="Действия">
+        {clientSection === "overview" && <Panel title="Действия">
           <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_150px_190px_auto]">
             <input className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
             <input className={`${inputClass} h-10 rounded-lg`} type="datetime-local" value={actionForm.dueAt} onChange={(event) => setActionForm({ ...actionForm, dueAt: event.target.value })} />
@@ -1202,11 +1355,325 @@ function ClientProfileUtip({
           </div>
           <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
           <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} />
-        </Panel>
+        </Panel>}
 
-        <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />
+        {clientSection === "overview" && <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />}
       </div>
     </div>
+  );
+}
+
+function ClientUtipSection({
+  section,
+  client,
+  trades,
+  deposits,
+  withdrawals,
+  documents,
+  actions,
+  onCloseTrade,
+  onUpdateTrade,
+  onApproveDeposit,
+  onRejectDeposit,
+}: {
+  section: "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing";
+  client: User;
+  trades: Trade[];
+  deposits: Deposit[];
+  withdrawals: Withdrawal[];
+  documents: VerificationDocument[];
+  actions: (ClientAction & { client?: User })[];
+  onCloseTrade: (trade: Trade) => void;
+  onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
+  onApproveDeposit: (depositId: string) => void;
+  onRejectDeposit: (depositId: string) => void;
+}) {
+  const accountNumber = client.id.slice(-6).toUpperCase();
+  const closedTrades = trades.filter((trade) => trade.closePrice !== null);
+  const openTrades = trades.filter((trade) => trade.closePrice === null);
+  const historyEvents = [
+    { id: `created-${client.id}`, date: client.createdAt, author: "Система", text: `Создан клиент ${displayName(client)}` },
+    ...trades.map((trade) => ({
+      id: `trade-${trade.id}`,
+      date: trade.createdAt,
+      author: "Терминал",
+      text: `${trade.closePrice === null ? "Открыта позиция" : "Закрыта сделка"} ${trade.side} ${trade.symbol}, объем ${trade.volume}`,
+    })),
+    ...deposits.map((deposit) => ({
+      id: `deposit-${deposit.id}`,
+      date: deposit.createdAt,
+      author: "Финансы",
+      text: `Пополнение счета на $${Number(deposit.amount).toFixed(2)} (${deposit.status})`,
+    })),
+    ...withdrawals.map((withdrawal) => ({
+      id: `withdrawal-${withdrawal.id}`,
+      date: withdrawal.createdAt,
+      author: "Финансы",
+      text: `Заявка на вывод $${Number(withdrawal.amount).toFixed(2)} (${withdrawal.status})`,
+    })),
+    ...documents.map((doc) => ({
+      id: `doc-${doc.id}`,
+      date: doc.createdAt,
+      author: "Верификация",
+      text: `${doc.documentType || "Документ"}: ${doc.status}`,
+    })),
+    ...actions.map((action) => ({
+      id: `action-${action.id}`,
+      date: action.createdAt,
+      author: action.manager ? displayName(action.manager) : "CRM",
+      text: `Действие: ${action.title} (${action.status})`,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  if (section === "history") {
+    return (
+      <UtipTable title="История клиента">
+        <thead>
+          <tr>
+            <UtipTh>Автор</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Описание</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          {historyEvents.map((event) => (
+            <tr key={event.id} className="border-b border-slate-100 hover:bg-emerald-50/40">
+              <UtipTd>{event.author}</UtipTd>
+              <UtipTd>{new Date(event.date).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd>{event.text}</UtipTd>
+            </tr>
+          ))}
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (section === "documents") {
+    return (
+      <UtipTable title="Документы">
+        <thead>
+          <tr>
+            <UtipTh>Тип</UtipTh>
+            <UtipTh>Файл</UtipTh>
+            <UtipTh>Статус</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Действие</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          {documents.map((doc) => (
+            <tr key={doc.id} className="border-b border-slate-100">
+              <UtipTd>{doc.documentType || "Документ"}</UtipTd>
+              <UtipTd>{doc.fileName}</UtipTd>
+              <UtipTd><Badge value={doc.status} /></UtipTd>
+              <UtipTd>{new Date(doc.createdAt).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd>
+                <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">
+                  Открыть
+                </a>
+              </UtipTd>
+            </tr>
+          ))}
+          {documents.length === 0 && <UtipEmptyRow colSpan={5} text="Документов пока нет" />}
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (section === "accounts") {
+    return (
+      <UtipTable title="Торговые счета">
+        <thead>
+          <tr>
+            <UtipTh>Номер счета</UtipTh>
+            <UtipTh>Тип счета</UtipTh>
+            <UtipTh>Средства</UtipTh>
+            <UtipTh>Бонусы</UtipTh>
+            <UtipTh>Разрешение торговли</UtipTh>
+            <UtipTh>Открытые позиции</UtipTh>
+            <UtipTh>Закрытые сделки</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-b border-slate-100">
+            <UtipTd>{accountNumber}</UtipTd>
+            <UtipTd>ASTERO USD Live</UtipTd>
+            <UtipTd>${Number(client.balance || 0).toFixed(2)}</UtipTd>
+            <UtipTd>0.00</UtipTd>
+            <UtipTd><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></UtipTd>
+            <UtipTd>{openTrades.length}</UtipTd>
+            <UtipTd>{closedTrades.length}</UtipTd>
+          </tr>
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (section === "operations") {
+    return (
+      <TradingOperationsDesk
+        clients={[client]}
+        trades={trades}
+        onClose={onCloseTrade}
+        onUpdate={onUpdateTrade}
+        title={`Торговые операции: ${displayName(client)}`}
+        compact
+      />
+    );
+  }
+
+  if (section === "deposits") {
+    return (
+      <UtipTable title="Депозиты">
+        <thead>
+          <tr>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Метод</UtipTh>
+            <UtipTh>Статус</UtipTh>
+            <UtipTh>Действие</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          {deposits.map((deposit) => (
+            <tr key={deposit.id} className="border-b border-slate-100">
+              <UtipTd>{accountNumber}</UtipTd>
+              <UtipTd>{new Date(deposit.createdAt).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd>${Number(deposit.amount).toFixed(2)}</UtipTd>
+              <UtipTd>{deposit.method || "-"}</UtipTd>
+              <UtipTd><Badge value={deposit.status} /></UtipTd>
+              <UtipTd>
+                {deposit.status === "PENDING" ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onApproveDeposit(deposit.id)}
+                      className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                    >
+                      Подтвердить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRejectDeposit(deposit.id)}
+                      className="rounded bg-red-500 px-3 py-1.5 text-xs font-black text-white hover:bg-red-600"
+                    >
+                      Отклонить
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold text-slate-400">Обработано</span>
+                )}
+              </UtipTd>
+            </tr>
+          ))}
+          {deposits.length === 0 && <UtipEmptyRow colSpan={6} text="Пополнений пока нет" />}
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (false && section === "deposits") {
+    return (
+      <UtipTable title="Депозиты">
+        <thead>
+          <tr>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Метод</UtipTh>
+            <UtipTh>Статус</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          {deposits.map((deposit) => (
+            <tr key={deposit.id} className="border-b border-slate-100">
+              <UtipTd>{accountNumber}</UtipTd>
+              <UtipTd>{new Date(deposit.createdAt).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd>${Number(deposit.amount).toFixed(2)}</UtipTd>
+              <UtipTd>{deposit.method || "-"}</UtipTd>
+              <UtipTd><Badge value={deposit.status} /></UtipTd>
+            </tr>
+          ))}
+          {deposits.length === 0 && <UtipEmptyRow colSpan={5} text="Пополнений пока нет" />}
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (section === "requests") {
+    return (
+      <UtipTable title="Заявки">
+        <thead>
+          <tr>
+            <UtipTh>Номер</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Тип</UtipTh>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Статус</UtipTh>
+          </tr>
+        </thead>
+        <tbody>
+          {withdrawals.map((withdrawal, index) => (
+            <tr key={withdrawal.id} className="border-b border-slate-100">
+              <UtipTd>{index + 1}</UtipTd>
+              <UtipTd>{new Date(withdrawal.createdAt).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd>Вывод</UtipTd>
+              <UtipTd>{accountNumber}</UtipTd>
+              <UtipTd>${Number(withdrawal.amount).toFixed(2)}</UtipTd>
+              <UtipTd><Badge value={withdrawal.status} /></UtipTd>
+            </tr>
+          ))}
+          {withdrawals.length === 0 && <UtipEmptyRow colSpan={6} text="Заявок пока нет" />}
+        </tbody>
+      </UtipTable>
+    );
+  }
+
+  if (section === "tickets") {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+        <h3 className="text-lg font-black text-slate-950">Тикеты</h3>
+        <p className="mt-2">Тикеты клиента подключены через общую вкладку поддержки CRM. История обращений сохраняется в разделе «Поддержка».</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+      <h3 className="text-lg font-black text-slate-950">Рассылка</h3>
+      <p className="mt-2">Раздел подготовлен для будущих email/SMS-кампаний по клиенту. Текущие контакты: {client.email}</p>
+    </div>
+  );
+}
+
+function UtipTable({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
+        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[900px] w-full text-xs">{children}</table>
+      </div>
+    </div>
+  );
+}
+
+function UtipTh({ children }: { children: React.ReactNode }) {
+  return <th className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-black uppercase text-slate-500">{children}</th>;
+}
+
+function UtipTd({ children }: { children: React.ReactNode }) {
+  return <td className="px-3 py-2 text-slate-800">{children}</td>;
+}
+
+function UtipEmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
+  return (
+    <tr>
+      <td className="px-3 py-8 text-center text-slate-500" colSpan={colSpan}>{text}</td>
+    </tr>
   );
 }
 
@@ -1386,6 +1853,300 @@ function NoteCard({ note, onStatus }: { note: ClientNote; onStatus: (id: string,
 
 function ActionList({ actions, onUpdate, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean }) {
   return <div className="space-y-3">{actions.map((action) => <div key={action.id} className="rounded-2xl border border-emerald-100 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"><div><p className="font-black">{action.title}</p>{showClient && action.client && <p className="text-xs text-slate-500">{displayName(action.client)} · {action.client.email}</p>}<p className="mt-1 text-sm text-slate-500">{action.description || "Без описания"}</p></div><Badge value={action.status} /></div><div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4"><input type="datetime-local" className={inputClass} defaultValue={toLocalDateTime(action.dueAt)} onBlur={(e) => e.target.value && onUpdate(action.id, { dueAt: e.target.value })} /><select className={inputClass} value={action.status} onChange={(e) => onUpdate(action.id, { status: e.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select><select className={inputClass} value={action.manager?.id || ""} onChange={(e) => onUpdate(action.id, { managerId: e.target.value })}><option value="">Без менеджера</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white">Закрыть</button></div><p className="mt-2 text-xs text-slate-500">Срок: {new Date(action.dueAt).toLocaleString()}</p></div>)}{actions.length === 0 && <Empty text="Действий нет" />}</div>;
+}
+
+function TradingOperationsDesk({
+  clients,
+  trades,
+  onClose,
+  onUpdate,
+  title = "Торговые операции",
+  compact = false,
+}: {
+  clients: User[];
+  trades: Trade[];
+  onClose: (trade: Trade) => void;
+  onUpdate: (tradeId: string, payload: TradeUpdatePayload) => void;
+  title?: string;
+  compact?: boolean;
+}) {
+  const [mode, setMode] = useState<"open" | "closed" | "all">("open");
+  const [account, setAccount] = useState("all");
+  const [symbol, setSymbol] = useState("");
+  const [side, setSide] = useState("all");
+  const [selectedTradeId, setSelectedTradeId] = useState("");
+  const [quotes, setQuotes] = useState<Record<string, { price: number; bid: number; ask: number }>>({});
+
+  const openQuoteSymbols = useMemo(
+    () => Array.from(new Set(trades.filter((trade) => trade.closePrice === null).map((trade) => trade.symbol))),
+    [trades]
+  );
+  const openQuoteSymbolsKey = openQuoteSymbols.join("|");
+
+  const clientMap = useMemo(() => {
+    const map = new Map<string, User>();
+    clients.forEach((client) => {
+      map.set(client.id, client);
+      map.set(client.email, client);
+    });
+    return map;
+  }, [clients]);
+
+  const filteredTrades = useMemo(() => {
+    const query = symbol.trim().toLowerCase();
+
+    return trades.filter((trade) => {
+      const client = clientMap.get(trade.user.id || "") || clientMap.get(trade.user.email);
+      const isOpen = trade.closePrice === null;
+      const matchesMode = mode === "all" || (mode === "open" && isOpen) || (mode === "closed" && !isOpen);
+      const matchesAccount = account === "all" || client?.id === account || trade.user.id === account;
+      const matchesSide = side === "all" || trade.side === side;
+      const matchesQuery =
+        query === "" ||
+        `${trade.symbol} ${trade.user.email} ${displayName(trade.user)} ${client ? displayName(client) : ""}`.toLowerCase().includes(query);
+
+      return matchesMode && matchesAccount && matchesSide && matchesQuery;
+    });
+  }, [account, clientMap, mode, side, symbol, trades]);
+
+  const selectedTrade = filteredTrades.find((trade) => trade.id === selectedTradeId) || filteredTrades[0];
+  const openCount = trades.filter((trade) => trade.closePrice === null).length;
+  const closedCount = trades.length - openCount;
+  const filteredProfit = filteredTrades.reduce((sum, trade) => sum + getTradeProfit(trade), 0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadQuotes() {
+      const entries = await Promise.all(
+        openQuoteSymbols.map(async (quoteSymbol) => {
+          try {
+            const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(quoteSymbol)}`, { cache: "no-store" });
+            if (!res.ok) return null;
+
+            const data = await res.json();
+            const price = Number(data.price);
+            const bid = Number(data.bid ?? data.price);
+            const ask = Number(data.ask ?? data.price);
+
+            if (!Number.isFinite(price) || !Number.isFinite(bid) || !Number.isFinite(ask)) return null;
+
+            return [quoteSymbol, { price, bid, ask }] as const;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setQuotes(Object.fromEntries(entries.filter((entry): entry is readonly [string, { price: number; bid: number; ask: number }] => Boolean(entry))));
+      }
+    }
+
+    if (openQuoteSymbols.length === 0) {
+      setQuotes({});
+      return;
+    }
+
+    loadQuotes();
+    const interval = window.setInterval(loadQuotes, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [openQuoteSymbolsKey]);
+
+  function getTradeClosePrice(trade: Trade) {
+    if (trade.closePrice !== null) return trade.closePrice;
+
+    const quote = quotes[trade.symbol];
+    if (!quote) return trade.openPrice;
+
+    return trade.side === "BUY" ? quote.bid : quote.ask;
+  }
+
+  function getTradeProfit(trade: Trade) {
+    if (trade.closePrice !== null) return Number(trade.profit || 0);
+
+    return calculateTradeProfit(
+      trade.symbol,
+      trade.side,
+      trade.openPrice,
+      getTradeClosePrice(trade),
+      trade.volume,
+      trade.swap || 0
+    );
+  }
+
+  function resetFilters() {
+    setMode("open");
+    setAccount("all");
+    setSymbol("");
+    setSide("all");
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-emerald-100 bg-white p-4 text-slate-950 shadow-sm">
+        <h2 className="text-lg font-black">{title}</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {clients.length === 1 ? "Операции выбранного клиента" : "Операции по всем клиентам CRM"}
+        </p>
+      </div>
+
+      <div className={`grid grid-cols-2 gap-3 ${compact ? "xl:grid-cols-4" : "xl:grid-cols-4"}`}>
+        <Metric title="Открытые позиции" value={openCount} />
+        <Metric title="Закрытые сделки" value={closedCount} />
+        <Metric title="В выборке" value={filteredTrades.length} />
+        <Metric title="Итог по выборке" value={`$${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
+      </div>
+
+      <section className="rounded-xl border border-emerald-100 bg-white text-slate-950 shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["open", "Открытые позиции и ордера"],
+              ["closed", "Закрытые сделки"],
+              ["all", "Все операции"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMode(key as typeof mode)}
+                className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                  mode === key ? "border-emerald-500 bg-emerald-500 text-slate-950" : "border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_180px_1fr_auto_auto]">
+            <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" value={account} onChange={(event) => setAccount(event.target.value)}>
+              <option value="all">Все счета</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.id.slice(-6).toUpperCase()} · {displayName(client)}
+                </option>
+              ))}
+            </select>
+            <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" value={side} onChange={(event) => setSide(event.target.value)}>
+              <option value="all">Все типы</option>
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+            <input className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Поиск: символ, клиент, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+            <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-black text-white">Показать</button>
+            <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-600">Сбросить</button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className={`${compact ? "min-w-[1320px]" : "min-w-[1540px]"} w-full text-xs`}>
+            <thead>
+              <tr className="border-b border-slate-200 bg-white text-left text-[11px] uppercase text-slate-500">
+                <th className="px-3 py-2">Счет</th>
+                <th className="px-3 py-2">Клиент</th>
+                <th className="px-3 py-2">Символ</th>
+                <th className="px-3 py-2">Тип</th>
+                <th className="px-3 py-2">Объем</th>
+                <th className="px-3 py-2">Дата открытия</th>
+                <th className="px-3 py-2">Цена открытия</th>
+                <th className="px-3 py-2">Текущая/закрытия</th>
+                <th className="px-3 py-2">Take Profit</th>
+                <th className="px-3 py-2">Stop Loss</th>
+                <th className="px-3 py-2">Swap</th>
+                <th className="px-3 py-2">Прибыль</th>
+                <th className="px-3 py-2">Статус</th>
+                <th className="px-3 py-2 text-right">Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTrades.map((trade) => {
+                const client = clientMap.get(trade.user.id || "") || clientMap.get(trade.user.email);
+                const isOpen = trade.closePrice === null;
+
+                return (
+                  <tr
+                    key={trade.id}
+                    onClick={() => setSelectedTradeId(trade.id)}
+                    className={`cursor-pointer border-b border-slate-100 align-top hover:bg-emerald-50/60 ${selectedTrade?.id === trade.id ? "bg-emerald-50" : ""}`}
+                  >
+                    <td className="px-3 py-2 font-mono text-[11px]">{(client?.id || trade.user.id || trade.id).slice(-6).toUpperCase()}</td>
+                    <td className="px-3 py-2">
+                      <p className="font-black">{client ? displayName(client) : displayName(trade.user)}</p>
+                      <p className="text-[11px] text-slate-500">{trade.user.email}</p>
+                    </td>
+                    <td className="px-3 py-2 font-black">{trade.symbol}</td>
+                    <td className={`px-3 py-2 font-black ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
+                    <td className="px-3 py-2">
+                      {isOpen ? <TradeEditInput label="Объем" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} /> : trade.volume}
+                    </td>
+                    <td className="px-3 py-2">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
+                    <td className="px-3 py-2">
+                      {isOpen ? <TradeEditInput label="Цена открытия" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} /> : formatPrice(trade.symbol, trade.openPrice)}
+                    </td>
+                    <td className="px-3 py-2">{formatPrice(trade.symbol, getTradeClosePrice(trade))}</td>
+                    <td className="px-3 py-2">
+                      {isOpen ? <TradeEditInput label="Take Profit" value={trade.takeProfit} allowEmpty onCommit={(value) => onUpdate(trade.id, { takeProfit: value })} /> : trade.takeProfit == null ? "-" : formatPrice(trade.symbol, trade.takeProfit)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isOpen ? <TradeEditInput label="Stop Loss" value={trade.stopLoss} allowEmpty onCommit={(value) => onUpdate(trade.id, { stopLoss: value })} /> : trade.stopLoss == null ? "-" : formatPrice(trade.symbol, trade.stopLoss)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isOpen ? <TradeEditInput label="Swap" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} /> : Number(trade.swap || 0).toFixed(2)}
+                    </td>
+                    <td className={`px-3 py-2 font-black ${getTradeProfit(trade) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      ${getTradeProfit(trade).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2"><Badge value={isOpen ? "OPEN" : "CLOSED"} /></td>
+                    <td className="px-3 py-2 text-right">
+                      {isOpen ? (
+                        <button onClick={(event) => { event.stopPropagation(); onClose(trade); }} className="rounded bg-red-600 px-3 py-1.5 font-black text-white">Закрыть</button>
+                      ) : (
+                        <span className="text-slate-400">Закрыта</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredTrades.length === 0 && (
+                <tr>
+                  <td className="px-3 py-10 text-center text-slate-500" colSpan={14}>По выбранным фильтрам ничего не найдено</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-slate-200 bg-slate-50 p-3">
+          {selectedTrade ? (
+            <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-6">
+              <MiniCell label="Символ" value={selectedTrade.symbol} />
+              <MiniCell label="Номер" value={selectedTrade.id.slice(-8).toUpperCase()} />
+              <MiniCell label="Тип" value={selectedTrade.side} />
+              <MiniCell label="Объем" value={String(selectedTrade.volume)} />
+              <MiniCell label="Open price" value={formatPrice(selectedTrade.symbol, selectedTrade.openPrice)} />
+              <MiniCell label="Profit" value={`$${getTradeProfit(selectedTrade).toFixed(2)}`} />
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Выберите операцию в таблице</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MiniCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-2">
+      <p className="text-[10px] font-black uppercase text-slate-400">{label}</p>
+      <p className="mt-1 truncate font-black text-slate-900">{value}</p>
+    </div>
+  );
 }
 
 

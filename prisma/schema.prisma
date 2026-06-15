@@ -152,11 +152,43 @@ model CompanyDocument {
   createdAt     DateTime @default(now())
 }
 model ManualQuote {
-  id        String   @id @default(cuid())
-  symbol    String   @unique
-  price     Float
-  market    String   @default("Forex")
-  enabled   Boolean  @default(true)
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  symbol          String   @unique
+  price           Float
+  market          String   @default("Forex")
+  enabled         Boolean  @default(true)
+  aBookEnabled    Boolean  @default(false)
+  aBookAccountIds String?
+  ddeEnabled      Boolean  @default(false)
+  mt4DdeServer    String?
+  symbolEnabled   Boolean  @default(true)
+  tradingHours    String   @default("24/5")
+  quoteSource     String   @default("TwelveData")
+  binanceEnabled  Boolean  @default(false)
+  bitfinexEnabled Boolean  @default(false)
+  hitbtcEnabled   Boolean  @default(false)
+  margin          Float    @default(1)
+  leverage        Int      @default(100)
+  swapLong        Float    @default(0)
+  swapShort       Float    @default(0)
+  spread          Float    @default(14)
+  commission      Float    @default(0)
+  riskMode        String   @default("B-Book")
+  description     String?
+  calculationType String   @default("forex")
+  symbolGroup     String   @default("Currencies")
+  quotesFeed      String   @default("Extra quotes feed")
+  spreadBid       Float    @default(0)
+  spreadAsk       Float    @default(14)
+  stopLevel       Float    @default(50)
+  gapLevel        Float    @default(100)
+  percentage      Float    @default(100)
+  contractSize    Float    @default(100000)
+  marginCurrency  String   @default("USD")
+  profitCurrency  String   @default("USD")
+  digits          Int      @default(5)
+  delay           Int      @default(0)
+  tradeForbidden  Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
 }
