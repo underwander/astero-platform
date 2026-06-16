@@ -24,17 +24,17 @@ export default function AdminLayout({
       : "lg:ml-[90px]";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white xl:flex">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white xl:flex">
       <AppSidebar />
       <Backdrop />
 
-      <div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
+      <div className={`min-w-0 flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
         <AppHeader />
         <main
           className={
             isTerminal
               ? "w-full bg-[#151821]"
-              : "w-full bg-slate-50 p-2 dark:bg-slate-950 md:p-3"
+              : "w-full overflow-x-hidden bg-slate-50 p-3 dark:bg-slate-950 sm:p-4 lg:p-5"
           }
         >
           {children}

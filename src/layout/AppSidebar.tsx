@@ -27,12 +27,12 @@ const clientNavItems: NavItem[] = [
 ];
 
 export default function AppSidebar() {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
   const { t } = useLanguage();
 
   const showText = isExpanded || isHovered || isMobileOpen;
-  const sidebarWidth = showText ? "w-[290px]" : "w-[90px]";
+  const sidebarWidth = showText ? "w-[min(82vw,290px)] lg:w-[290px]" : "w-[90px]";
 
   function isActive(path: string) {
     if (path === "/") return pathname === "/";
@@ -68,6 +68,9 @@ export default function AppSidebar() {
               <li key={item.path}>
                 <Link
                   href={item.path}
+                  onClick={() => {
+                    if (isMobileOpen) toggleMobileSidebar();
+                  }}
                   className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
                     active
                       ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-900/25"

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function DashboardPage() {
   return (
     <ProtectedPage>
-      <div className="min-h-[calc(100vh-72px)] space-y-4">
+      <div className="mx-auto min-h-[calc(100vh-72px)] w-full max-w-none space-y-4">
         <div className="px-1">
           <h1 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
             Панель клиента

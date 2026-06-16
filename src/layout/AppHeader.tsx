@@ -26,10 +26,10 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-900/10 bg-white/90 backdrop-blur-xl dark:border-emerald-400/10 dark:bg-[#07130d]/90">
-      <div className="flex min-h-18 items-center justify-between gap-3 px-4 py-3 lg:px-6">
+      <div className="flex min-h-16 items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
-            className="flex size-11 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50 dark:border-emerald-400/10 dark:bg-white/[0.04] dark:text-emerald-100 dark:hover:bg-white/[0.08]"
+            className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-900 shadow-sm transition hover:bg-emerald-50 dark:border-emerald-400/10 dark:bg-white/[0.04] dark:text-emerald-100 dark:hover:bg-white/[0.08] sm:size-11"
             onClick={handleToggle}
             aria-label="Toggle sidebar"
           >
@@ -46,7 +46,7 @@ export default function AppHeader() {
 
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
           <div className="hidden items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 sm:flex">
             <span className="size-2 rounded-full bg-emerald-500" /> {t("live")}
           </div>
@@ -60,7 +60,7 @@ export default function AppHeader() {
             <p className="text-xs text-slate-500 dark:text-emerald-50/50">{role}</p>
           </div>
 
-          <Link href="/logout" className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+          <Link href="/logout" className="rounded-2xl bg-slate-950 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 sm:px-4 sm:text-sm">
             {t("logout")}
           </Link>
         </div>
