@@ -596,7 +596,7 @@ function PositionsPanel({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] text-xs">
+        <table className="w-full min-w-[1020px] text-xs">
           <thead>
             <tr className="border-b border-[#1f332f] text-left text-[10px] uppercase text-[#658579]">
               <th className="px-3 py-2">Символ</th>
@@ -607,7 +607,6 @@ function PositionsPanel({
               <th className="px-3 py-2">S/L</th>
               <th className="px-3 py-2">Дата открытия</th>
               <th className="px-3 py-2">T/P</th>
-              <th className="px-3 py-2">Своп</th>
               <th className="px-3 py-2">Прибыль</th>
               <th className="px-3 py-2">{activeTab === "open" ? "" : "Дата"}</th>
             </tr>
@@ -630,7 +629,6 @@ function PositionsPanel({
                   <td className="px-3 py-2">{trade.stopLoss ? formatPrice(trade.symbol, trade.stopLoss) : "-"}</td>
                   <td className="px-3 py-2 text-[#7fa293]">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
                   <td className="px-3 py-2">{trade.takeProfit ? formatPrice(trade.symbol, trade.takeProfit) : "-"}</td>
-                  <td className="px-3 py-2">{trade.swap ?? 0}</td>
                   <td className={`px-3 py-2 font-black ${profit >= 0 ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>${profit.toFixed(2)}</td>
                   <td className="px-3 py-2 text-right">
                     {activeTab === "open" ? (
