@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 import { getInstrument } from "@/lib/market-instruments";
+import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
 
 export async function POST(req: Request) {
   try {
@@ -53,6 +54,54 @@ export async function POST(req: Request) {
     ) {
       return Response.json(
         { error: `Invalid price or volume. Minimum volume is ${instrument.minLot}` },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        trades: {
+          where: { closePrice: null },
+        },
+      },
+    });
+
+    if (!user) {
+      return Response.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    const quoteMap = {
+      [symbol]: {
+        price: numericOpenPrice,
+        bid: numericOpenPrice,
+        ask: numericOpenPrice,
+        settings: manualQuote
+          ? {
+              leverage: manualQuote.leverage,
+              margin: manualQuote.margin,
+              contractSize: manualQuote.contractSize,
+              spreadAsk: manualQuote.spreadAsk,
+            }
+          : null,
+      },
+    };
+    const accountRisk = calculateAccountRisk(user.balance, user.trades, quoteMap);
+    const orderMargin = calculateRequiredMargin(
+      { symbol, side, openPrice: numericOpenPrice, volume: numericVolume },
+      quoteMap
+    );
+
+    if (accountRisk.equity <= 0 || accountRisk.freeMargin < orderMargin) {
+      return Response.json(
+        {
+          error: "Недостаточно свободных средств для открытия сделки",
+          freeMargin: accountRisk.freeMargin,
+          requiredMargin: orderMargin,
+        },
         { status: 400 }
       );
     }

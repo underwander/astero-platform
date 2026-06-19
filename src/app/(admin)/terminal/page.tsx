@@ -10,6 +10,7 @@ import {
   marketInstruments,
   type MarketGroup,
 } from "@/lib/market-instruments";
+import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
 
 type Quote = {
   symbol: string;
@@ -79,6 +80,7 @@ export default function TradingTerminalPage() {
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [message, setMessage] = useState("");
+  const [balance, setBalance] = useState(0);
   const [activeGroup, setActiveGroup] = useState<MarketGroup | "All">("Forex");
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -99,8 +101,30 @@ export default function TradingTerminalPage() {
   const activeContractSize = Math.max(1, selectedQuoteSettings?.contractSize ?? instrument.contractSize);
   const marginCurrency = selectedQuoteSettings?.marginCurrency || "USD";
   const profitCurrency = selectedQuoteSettings?.profitCurrency || "USD";
-  const requiredMargin = (activeContractSize * tradeVolume * activeTradePrice * activeMarginRate) / activeLeverage;
+  const requiredMargin = calculateRequiredMargin(
+    {
+      symbol,
+      side,
+      openPrice: activeTradePrice,
+      volume: tradeVolume,
+    },
+    {
+      [symbol]: {
+        price: activeTradePrice,
+        bid: activeBid,
+        ask: activeAsk,
+        settings: {
+          leverage: activeLeverage,
+          margin: activeMarginRate,
+          contractSize: activeContractSize,
+          spreadAsk: activeSpreadPoints,
+        },
+      },
+    }
+  );
   const pointValue = instrument.tickValue * tradeVolume;
+  const openTrades = trades.filter((trade) => trade.closePrice === null);
+  const accountMetrics = calculateAccountRisk(balance, openTrades, quotes);
   const visibleSymbols = useMemo(
     () => marketInstruments.filter((item) => activeGroup === "All" || item.group === activeGroup),
     [activeGroup]
@@ -150,6 +174,35 @@ export default function TradingTerminalPage() {
     setTrades(Array.isArray(data) ? data : []);
   }
 
+  async function loadBalance(currentUserId = userId) {
+    if (!currentUserId) return;
+    const res = await fetch(`/api/user/balance?userId=${encodeURIComponent(currentUserId)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setBalance(Number(data.balance || 0));
+  }
+
+  async function runRiskCheck(currentUserId = userId) {
+    if (!currentUserId || openTrades.length === 0) return;
+
+    const res = await fetch("/api/trade/risk-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUserId, quotes }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) return;
+
+    if (data.stopOut) {
+      setMessage(`Stop out: закрыто ${data.closedTrades || 0} позиций. Баланс защищен от минуса.`);
+      await loadBalance(currentUserId);
+      await loadTrades(currentUserId);
+    }
+  }
+
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId");
 
@@ -161,6 +214,7 @@ export default function TradingTerminalPage() {
     const timer = window.setTimeout(() => {
       setUserId(storedUserId);
       loadTrades(storedUserId);
+      loadBalance(storedUserId);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -189,6 +243,16 @@ export default function TradingTerminalPage() {
     const interval = setInterval(() => loadTrades(userId), 10000);
     return () => clearInterval(interval);
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId || openTrades.length === 0) return;
+    const timer = window.setTimeout(() => runRiskCheck(userId), 300);
+    const interval = setInterval(() => runRiskCheck(userId), 5000);
+    return () => {
+      window.clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [userId, trades, quotes]);
 
   function setVolumePreset(next: string) {
     setVolume(next);
@@ -255,6 +319,7 @@ export default function TradingTerminalPage() {
     setMessage(`Сделка открыта: ${data.symbol} ${data.side}, объем ${data.volume}, цена ${data.openPrice}`);
     setStopLoss("");
     setTakeProfit("");
+    await loadBalance();
     await loadTrades();
   }
 
@@ -275,6 +340,7 @@ export default function TradingTerminalPage() {
       return;
     }
     setMessage(`Сделка закрыта: ${trade.symbol} по цене ${formatPrice(trade.symbol, quote)}`);
+    await loadBalance();
     await loadTrades();
   }
 
@@ -395,8 +461,13 @@ export default function TradingTerminalPage() {
               </button>
             </div>
           </div>
-          <div className="border-b border-[#1f332f] bg-[#07110f] px-3 py-2 text-xs font-bold text-[#b8d4c7]">
-            {symbol} · M15 · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."} · Цена пункта ${instrument.tickValue} · Шаг {instrument.pointSize}
+          <div className="flex flex-wrap items-center gap-2 border-b border-[#1f332f] bg-[#07110f] px-3 py-2 text-xs font-bold text-[#b8d4c7]">
+            <span>{symbol} · M15 · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}</span>
+            <span>Цена пункта ${instrument.tickValue}</span>
+            <span>Шаг {instrument.pointSize}</span>
+            <span className="ml-auto rounded bg-[#0f3a2a] px-2 py-1 font-black text-[#8af5bd]">
+              Свободные средства: {formatCurrency(accountMetrics.freeMargin)}
+            </span>
           </div>
           <iframe
             key={symbol}
@@ -444,6 +515,14 @@ export default function TradingTerminalPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
+                <div className="border border-[#24453c] bg-[#0b1512] p-3">
+                  <p className="text-[10px] font-black uppercase text-[#7fa293]">Средства</p>
+                  <p className="mt-1 text-sm font-black text-white">{formatCurrency(accountMetrics.equity)}</p>
+                </div>
+                <div className="border border-[#24453c] bg-[#0b1512] p-3">
+                  <p className="text-[10px] font-black uppercase text-[#7fa293]">Свободно</p>
+                  <p className="mt-1 text-sm font-black text-[#8af5bd]">{formatCurrency(accountMetrics.freeMargin)}</p>
+                </div>
                 <div className="border border-[#24453c] bg-[#0b1512] p-3">
                   <p className="text-[10px] font-black uppercase text-[#7fa293]">Залог</p>
                   <p className="mt-1 text-sm font-black text-white">{formatCurrency(requiredMargin, marginCurrency)}</p>

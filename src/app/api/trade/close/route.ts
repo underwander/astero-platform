@@ -48,36 +48,45 @@ export async function POST(req: Request) {
       trade.swap
     );
 
-    const updatedTrade = await prisma.trade.update({
-      where: { id: tradeId },
-      data: {
-        closePrice: numericClosePrice,
-        profit,
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const currentUser = await tx.user.findUnique({
+        where: { id: trade.userId },
+        select: { balance: true },
+      });
 
-    const updatedUser = await prisma.user.update({
-      where: { id: trade.userId },
-      data: {
-        balance: {
-          increment: profit,
+      const nextBalance = Math.max(0, Number(currentUser?.balance || 0) + profit);
+
+      const updatedTrade = await tx.trade.update({
+        where: { id: tradeId },
+        data: {
+          closePrice: numericClosePrice,
+          profit,
         },
-      },
-    });
+      });
 
-    await prisma.balanceHistory.create({
-  data: {
-    userId: trade.userId,
-    type: profit >= 0 ? "TRADE_PROFIT" : "TRADE_LOSS",
-    amount: profit,
-    balance: updatedUser.balance,
-    description: `${trade.symbol} ${trade.side} closed`,
-  },
-});
+      const updatedUser = await tx.user.update({
+        where: { id: trade.userId },
+        data: {
+          balance: nextBalance,
+        },
+      });
+
+      await tx.balanceHistory.create({
+        data: {
+          userId: trade.userId,
+          type: profit >= 0 ? "TRADE_PROFIT" : "TRADE_LOSS",
+          amount: profit,
+          balance: updatedUser.balance,
+          description: `${trade.symbol} ${trade.side} closed`,
+        },
+      });
+
+      return { updatedTrade, updatedUser };
+    });
 
     return Response.json({
-      trade: updatedTrade,
-      balance: updatedUser.balance,
+      trade: result.updatedTrade,
+      balance: result.updatedUser.balance,
     });
   } catch (error) {
     console.error(error);
