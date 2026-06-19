@@ -596,7 +596,7 @@ function PositionsPanel({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1020px] text-xs">
+        <table className="w-full min-w-[960px] text-xs">
           <thead>
             <tr className="border-b border-[#1f332f] text-left text-[10px] uppercase text-[#658579]">
               <th className="px-3 py-2">Символ</th>
@@ -604,11 +604,11 @@ function PositionsPanel({
               <th className="px-3 py-2">Объем</th>
               <th className="px-3 py-2">Открытие</th>
               <th className="px-3 py-2">{activeTab === "open" ? "Рынок" : "Закрытие"}</th>
-              <th className="px-3 py-2">S/L</th>
               <th className="px-3 py-2">Дата открытия</th>
               <th className="px-3 py-2">T/P</th>
+              <th className="px-3 py-2">S/L</th>
               <th className="px-3 py-2">Прибыль</th>
-              <th className="px-3 py-2">{activeTab === "open" ? "" : "Дата"}</th>
+              {activeTab === "open" && <th className="px-3 py-2" />}
             </tr>
           </thead>
           <tbody>
@@ -626,25 +626,23 @@ function PositionsPanel({
                   <td className="px-3 py-2">{trade.volume}</td>
                   <td className="px-3 py-2">{formatPrice(trade.symbol, trade.openPrice)}</td>
                   <td className="px-3 py-2">{formatPrice(trade.symbol, marketPrice)}</td>
-                  <td className="px-3 py-2">{trade.stopLoss ? formatPrice(trade.symbol, trade.stopLoss) : "-"}</td>
                   <td className="px-3 py-2 text-[#7fa293]">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
                   <td className="px-3 py-2">{trade.takeProfit ? formatPrice(trade.symbol, trade.takeProfit) : "-"}</td>
+                  <td className="px-3 py-2">{trade.stopLoss ? formatPrice(trade.symbol, trade.stopLoss) : "-"}</td>
                   <td className={`px-3 py-2 font-black ${profit >= 0 ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>${profit.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right">
-                    {activeTab === "open" ? (
+                  {activeTab === "open" && (
+                    <td className="px-3 py-2 text-right">
                       <button onClick={() => onClose(trade)} className="bg-[#21483d] px-3 py-1 font-black text-white hover:bg-[#e83b4b]">
                         Закрыть
                       </button>
-                    ) : (
-                      <span className="text-[#658579]">{new Date(trade.createdAt).toLocaleString("ru-RU")}</span>
-                    )}
-                  </td>
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {visibleTrades.length === 0 && (
               <tr>
-                <td className="px-3 py-8 text-center text-[#658579]" colSpan={11}>
+                <td className="px-3 py-8 text-center text-[#658579]" colSpan={activeTab === "open" ? 10 : 9}>
                   {activeTab === "open" ? "Открытых позиций пока нет" : "Закрытых сделок пока нет"}
                 </td>
               </tr>
