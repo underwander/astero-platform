@@ -15,7 +15,7 @@ type Trade = {
   swap?: number | null;
 };
 
-type QuoteMap = Record<string, number>;
+type QuoteMap = Record<string, { price: number; tickValue?: number | null }>;
 const DASHBOARD_REFRESH_MS = 5000;
 
 export default function BrokerMetrics() {
@@ -28,7 +28,7 @@ export default function BrokerMetrics() {
     const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(symbol)}`);
     const data = await res.json();
     if (!res.ok) return null;
-    return Number(data.price);
+    return { price: Number(data.price), tickValue: data.settings?.tickValue ?? null };
   }
 
   async function loadDashboard() {
@@ -59,13 +59,14 @@ export default function BrokerMetrics() {
     );
 
     const quotes: QuoteMap = {};
-    quoteEntries.forEach(([symbol, price]) => {
-      if (price) quotes[symbol] = price;
+    quoteEntries.forEach(([symbol, quote]) => {
+      if (quote) quotes[symbol] = quote;
     });
 
     const floating = open.reduce((sum, trade) => {
-      const currentPrice = quotes[trade.symbol] || trade.openPrice;
-      return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0);
+      const quote = quotes[trade.symbol];
+      const currentPrice = quote?.price || trade.openPrice;
+      return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0, quote?.tickValue);
     }, 0);
 
     setEmail(balanceData.email || "");

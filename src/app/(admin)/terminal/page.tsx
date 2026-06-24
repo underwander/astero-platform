@@ -28,6 +28,7 @@ type QuoteSettings = {
   leverage: number;
   margin: number;
   contractSize: number;
+  tickValue?: number | null;
   marginCurrency: string;
   profitCurrency: string;
 };
@@ -122,7 +123,8 @@ export default function TradingTerminalPage() {
       },
     }
   );
-  const pointValue = instrument.tickValue * tradeVolume;
+  const activeTickValue = selectedQuoteSettings?.tickValue || instrument.tickValue;
+  const pointValue = activeTickValue * tradeVolume;
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const accountMetrics = calculateAccountRisk(balance, openTrades, quotes);
   const visibleSymbols = useMemo(
@@ -463,7 +465,7 @@ export default function TradingTerminalPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 border-b border-[#1f332f] bg-[#07110f] px-3 py-2 text-xs font-bold text-[#b8d4c7]">
             <span>{symbol} · M15 · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}</span>
-            <span>Цена пункта ${instrument.tickValue}</span>
+            <span>Цена пункта ${activeTickValue}</span>
             <span>Шаг {instrument.pointSize}</span>
             <span className="ml-auto rounded bg-[#0f3a2a] px-2 py-1 font-black text-[#8af5bd]">
               Свободные средства: {formatCurrency(accountMetrics.freeMargin)}
@@ -616,7 +618,7 @@ function PositionsPanel({
               const marketPrice = quotes[trade.symbol]?.price || trade.closePrice || trade.openPrice;
               const profit =
                 trade.closePrice === null
-                  ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0)
+                  ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)
                   : Number(trade.profit || 0);
 
               return (

@@ -35,6 +35,7 @@ type ManualQuote = {
   gapLevel: number;
   percentage: number;
   contractSize: number;
+  tickValue?: number | null;
   marginCurrency: string;
   profitCurrency: string;
   digits: number;
@@ -58,6 +59,7 @@ type SymbolForm = {
   gapLevel: string;
   percentage: string;
   contractSize: string;
+  tickValue: string;
   marginCurrency: string;
   profitCurrency: string;
   digits: string;
@@ -141,16 +143,17 @@ function buildForm(symbol: string, quote?: ManualQuote): SymbolForm {
     gapLevel: String(quote?.gapLevel ?? 100),
     percentage: String(quote?.percentage ?? 100),
     contractSize: String(quote?.contractSize ?? instrument.contractSize),
+    tickValue: String(quote?.tickValue ?? instrument.tickValue),
     marginCurrency: quote?.marginCurrency || "USD",
     profitCurrency: quote?.profitCurrency || "USD",
     digits: String(quote?.digits ?? instrument.digits),
     delay: String(quote?.delay ?? 0),
     commission: String(quote?.commission ?? 0),
-    manualPrice: quote?.enabled ?? true,
+    manualPrice: false,
     tradeForbidden: quote?.tradeForbidden ?? false,
     aBookEnabled: quote?.aBookEnabled ?? false,
     ddeEnabled: quote?.ddeEnabled ?? false,
-    quoteSource: quote?.quoteSource || "Manual",
+    quoteSource: quote?.quoteSource || "TwelveData",
     leverage: String(quote?.leverage ?? 100),
     margin: String(quote?.margin ?? 1),
     riskMode: quote?.riskMode || "B-Book",
@@ -240,6 +243,7 @@ export default function ManualQuotesPanel() {
       gapLevel: Number(nextForm.gapLevel),
       percentage: Number(nextForm.percentage),
       contractSize: Number(nextForm.contractSize),
+      tickValue: Number(nextForm.tickValue),
       marginCurrency: nextForm.marginCurrency,
       profitCurrency: nextForm.profitCurrency,
       digits: Number(nextForm.digits),
@@ -482,6 +486,7 @@ function ModifySymbolModal({
             <Field label="Gap Level" value={form.gapLevel} onChange={(value) => onChange("gapLevel", value)} />
             <Field label="Процент" value={form.percentage} onChange={(value) => onChange("percentage", value)} />
             <Field label="Размер контракта" value={form.contractSize} onChange={(value) => onChange("contractSize", value)} />
+            <Field label="Стоимость пункта" value={form.tickValue} onChange={(value) => onChange("tickValue", value)} />
             <SelectField label="Тип расчета" value={form.calculationType} options={["forex", "cfd", "crypto", "stocks", "indices"]} onChange={(value) => onChange("calculationType", value)} />
             <Field label="Валюта маржи" value={form.marginCurrency} onChange={(value) => onChange("marginCurrency", value)} />
             <Field label="Валюта прибыли" value={form.profitCurrency} onChange={(value) => onChange("profitCurrency", value)} />

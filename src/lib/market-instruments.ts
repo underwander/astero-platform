@@ -57,9 +57,12 @@ export function formatPrice(symbol: string, price: number) {
   });
 }
 
-export function calculateTradeProfit(symbol: string, side: string, openPrice: number, closePrice: number, volume: number, swap = 0) {
+export function calculateTradeProfit(symbol: string, side: string, openPrice: number, closePrice: number, volume: number, swap = 0, customTickValue?: number | null) {
   const instrument = getInstrument(symbol);
   const direction = side === "BUY" ? 1 : -1;
   const points = ((closePrice - openPrice) * direction) / instrument.pointSize;
-  return points * instrument.tickValue * volume + Number(swap || 0);
+  const tickValue = Number.isFinite(Number(customTickValue)) && Number(customTickValue) > 0
+    ? Number(customTickValue)
+    : instrument.tickValue;
+  return points * tickValue * volume + Number(swap || 0);
 }

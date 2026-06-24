@@ -85,6 +85,7 @@ export async function POST(req: Request) {
               margin: manualQuote.margin,
               contractSize: manualQuote.contractSize,
               spreadAsk: manualQuote.spreadAsk,
+              tickValue: manualQuote.tickValue,
             }
           : null,
       },

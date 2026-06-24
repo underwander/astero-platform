@@ -196,6 +196,7 @@ function buildQuoteSettings(manualQuote: {
   profitCurrency: string;
   riskMode: string;
   tradeForbidden: boolean;
+  tickValue: number | null;
 }) {
   return {
     tradingHours: manualQuote.tradingHours,
@@ -214,5 +215,6 @@ function buildQuoteSettings(manualQuote: {
     profitCurrency: manualQuote.profitCurrency,
     riskMode: manualQuote.riskMode,
     tradeForbidden: manualQuote.tradeForbidden,
+    tickValue: manualQuote.tickValue,
   };
 }

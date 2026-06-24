@@ -99,6 +99,9 @@ type User = {
   managerId?: string | null;
   manager?: ManagerRef | null;
   createdAt: string;
+  lastLoginAt?: string | null;
+  lastSeenAt?: string | null;
+  lastIp?: string | null;
   trades: unknown[];
   withdrawals: unknown[];
   verificationDocs?: VerificationDocument[];
@@ -186,11 +189,9 @@ type Tab =
 const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "desktop", label: "Обзор", hint: "Сводка", icon: "□" },
   { id: "clients", label: "Клиенты", hint: "База", icon: "◎" },
-  { id: "clientCard", label: "Карточка", hint: "Профиль", icon: "▣" },
   { id: "actions", label: "Действия", hint: "Задачи", icon: "◇" },
   { id: "managers", label: "Менеджеры", hint: "Команда", icon: "♟" },
   { id: "tradeOperations", label: "Торговые операции", hint: "Операции", icon: "TO" },
-  { id: "trades", label: "Сделки", hint: "Позиции", icon: "↕" },
   { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
   { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
   { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
@@ -227,6 +228,7 @@ export default function AsteroCrm() {
   const [now, setNow] = useState(() => Date.now());
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
   const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "blocked" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("100");
   const [balanceAmount, setBalanceAmount] = useState("1000");
@@ -316,7 +318,9 @@ export default function AsteroCrm() {
 
   async function loadAdminData(options: { silent?: boolean } = {}) {
     if (!options.silent) setLoading(true);
-    const res = await fetch("/api/admin/overview", { cache: "no-store" });
+    const role = localStorage.getItem("role") || "";
+    const currentUserId = localStorage.getItem("userId") || "";
+    const res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}`, { cache: "no-store" });
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
     const supportPayload = await supportRes.json().catch(() => null);
@@ -329,9 +333,6 @@ export default function AsteroCrm() {
         }`
       );
     }
-    const role = localStorage.getItem("role");
-    const currentUserId = localStorage.getItem("userId");
-
     if (!res.ok) {
       setMessage(data.error || "Не удалось загрузить CRM");
       setLoading(false);
@@ -475,9 +476,9 @@ export default function AsteroCrm() {
   );
 
   const filteredClients = useMemo(() => {
-    const q = clientSearch.toLowerCase();
+    const q = clientSearch.trim().toLowerCase();
     return clients.filter((client) => {
-      const matchesSearch = `${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""}`
+      const matchesSearch = `${client.id} ${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""} ${client.city || ""} ${client.address || ""} ${client.manager?.email || ""} ${client.manager?.firstName || ""} ${client.manager?.lastName || ""}`
         .toLowerCase()
         .includes(q);
       const matchesQuickFilter =
@@ -491,18 +492,38 @@ export default function AsteroCrm() {
     });
   }, [clients, clientQuickFilter, clientSearch]);
 
+  const searchedClientIds = new Set(filteredClients.map((client) => client.id));
   const allActions = clients.flatMap((client) =>
     (client.clientActions || []).map((action) => ({ ...action, client }))
-  );
+  ).filter((action) => !clientSearch.trim() || searchedClientIds.has(action.client.id));
   const openActions = allActions.filter((action) => action.status !== "CLOSED");
   const overdueActions = openActions.filter((action) => new Date(action.dueAt).getTime() < now);
   const pendingWithdrawals = withdrawals.filter((item) => item.status === "PENDING");
   const pendingKyc = verificationDocuments.filter((doc) => doc.status === "PENDING");
   const totalBalance = clients.reduce((sum, client) => sum + Number(client.balance || 0), 0);
+  const filteredActions = allActions.filter((action) => {
+    const due = new Date(action.dueAt);
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    if (actionPeriod === "overdue") return due < start && action.status !== "CLOSED";
+    if (actionPeriod === "today") return due >= start && due < end;
+    return due >= end;
+  });
+
+  function openClientCard(client: User) {
+    setSelectedClientId(client.id);
+    openTab("clientCard");
+  }
 
   async function createUser(role: "CLIENT" | "MANAGER") {
     setMessage(role === "MANAGER" ? "Создаю менеджера..." : "Создаю клиента...");
-    const payload = role === "MANAGER" ? { ...newManager, role } : { ...newClient, role };
+    const currentRole = localStorage.getItem("role");
+    const currentUserId = localStorage.getItem("userId");
+    const payload = role === "MANAGER"
+      ? { ...newManager, role }
+      : { ...newClient, role, managerId: currentRole === "MANAGER" ? currentUserId : newClient.managerId };
     const res = await fetch("/api/admin/users/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -692,11 +713,11 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
-  async function updateNote(noteId: string, status: string) {
+  async function updateNote(noteId: string, payload: Partial<{ status: string; text: string }>) {
     const res = await fetch("/api/admin/client-notes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ noteId, status }),
+      body: JSON.stringify({ noteId, ...payload }),
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка статуса заметки");
@@ -727,7 +748,7 @@ export default function AsteroCrm() {
 
   async function updateAction(
     actionId: string,
-    payload: Partial<{ status: string; dueAt: string; managerId: string }>
+    payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>
   ) {
     const res = await fetch("/api/admin/client-actions", {
       method: "PATCH",
@@ -820,7 +841,7 @@ export default function AsteroCrm() {
             onClick={() => setMobileMenuOpen((prev) => !prev)}
             className="flex h-12 w-full items-center justify-between rounded-2xl border border-emerald-400/10 bg-[#07170f] px-4 text-sm font-black text-white"
           >
-            <span>☰ {tabs.find((tab) => tab.id === activeTab)?.label}</span>
+            <span>☰ {activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</span>
             <span className="text-emerald-300">{mobileMenuOpen ? "Закрыть" : "Меню"}</span>
           </button>
 
@@ -849,8 +870,14 @@ export default function AsteroCrm() {
         <div className="rounded-xl border border-emerald-400/10 bg-white/[0.04] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black sm:text-3xl">{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
+            <input
+              className="h-11 w-full rounded-xl border border-emerald-300/20 bg-slate-950/40 px-4 text-sm text-white outline-none placeholder:text-emerald-50/45 focus:border-emerald-400 lg:max-w-lg"
+              value={clientSearch}
+              onChange={(event) => setClientSearch(event.target.value)}
+              placeholder="Поиск клиента: ID, телефон, email, имя, фамилия..."
+            />
           </div>
         </div>
 
@@ -898,7 +925,7 @@ export default function AsteroCrm() {
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <Panel title="Ближайшие действия">
-                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} showClient />
+                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onOpenClient={openClientCard} showClient />
               </Panel>
               <Panel title="Финансы и верификация">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -975,10 +1002,7 @@ export default function AsteroCrm() {
                 clients={filteredClients}
                 managers={managers}
                 onAssign={assignManager}
-                onOpen={(client) => {
-                  setSelectedClientId(client.id);
-                  openTab("clientCard");
-                }}
+                onOpen={openClientCard}
                 onBlock={(client) => toggleBlockUser(client.id, client.isBlocked)}
                 onDelete={(client) => deleteUser(client.id, client.email)}
               />
@@ -989,11 +1013,7 @@ export default function AsteroCrm() {
         {activeTab === "clientCard" && selectedClient && (
           <ClientProfileUtip
             selectedClient={selectedClient}
-            filteredClients={filteredClients}
             managers={managers}
-            clientSearch={clientSearch}
-            setClientSearch={setClientSearch}
-            setSelectedClientId={setSelectedClientId}
             assignManager={assignManager}
             depositAmount={depositAmount}
             setDepositAmount={setDepositAmount}
@@ -1024,8 +1044,15 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "actions" && (
-          <Panel title="Все действия">
-            <ActionList actions={allActions} managers={managers} onUpdate={updateAction} showClient />
+          <Panel title="Действия">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {([['overdue', 'Просроченные'], ['today', 'Сегодня'], ['future', 'Будущие']] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setActionPeriod(key)} className={`rounded-lg px-3 py-2 text-xs font-black ${actionPeriod === key ? 'bg-emerald-500 text-slate-950' : 'border border-slate-200 bg-white text-slate-600'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onOpenClient={openClientCard} showClient />
           </Panel>
         )}
 
@@ -1057,14 +1084,14 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "tradeOperations" && (
-          <TradingOperationsDesk clients={clients} trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />
+          <TradingOperationsDesk clients={filteredClients} trades={trades.filter((trade) => !clientSearch.trim() || (trade.user.id && searchedClientIds.has(trade.user.id)))} onClose={closeClientTrade} onUpdate={updateClientTrade} />
         )}
         {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />}
-        {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
-        {activeTab === "verification" && <KycTable documents={verificationDocuments} onReview={reviewDocument} />}
+        {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals.filter((item) => !clientSearch.trim() || (item.user.id && searchedClientIds.has(item.user.id)))} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
+        {activeTab === "verification" && <KycTable documents={verificationDocuments.filter((doc) => !clientSearch.trim() || (doc.user?.id && searchedClientIds.has(doc.user.id)))} onReview={reviewDocument} />}
         {activeTab === "support" && (
           <SupportPanelV2
-            clients={clients}
+            clients={filteredClients}
             messages={supportMessages}
             conversations={supportConversations}
             error={supportError}
@@ -1113,17 +1140,17 @@ function displayName(user: { email?: string; firstName?: string | null; lastName
   return `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "-";
 }
 
+function isClientOnline(user: User) {
+  return Boolean(user.lastSeenAt && Date.now() - new Date(user.lastSeenAt).getTime() < 2 * 60 * 1000);
+}
+
 function ClientRow({ client, onOpen, active }: { client: User; onOpen: () => void; active?: boolean }) {
   return <button onClick={onOpen} className={`w-full rounded-2xl border p-3 text-left transition ${active ? "border-emerald-500 bg-emerald-50" : "border-emerald-100 bg-white hover:bg-emerald-50"}`}><p className="font-black text-slate-950">{displayName(client)}</p><p className="text-xs text-slate-500">{client.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></button>;
 }
 
 function ClientProfileUtip({
   selectedClient,
-  filteredClients,
   managers,
-  clientSearch,
-  setClientSearch,
-  setSelectedClientId,
   assignManager,
   depositAmount,
   setDepositAmount,
@@ -1152,11 +1179,7 @@ function ClientProfileUtip({
   onRejectDeposit,
 }: {
   selectedClient: User;
-  filteredClients: User[];
   managers: User[];
-  clientSearch: string;
-  setClientSearch: (value: string) => void;
-  setSelectedClientId: (value: string) => void;
   assignManager: (userId: string, managerId: string) => void;
   depositAmount: string;
   setDepositAmount: (value: string) => void;
@@ -1168,13 +1191,13 @@ function ClientProfileUtip({
   actionForm: { title: string; description: string; dueAt: string; status: string; managerId: string };
   setActionForm: (value: { title: string; description: string; dueAt: string; status: string; managerId: string }) => void;
   addAction: () => void;
-  updateAction: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void;
+  updateAction: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void;
   noteText: string;
   setNoteText: (value: string) => void;
   noteStatus: string;
   setNoteStatus: (value: string) => void;
   addNote: () => void;
-  updateNote: (noteId: string, status: string) => void;
+  updateNote: (noteId: string, payload: Partial<{ status: string; text: string }>) => void;
   deposits: Deposit[];
   withdrawals: Withdrawal[];
   trades: Trade[];
@@ -1194,30 +1217,7 @@ function ClientProfileUtip({
   const clientDocs = documents.filter((doc) => doc.user?.id === selectedClient.id || doc.user?.email === selectedClient.email);
 
   return (
-    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[300px_1fr]">
-      <Panel title="Клиенты">
-        <input className={`${inputClass} mb-3 h-9 rounded-lg`} placeholder="Поиск клиента" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} />
-        <div className="max-h-[760px] space-y-1 overflow-y-auto pr-1">
-          {filteredClients.map((client) => (
-            <button
-              key={client.id}
-              onClick={() => setSelectedClientId(client.id)}
-              className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                client.id === selectedClient.id ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-            >
-              <p className="truncate text-sm font-black text-slate-950">{displayName(client)}</p>
-              <p className="truncate text-[11px] text-slate-500">{client.email}</p>
-              <div className="mt-1 flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">{client.id.slice(-6).toUpperCase()}</span>
-                <span className={client.isBlocked ? "text-red-600" : "text-emerald-700"}>{client.isBlocked ? "BLOCKED" : "ACTIVE"}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </Panel>
-
-      <div className="space-y-3">
+    <div className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex flex-col gap-2 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1227,7 +1227,13 @@ function ClientProfileUtip({
             <div className="flex flex-wrap gap-2">
               <Badge value={selectedClient.kycStatus} />
               <Badge value={selectedClient.isBlocked ? "BLOCKED" : "ACTIVE"} />
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">ID {selectedClient.id.slice(-8).toUpperCase()}</span>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${isClientOnline(selectedClient) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                {isClientOnline(selectedClient) ? "Онлайн" : "Не в сети"}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                ID {selectedClient.id.slice(-8).toUpperCase()}
+                <button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(selectedClient.id)} className="text-emerald-700 hover:text-emerald-500">⧉</button>
+              </span>
             </div>
           </div>
 
@@ -1263,6 +1269,9 @@ function ClientProfileUtip({
               <UtipRow label="Статус" value={selectedClient.kycStatus} />
               <UtipRow label="Баланс" value={`$${Number(selectedClient.balance || 0).toFixed(2)}`} />
               <UtipRow label="Создан" value={new Date(selectedClient.createdAt).toLocaleString("ru-RU")} />
+              <UtipRow label="Последний вход" value={selectedClient.lastLoginAt ? new Date(selectedClient.lastLoginAt).toLocaleString("ru-RU") : "Еще не входил"} />
+              <UtipRow label="Последняя активность" value={selectedClient.lastSeenAt ? new Date(selectedClient.lastSeenAt).toLocaleString("ru-RU") : "Нет данных"} />
+              <UtipRow label="IP-адрес" value={selectedClient.lastIp || "Нет данных"} />
               <UtipRow label="Менеджер" value={selectedClient.manager ? displayName(selectedClient.manager) : "Не назначен"} />
             </UtipInfoPanel>
 
@@ -1331,7 +1340,7 @@ function ClientProfileUtip({
               <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
             </div>
             <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
-              {(selectedClient.clientNotes || []).map((note) => <NoteCard key={note.id} note={note} onStatus={updateNote} />)}
+              {(selectedClient.clientNotes || []).map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} />)}
               {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
             </div>
           </Panel>
@@ -1358,7 +1367,6 @@ function ClientProfileUtip({
         </Panel>}
 
         {clientSection === "overview" && <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />}
-      </div>
     </div>
   );
 }
@@ -1702,7 +1710,7 @@ function UtipActionsTable({
 }: {
   actions: (ClientAction & { client?: User })[];
   managers: User[];
-  onUpdate: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void;
+  onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -1721,10 +1729,10 @@ function UtipActionsTable({
         <tbody>
           {actions.map((action) => (
             <tr key={action.id} className="border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50">
-              <td className="px-3 py-2">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "-"}</td>
-              <td className="px-3 py-2 font-black">{action.title}</td>
+              <td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
+              <td className="px-2 py-1.5"><input className="h-8 w-40 rounded border border-slate-200 px-2 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
               <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
-              <td className="px-3 py-2">{action.description || "-"}</td>
+              <td className="px-2 py-1.5"><input className="h-8 w-56 rounded border border-slate-200 px-2" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
               <td className="px-3 py-2">
                 <select className="h-8 w-44 rounded border border-slate-200 px-2 text-xs" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}>
                   <option value="">Без менеджера</option>
@@ -1790,7 +1798,7 @@ function ClientsTable({
         <tbody>
           {clients.map((client, index) => (
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
-              <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{client.id.slice(-6).toUpperCase()}</td>
+              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{client.id.slice(-6).toUpperCase()}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(client.id)} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
               <td className="px-3 py-2">
                 <button onClick={() => onOpen(client)} className="text-left font-black text-slate-950 hover:text-emerald-700">
                   {displayName(client)}
@@ -1847,12 +1855,13 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
   return <div className="rounded-2xl border border-emerald-100 p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 font-black text-slate-950 dark:text-white">{value}</p>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>;
 }
 
-function NoteCard({ note, onStatus }: { note: ClientNote; onStatus: (id: string, status: string) => void }) {
-  return <div className="rounded-2xl border border-emerald-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm text-slate-700 dark:text-slate-200">{note.text}</p><Badge value={note.status} /></div><div className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500"><span>{new Date(note.createdAt).toLocaleString()}</span><select className="rounded-lg border border-emerald-100 px-2 py-1" value={note.status} onChange={(e) => onStatus(note.id, e.target.value)}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select></div></div>;
+function NoteCard({ note, onUpdate }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void }) {
+  const [text, setText] = useState(note.text);
+  return <div className="rounded-xl border border-emerald-100 p-3"><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className="min-h-16 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500" value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button></div><p className="mt-2 text-[11px] text-slate-400">Изменено: {new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
-function ActionList({ actions, onUpdate, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean }) {
-  return <div className="space-y-3">{actions.map((action) => <div key={action.id} className="rounded-2xl border border-emerald-100 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"><div><p className="font-black">{action.title}</p>{showClient && action.client && <p className="text-xs text-slate-500">{displayName(action.client)} · {action.client.email}</p>}<p className="mt-1 text-sm text-slate-500">{action.description || "Без описания"}</p></div><Badge value={action.status} /></div><div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4"><input type="datetime-local" className={inputClass} defaultValue={toLocalDateTime(action.dueAt)} onBlur={(e) => e.target.value && onUpdate(action.id, { dueAt: e.target.value })} /><select className={inputClass} value={action.status} onChange={(e) => onUpdate(action.id, { status: e.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select><select className={inputClass} value={action.manager?.id || ""} onChange={(e) => onUpdate(action.id, { managerId: e.target.value })}><option value="">Без менеджера</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white">Закрыть</button></div><p className="mt-2 text-xs text-slate-500">Срок: {new Date(action.dueAt).toLocaleString()}</p></div>)}{actions.length === 0 && <Empty text="Действий нет" />}</div>;
+function ActionList({ actions, onUpdate, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1050px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
 }
 
 function TradingOperationsDesk({
@@ -1875,7 +1884,7 @@ function TradingOperationsDesk({
   const [symbol, setSymbol] = useState("");
   const [side, setSide] = useState("all");
   const [selectedTradeId, setSelectedTradeId] = useState("");
-  const [quotes, setQuotes] = useState<Record<string, { price: number; bid: number; ask: number }>>({});
+  const [quotes, setQuotes] = useState<Record<string, { price: number; bid: number; ask: number; tickValue?: number | null }>>({});
 
   const openQuoteSymbols = useMemo(
     () => Array.from(new Set(trades.filter((trade) => trade.closePrice === null).map((trade) => trade.symbol))),
@@ -1931,7 +1940,7 @@ function TradingOperationsDesk({
 
             if (!Number.isFinite(price) || !Number.isFinite(bid) || !Number.isFinite(ask)) return null;
 
-            return [quoteSymbol, { price, bid, ask }] as const;
+            return [quoteSymbol, { price, bid, ask, tickValue: data.settings?.tickValue ?? null }] as const;
           } catch {
             return null;
           }
@@ -1939,7 +1948,7 @@ function TradingOperationsDesk({
       );
 
       if (!cancelled) {
-        setQuotes(Object.fromEntries(entries.filter((entry): entry is readonly [string, { price: number; bid: number; ask: number }] => Boolean(entry))));
+        setQuotes(Object.fromEntries(entries.filter((entry) => entry !== null)));
       }
     }
 
@@ -1975,7 +1984,8 @@ function TradingOperationsDesk({
       trade.openPrice,
       getTradeClosePrice(trade),
       trade.volume,
-      trade.swap || 0
+      trade.swap || 0,
+      quotes[trade.symbol]?.tickValue
     );
   }
 
@@ -2194,15 +2204,15 @@ function SupportPanel({
       )}
 
       <Panel title="Диалоги поддержки">
-        <div className="space-y-2">
+        <div className="max-h-[650px] divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
           {clientsWithMessages.map(({ client, count, last }) => (
             <button
               key={client.id}
               onClick={() => setSelectedClientId(client.id)}
-              className={`w-full rounded-2xl border p-3 text-left transition ${
+              className={`w-full px-3 py-2 text-left transition ${
                 selectedClientId === client.id
-                  ? "border-emerald-500 bg-emerald-50"
-                  : "border-emerald-100 bg-white hover:bg-emerald-50"
+                  ? "bg-emerald-50"
+                  : "bg-white hover:bg-slate-50"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -2317,6 +2327,7 @@ function SupportPanelV2({
         .filter((message) => message.userId === client.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0],
     }))
+    .filter((item) => item.count > 0 || item.conversation)
     .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime());
 
   return (
@@ -2348,12 +2359,7 @@ function SupportPanelV2({
                   {count}
                 </span>
               </div>
-              <div className="mt-2">
-                <Badge value={conversation?.status || "OPEN"} />
-              </div>
-              <p className="mt-2 truncate text-xs text-slate-500">
-                {last?.message || (last?.attachmentName ? "Изображение" : "Сообщений пока нет")}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Изображение" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
             </button>
           ))}
 
@@ -2365,7 +2371,7 @@ function SupportPanelV2({
         {!selectedClient ? (
           <Empty text="Выберите клиента слева" />
         ) : (
-          <div className="flex min-h-[560px] flex-col">
+          <div className="flex h-[650px] min-h-0 flex-col">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-100 bg-white p-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-slate-900">Статус обращения</span>
@@ -2381,7 +2387,7 @@ function SupportPanelV2({
               </button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-emerald-100 bg-slate-50 p-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-emerald-100 bg-slate-50 p-3">
               {dialog.map((message) => {
                 const isAdmin = message.sender === "ADMIN" || message.fromRole === "ADMIN";
                 const attachmentUrl = message.attachmentBase64 && message.attachmentMimeType

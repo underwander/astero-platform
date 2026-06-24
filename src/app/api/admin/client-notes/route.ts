@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
-    const { clientId, userId, text, status } = await req.json();
+    await ensureCrmSchema();
+    const { clientId, userId, managerId, text, status } = await req.json();
 
     const targetUserId = clientId || userId;
 
@@ -18,6 +20,7 @@ export async function POST(req: Request) {
         userId: targetUserId,
         text,
         status: status || "OPEN",
+        managerId: managerId || null,
       },
     });
 
@@ -34,7 +37,8 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { noteId, status } = await req.json();
+    await ensureCrmSchema();
+    const { noteId, text, status } = await req.json();
 
     if (!noteId) {
       return Response.json(
@@ -48,6 +52,7 @@ export async function PATCH(req: Request) {
         id: noteId,
       },
       data: {
+        ...(typeof text === "string" && text.trim() ? { text: text.trim() } : {}),
         ...(status ? { status } : {}),
       },
     });

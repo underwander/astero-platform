@@ -48,7 +48,8 @@ export function ensureManualQuotesTable() {
           ADD COLUMN IF NOT EXISTS "profitCurrency" TEXT NOT NULL DEFAULT 'USD',
           ADD COLUMN IF NOT EXISTS "digits" INTEGER NOT NULL DEFAULT 5,
           ADD COLUMN IF NOT EXISTS "delay" INTEGER NOT NULL DEFAULT 0,
-          ADD COLUMN IF NOT EXISTS "tradeForbidden" BOOLEAN NOT NULL DEFAULT false
+          ADD COLUMN IF NOT EXISTS "tradeForbidden" BOOLEAN NOT NULL DEFAULT false,
+          ADD COLUMN IF NOT EXISTS "tickValue" DOUBLE PRECISION
       `
     )
     .then(() => undefined);

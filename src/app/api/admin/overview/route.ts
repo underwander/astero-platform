@@ -1,8 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await ensureCrmSchema();
+    const { searchParams } = new URL(req.url);
+    const requesterId = searchParams.get("requesterId");
+    const requesterRole = searchParams.get("role");
+    const managerScope = requesterRole === "MANAGER" && requesterId ? requesterId : null;
     const users = await prisma.user.findMany({
+      where: managerScope
+        ? { OR: [{ managerId: managerScope }, { id: managerScope }, { role: "ADMIN" }] }
+        : undefined,
       select: {
         id: true,
         email: true,
@@ -18,6 +27,9 @@ export async function GET() {
         kycStatus: true,
         managerId: true,
         createdAt: true,
+        lastLoginAt: true,
+        lastSeenAt: true,
+        lastIp: true,
 
         manager: {
           select: {
@@ -46,12 +58,18 @@ export async function GET() {
         },
 
         clientNotes: {
+          include: {
+            manager: { select: { id: true, email: true, firstName: true, lastName: true } },
+          },
           orderBy: {
             createdAt: "desc",
           },
         },
 
         clientActions: {
+          include: {
+            manager: { select: { id: true, email: true, firstName: true, lastName: true } },
+          },
           orderBy: {
             dueAt: "asc",
           },
@@ -63,6 +81,7 @@ export async function GET() {
     });
 
     const withdrawals = await prisma.withdrawal.findMany({
+      where: managerScope ? { user: { managerId: managerScope } } : undefined,
       include: {
         user: {
           select: {
@@ -80,6 +99,7 @@ export async function GET() {
     });
 
     const deposits = await prisma.deposit.findMany({
+      where: managerScope ? { user: { managerId: managerScope } } : undefined,
       include: {
         user: {
           select: {
@@ -97,6 +117,7 @@ export async function GET() {
     });
 
     const trades = await prisma.trade.findMany({
+      where: managerScope ? { user: { managerId: managerScope } } : undefined,
       include: {
         user: {
           select: {

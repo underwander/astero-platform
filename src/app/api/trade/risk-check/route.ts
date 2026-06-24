@@ -40,7 +40,8 @@ export async function POST(req: Request) {
         trade.openPrice,
         closePrice,
         trade.volume,
-        trade.swap ?? 0
+        trade.swap ?? 0,
+        quoteMap[trade.symbol]?.settings?.tickValue
       );
 
       return { trade, closePrice, profit };

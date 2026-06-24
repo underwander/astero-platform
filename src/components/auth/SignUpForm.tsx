@@ -3,13 +3,10 @@
 import AsteroLogo from "@/components/brand/AsteroLogo";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
 export default function SignUpForm() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
     firstName: "",
@@ -25,37 +22,9 @@ export default function SignUpForm() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
-    setMessage("Создаем личный кабинет...");
-
-    try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setMessage(data.error || "Не удалось создать аккаунт");
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem("userId", data.id);
-      localStorage.setItem("email", data.email);
-      localStorage.setItem("role", data.role);
-      localStorage.setItem("isBlocked", "false");
-
-      setMessage("Аккаунт создан. Открываем кабинет...");
-      router.push("/dashboard");
-    } catch {
-      setMessage("Сервер временно недоступен. Попробуйте еще раз.");
-      setLoading(false);
-    }
+    setMessage("Самостоятельная регистрация недоступна. Счет создает менеджер Astero.");
   }
 
   return (
@@ -151,10 +120,9 @@ export default function SignUpForm() {
 
             <button
               type="submit"
-              disabled={loading}
               className="h-12 w-full rounded-2xl bg-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {loading ? "Создаем аккаунт..." : "Зарегистрироваться"}
+              Отправить заявку
             </button>
 
             {message && (

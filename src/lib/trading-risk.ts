@@ -19,6 +19,7 @@ export type RiskQuote = {
     margin?: number | null;
     contractSize?: number | null;
     spreadAsk?: number | null;
+    tickValue?: number | null;
   } | null;
 };
 
@@ -56,7 +57,8 @@ export function calculateAccountRisk(balance: number, trades: RiskTrade[], quote
       trade.openPrice,
       closePrice,
       trade.volume,
-      trade.swap ?? 0
+      trade.swap ?? 0,
+      quotes[trade.symbol]?.settings?.tickValue
     );
   }, 0);
 

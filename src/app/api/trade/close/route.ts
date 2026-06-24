@@ -39,13 +39,19 @@ export async function POST(req: Request) {
       );
     }
 
+    const quoteSettings = await prisma.manualQuote.findUnique({
+      where: { symbol: trade.symbol },
+      select: { tickValue: true },
+    });
+
     const profit = calculateTradeProfit(
       trade.symbol,
       trade.side,
       trade.openPrice,
       numericClosePrice,
       trade.volume,
-      trade.swap
+      trade.swap,
+      quoteSettings?.tickValue
     );
 
     const result = await prisma.$transaction(async (tx) => {

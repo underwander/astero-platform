@@ -56,7 +56,7 @@ export default function LoginPage() {
 
       setLoading(false);
       setMessage(isRu ? "Вход выполнен. Открываем кабинет..." : "Signed in. Opening cabinet...");
-      router.push(data.role === "ADMIN" ? "/crm" : "/dashboard");
+      router.push(data.role === "ADMIN" || data.role === "MANAGER" ? "/crm" : "/dashboard");
     } catch {
       setLoading(false);
       setMessage(isRu ? "Сервер временно недоступен" : "Server is temporarily unavailable");

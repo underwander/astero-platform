@@ -57,6 +57,7 @@ export async function PATCH(req: Request) {
       gapLevel,
       percentage,
       contractSize,
+      tickValue,
       marginCurrency,
       profitCurrency,
       digits,
@@ -109,6 +110,7 @@ export async function PATCH(req: Request) {
       gapLevel: normalizeNumber(gapLevel, 100),
       percentage: normalizeNumber(percentage, 100),
       contractSize: normalizeNumber(contractSize, 100000),
+      tickValue: normalizeOptionalPositiveNumber(tickValue),
       marginCurrency: normalizeText(marginCurrency, "USD"),
       profitCurrency: normalizeText(profitCurrency, "USD"),
       digits: Math.max(0, Math.round(normalizeNumber(digits, 5))),
@@ -149,4 +151,10 @@ function normalizeNumber(value: unknown, fallback: number) {
 
 function normalizeText(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeOptionalPositiveNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }

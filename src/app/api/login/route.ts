@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { ensureCrmSchema, getRequestIp } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const { email, password } = await req.json();
 
     if (!email || !password) {
@@ -38,6 +40,16 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
+
+    const loggedInAt = new Date();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: loggedInAt,
+        lastSeenAt: loggedInAt,
+        lastIp: getRequestIp(req),
+      },
+    });
 
     return Response.json({
       id: user.id,
