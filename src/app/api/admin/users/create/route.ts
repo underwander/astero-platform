@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const { email, password, firstName, lastName, phone, country, city, address, balance, role, managerId } = await req.json();
 
     if (!email || !password) {
@@ -38,6 +40,7 @@ export async function POST(req: Request) {
         balance: selectedRole === "CLIENT" ? initialBalance : 0,
         role: selectedRole,
         managerId: selectedRole === "CLIENT" ? managerId || null : null,
+        tradingEnabled: selectedRole !== "CLIENT",
       },
     });
 

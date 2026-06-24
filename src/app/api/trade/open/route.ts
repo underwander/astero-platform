@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 import { getInstrument } from "@/lib/market-instruments";
 import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const {
       userId,
       symbol,
@@ -71,6 +73,13 @@ export async function POST(req: Request) {
       return Response.json(
         { error: "User not found" },
         { status: 404 }
+      );
+    }
+
+    if (!user.tradingEnabled) {
+      return Response.json(
+        { error: "Торговля по этому счету запрещена. Обратитесь к менеджеру." },
+        { status: 403 }
       );
     }
 

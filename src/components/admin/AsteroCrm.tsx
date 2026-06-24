@@ -95,6 +95,7 @@ type User = {
   balance: number;
   role: string;
   isBlocked: boolean;
+  tradingEnabled: boolean;
   kycStatus: string;
   managerId?: string | null;
   manager?: ManagerRef | null;
@@ -555,6 +556,8 @@ export default function AsteroCrm() {
   async function depositToUser(userId: string) {
     const amount = Number(depositAmount);
     if (!amount || amount <= 0) return alert("Введите корректную сумму");
+    const client = clients.find((item) => item.id === userId);
+    if (!confirm(`Начислить ${displayName(client || { email: userId })} депозит $${amount.toFixed(2)}?`)) return;
     const res = await fetch("/api/admin/users/deposit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -562,6 +565,21 @@ export default function AsteroCrm() {
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка депозита");
+    await loadAdminData();
+  }
+
+  async function toggleClientTrading(userId: string, tradingEnabled: boolean) {
+    const client = clients.find((item) => item.id === userId);
+    const action = tradingEnabled ? "запретить" : "разрешить";
+    if (!confirm(`${action[0].toUpperCase()}${action.slice(1)} торговлю для ${displayName(client || { email: userId })}?`)) return;
+
+    const res = await fetch("/api/admin/users/trading", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, tradingEnabled: !tradingEnabled }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Не удалось изменить разрешение торговли");
     await loadAdminData();
   }
 
@@ -1020,6 +1038,7 @@ export default function AsteroCrm() {
             depositAmount={depositAmount}
             setDepositAmount={setDepositAmount}
             depositToUser={depositToUser}
+            toggleClientTrading={toggleClientTrading}
             passwords={passwords}
             setPasswords={setPasswords}
             showPasswords={showPasswords}
@@ -1157,6 +1176,7 @@ function ClientProfileUtip({
   depositAmount,
   setDepositAmount,
   depositToUser,
+  toggleClientTrading,
   passwords,
   setPasswords,
   showPasswords,
@@ -1186,6 +1206,7 @@ function ClientProfileUtip({
   depositAmount: string;
   setDepositAmount: (value: string) => void;
   depositToUser: (userId: string) => void;
+  toggleClientTrading: (userId: string, tradingEnabled: boolean) => void;
   passwords: Record<string, string>;
   setPasswords: (value: Record<string, string>) => void;
   showPasswords: boolean;
@@ -1229,6 +1250,9 @@ function ClientProfileUtip({
             <div className="flex flex-wrap gap-2">
               <Badge value={selectedClient.kycStatus} />
               <Badge value={selectedClient.isBlocked ? "BLOCKED" : "ACTIVE"} />
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedClient.tradingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                {selectedClient.tradingEnabled ? "Торговля разрешена" : "Торговля запрещена"}
+              </span>
               <span className={`rounded-full px-3 py-1 text-xs font-black ${isClientOnline(selectedClient) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                 {isClientOnline(selectedClient) ? "Онлайн" : "Не в сети"}
               </span>
@@ -1287,6 +1311,22 @@ function ClientProfileUtip({
             </UtipInfoPanel>
 
             <UtipInfoPanel title="Управление">
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                <div>
+                  <p className="text-xs font-black text-slate-900">Разрешение торговли</p>
+                  <p className="text-[11px] text-slate-500">Новый клиент начинает с запретом</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={selectedClient.tradingEnabled}
+                  onClick={() => toggleClientTrading(selectedClient.id, selectedClient.tradingEnabled)}
+                  className={`relative h-7 w-12 shrink-0 rounded-full transition ${selectedClient.tradingEnabled ? "bg-emerald-500" : "bg-slate-300"}`}
+                  title={selectedClient.tradingEnabled ? "Запретить торговлю" : "Разрешить торговлю"}
+                >
+                  <span className={`absolute top-1 size-5 rounded-full bg-white shadow transition ${selectedClient.tradingEnabled ? "left-6" : "left-1"}`} />
+                </button>
+              </div>
               <label className="text-[11px] font-bold uppercase text-slate-400">Ответственный</label>
               <select className={`${inputClass} h-9 rounded-lg`} value={selectedClient.managerId || ""} onChange={(event) => assignManager(selectedClient.id, event.target.value)}>
                 <option value="">Без менеджера</option>

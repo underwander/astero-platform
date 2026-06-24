@@ -11,6 +11,22 @@ export function ensureCrmSchema() {
         ADD COLUMN IF NOT EXISTS "lastIp" TEXT
     `),
     prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'User'
+            AND column_name = 'tradingEnabled'
+        ) THEN
+          EXECUTE 'ALTER TABLE "User" ADD COLUMN "tradingEnabled" BOOLEAN NOT NULL DEFAULT true';
+        END IF;
+        EXECUTE 'ALTER TABLE "User" ALTER COLUMN "tradingEnabled" SET DEFAULT false';
+      END
+      $$
+    `),
+    prisma.$executeRawUnsafe(`
       ALTER TABLE "ClientNote"
         ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         ADD COLUMN IF NOT EXISTS "managerId" TEXT

@@ -13,6 +13,7 @@ model User {
   balance   Float    @default(10000)
   role      String   @default("CLIENT")
   isBlocked Boolean  @default(false)
+  tradingEnabled Boolean @default(false)
   kycStatus String   @default("PENDING")
   createdAt DateTime @default(now())
   lastLoginAt DateTime?
