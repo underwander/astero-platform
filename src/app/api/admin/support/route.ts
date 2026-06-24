@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   try {
     await ensureSupportMessagesTable();
 
-    const { userId, message, attachment } = await req.json();
+    const { userId, message, attachment, authorId } = await req.json();
     const text = String(message || "").trim();
     const attachmentName = attachment?.name ? String(attachment.name).slice(0, 180) : null;
     const attachmentMimeType = attachment?.mimeType ? String(attachment.mimeType).slice(0, 120) : null;
@@ -76,6 +76,14 @@ export async function POST(req: Request) {
       return Response.json({ error: "Client not found" }, { status: 404 });
     }
 
+    const author = authorId
+      ? await prisma.user.findUnique({
+          where: { id: String(authorId) },
+          select: { role: true },
+        })
+      : null;
+    const senderRole = author?.role === "MANAGER" ? "MANAGER" : "ADMIN";
+
     const id = randomUUID();
     await prisma.$executeRaw`
       INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt")
@@ -86,7 +94,7 @@ export async function POST(req: Request) {
 
     const created = await prisma.$queryRaw<SupportMessageRow[]>`
       INSERT INTO "SupportMessage" ("id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64")
-      VALUES (${id}, ${userId}, ${text}, 'ADMIN', 'ADMIN', ${attachmentName}, ${attachmentMimeType}, ${attachmentBase64})
+      VALUES (${id}, ${userId}, ${text}, ${senderRole}, ${senderRole}, ${attachmentName}, ${attachmentMimeType}, ${attachmentBase64})
       RETURNING "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
     `;
 

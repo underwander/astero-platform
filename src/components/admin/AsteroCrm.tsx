@@ -229,7 +229,7 @@ export default function AsteroCrm() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
-  const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "blocked" | "kyc" | "unverified">("all");
+  const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("100");
   const [balanceAmount, setBalanceAmount] = useState("1000");
   const [passwords, setPasswords] = useState<Record<string, string>>({});
@@ -484,6 +484,7 @@ export default function AsteroCrm() {
       const matchesQuickFilter =
         clientQuickFilter === "all" ||
         (clientQuickFilter === "active" && !client.isBlocked) ||
+        (clientQuickFilter === "online" && isClientOnline(client)) ||
         (clientQuickFilter === "blocked" && client.isBlocked) ||
         (clientQuickFilter === "kyc" && client.kycStatus === "APPROVED") ||
         (clientQuickFilter === "unverified" && client.kycStatus !== "APPROVED");
@@ -768,7 +769,7 @@ export default function AsteroCrm() {
     const res = await fetch("/api/admin/support", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: supportClientId, message: supportText }),
+      body: JSON.stringify({ userId: supportClientId, message: supportText, authorId: localStorage.getItem("userId") }),
     });
 
     const data = await res.json();
@@ -978,6 +979,7 @@ export default function AsteroCrm() {
                   {[
                     ["all", "Все"],
                     ["active", "Активные"],
+                    ["online", "В сети"],
                     ["blocked", "Блокированные"],
                     ["kyc", "KYC"],
                     ["unverified", "Без KYC"],
@@ -2311,6 +2313,8 @@ function SupportPanelV2({
   onSend: () => void;
   onClose: (userId: string) => void;
 }) {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [supportSearch, setSupportSearch] = useState("");
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const selectedConversation = conversations.find((item) => item.userId === selectedClientId);
   const dialog = messages
@@ -2329,6 +2333,13 @@ function SupportPanelV2({
     }))
     .filter((item) => item.count > 0 || item.conversation)
     .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime());
+  const supportSearchResults = clients.filter((client) => {
+    const query = supportSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${client.id} ${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""}`
+      .toLowerCase()
+      .includes(query);
+  });
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
@@ -2339,6 +2350,42 @@ function SupportPanelV2({
       )}
 
       <Panel title="Диалоги поддержки">
+        <button
+          type="button"
+          onClick={() => setSearchOpen((current) => !current)}
+          className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-emerald-700"
+        >
+          <span aria-hidden="true">⌕</span> Поиск клиента
+        </button>
+        {searchOpen && (
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
+            <input
+              autoFocus
+              className="h-10 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-emerald-500"
+              value={supportSearch}
+              onChange={(event) => setSupportSearch(event.target.value)}
+              placeholder="ID, имя, фамилия, email или телефон"
+            />
+            <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+              {supportSearchResults.map((client) => (
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedClientId(client.id);
+                    setSearchOpen(false);
+                    setSupportSearch("");
+                  }}
+                  className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
+                >
+                  <span className="block text-sm font-black text-slate-900">{displayName(client)}</span>
+                  <span className="block text-xs text-slate-500">{client.email} · {client.phone || "без телефона"}</span>
+                </button>
+              ))}
+              {supportSearchResults.length === 0 && <p className="p-3 text-sm text-slate-500">Клиент не найден</p>}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           {clientsWithMessages.map(({ client, count, conversation, last }) => (
             <button
@@ -2389,7 +2436,11 @@ function SupportPanelV2({
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-emerald-100 bg-slate-50 p-3">
               {dialog.map((message) => {
+                const isBot = message.sender === "BOT" || message.fromRole === "BOT";
+                const isManager = message.sender === "MANAGER" || message.fromRole === "MANAGER";
                 const isAdmin = message.sender === "ADMIN" || message.fromRole === "ADMIN";
+                const isStaff = isAdmin || isManager;
+                const authorLabel = isBot ? "Бот" : isManager ? "Менеджер" : isAdmin ? "Администратор" : "Клиент";
                 const attachmentUrl = message.attachmentBase64 && message.attachmentMimeType
                   ? `data:${message.attachmentMimeType};base64,${message.attachmentBase64}`
                   : "";
@@ -2397,13 +2448,17 @@ function SupportPanelV2({
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
+                    className={`flex ${isStaff ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                        isAdmin
+                        isManager
                           ? "bg-emerald-600 text-white"
-                          : "bg-white text-slate-800 shadow-sm"
+                          : isAdmin
+                            ? "bg-slate-900 text-white"
+                            : isBot
+                              ? "border border-sky-200 bg-sky-50 text-sky-950"
+                              : "bg-white text-slate-800 shadow-sm"
                       }`}
                     >
                       {message.message && <p>{message.message}</p>}
@@ -2416,15 +2471,15 @@ function SupportPanelV2({
                             href={attachmentUrl}
                             download={message.attachmentName || "support-image"}
                             className={`inline-flex rounded-xl px-3 py-2 text-xs font-black ${
-                              isAdmin ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700"
+                              isStaff ? "bg-white/15 text-white" : isBot ? "bg-sky-100 text-sky-800" : "bg-emerald-50 text-emerald-700"
                             }`}
                           >
                             Скачать изображение
                           </a>
                         </div>
                       )}
-                      <p className={`mt-2 text-[11px] ${isAdmin ? "text-emerald-50/70" : "text-slate-400"}`}>
-                        {isAdmin ? "Администратор" : "Клиент"} · {new Date(message.createdAt).toLocaleString()}
+                      <p className={`mt-2 text-[11px] ${isStaff ? "text-white/65" : isBot ? "text-sky-600" : "text-slate-400"}`}>
+                        {authorLabel} · {new Date(message.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>

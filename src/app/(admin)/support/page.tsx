@@ -86,7 +86,7 @@ export default function SupportPage() {
       : data;
     const nextMessages = payload.messages || [];
     const newSupportMessages = nextMessages.filter(
-      (item) => (item.sender === "ADMIN" || item.sender === "BOT") && !seenAdminMessageIdsRef.current.has(item.id)
+      (item) => (item.sender === "ADMIN" || item.sender === "MANAGER" || item.sender === "BOT") && !seenAdminMessageIdsRef.current.has(item.id)
     );
 
     setConversationStatus(payload.status || "OPEN");
@@ -100,7 +100,7 @@ export default function SupportPage() {
       }
     }
 
-    seenAdminMessageIdsRef.current = new Set(nextMessages.filter((item) => item.sender === "ADMIN" || item.sender === "BOT").map((item) => item.id));
+    seenAdminMessageIdsRef.current = new Set(nextMessages.filter((item) => item.sender === "ADMIN" || item.sender === "MANAGER" || item.sender === "BOT").map((item) => item.id));
     messagesReadyRef.current = true;
   }
 
