@@ -1233,6 +1233,7 @@ function ClientProfileUtip({
   const [clientSection, setClientSection] = useState<
     "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
   >("overview");
+  const [numberCopied, setNumberCopied] = useState(false);
   const clientActions = (selectedClient.clientActions || []).map((action) => ({ ...action, client: selectedClient }));
   const clientTrades = trades.filter((trade) => trade.user.id === selectedClient.id || trade.user.email === selectedClient.email);
   const clientDeposits = deposits.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
@@ -1258,7 +1259,19 @@ function ClientProfileUtip({
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                 ID {selectedClient.id.slice(-8).toUpperCase()}
-                <button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(selectedClient.id)} className="text-emerald-700 hover:text-emerald-500">⧉</button>
+                <button
+                  type="button"
+                  title="Копировать номер клиента"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(selectedClient.id);
+                    setNumberCopied(true);
+                    window.setTimeout(() => setNumberCopied(false), 1500);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black text-emerald-700 shadow-sm hover:bg-emerald-50"
+                >
+                  <span aria-hidden="true">⧉</span>
+                  {numberCopied ? "Скопировано" : "Копировать"}
+                </button>
               </span>
             </div>
           </div>
