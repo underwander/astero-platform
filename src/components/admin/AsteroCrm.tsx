@@ -1316,7 +1316,7 @@ function ClientProfileUtip({
 
             <UtipInfoPanel title="Контактная информация">
               <UtipRow label="Email" value={selectedClient.email} />
-              <UtipRow label="Телефон" value={selectedClient.phone || "-"} />
+              <UtipRow label="Телефон" value={selectedClient.phone || "-"} copyValue={selectedClient.phone || undefined} />
               <UtipRow label="Страна" value={selectedClient.country || "-"} />
               <UtipRow label="Город" value={selectedClient.city || "-"} />
               <UtipRow label="Адрес" value={selectedClient.address || "-"} />
@@ -1749,11 +1749,29 @@ function UtipInfoPanel({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function UtipRow({ label, value }: { label: string; value: string }) {
+function UtipRow({ label, value, copyValue }: { label: string; value: string; copyValue?: string }) {
+  const [copied, setCopied] = useState(false);
+
   return (
     <div className="grid grid-cols-[130px_1fr] border-b border-slate-200 py-1.5 text-xs last:border-b-0">
       <span className="text-slate-500">{label}</span>
-      <span className="break-words font-bold text-slate-900">{value}</span>
+      <span className="flex min-w-0 items-center gap-2 break-words font-bold text-slate-900">
+        <span>{value}</span>
+        {copyValue && (
+          <button
+            type="button"
+            title="Копировать номер телефона"
+            onClick={async () => {
+              await navigator.clipboard.writeText(copyValue);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            }}
+            className="shrink-0 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[10px] font-black text-emerald-700 hover:bg-emerald-50"
+          >
+            {copied ? "Скопировано" : "⧉ Копировать"}
+          </button>
+        )}
+      </span>
     </div>
   );
 }
