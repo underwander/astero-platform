@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { calculateTradeProfit } from "@/lib/market-instruments";
 
 type Trade = {
@@ -19,6 +20,7 @@ type QuoteMap = Record<string, { price: number; tickValue?: number | null }>;
 const DASHBOARD_REFRESH_MS = 5000;
 
 export default function BrokerMetrics() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [equity, setEquity] = useState(0);
   const [available, setAvailable] = useState(0);
@@ -84,16 +86,16 @@ export default function BrokerMetrics() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.35fr]">
-        <AccountCard label="Почта клиента" value={email || "Клиент"} loading={loading} />
-        <AccountCard label="Средства" value={`€${equity.toFixed(2)}`} loading={loading} />
-        <AccountCard label="Доступно для вывода" value={`€${available.toFixed(2)}`} loading={loading} />
-        <TerminalCard />
+        <AccountCard label={t("clientEmail")} value={email || t("clientCabinet")} loading={loading} />
+        <AccountCard label={t("funds")} value={`€${equity.toFixed(2)}`} loading={loading} />
+        <AccountCard label={t("availableToWithdraw")} value={`€${available.toFixed(2)}`} loading={loading} />
+        <TerminalCard openLabel={t("open")} terminalLabel={t("terminal")} />
       </div>
     </div>
   );
 }
 
-function TerminalCard() {
+function TerminalCard({ openLabel, terminalLabel }: { openLabel: string; terminalLabel: string }) {
   return (
     <Link
       href="/terminal"
@@ -101,7 +103,7 @@ function TerminalCard() {
     >
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_45%,rgba(0,0,0,0.12))]" />
       <div className="absolute right-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-sm transition group-hover:bg-white/30">
-        Открыть
+        {openLabel}
       </div>
       <div className="absolute bottom-3 left-4 right-4 h-px bg-white/25" />
       <div className="relative z-10 flex flex-col items-center gap-2">
@@ -112,7 +114,7 @@ function TerminalCard() {
             <path d="M6 11H8M11 8H13M16 13H18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </span>
-        <p className="text-lg font-black tracking-wide text-white drop-shadow-sm">Торговый терминал</p>
+        <p className="text-lg font-black tracking-wide text-white drop-shadow-sm">{terminalLabel}</p>
       </div>
     </Link>
   );

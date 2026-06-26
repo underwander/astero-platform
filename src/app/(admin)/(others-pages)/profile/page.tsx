@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 
 type VerificationDocument = {
   id: string;
@@ -34,6 +35,8 @@ const fileInputClass =
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const isRu = language === "ru";
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [message, setMessage] = useState("");
@@ -59,7 +62,7 @@ export default function ProfilePage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Не удалось загрузить профиль");
+      setMessage(data.error || (isRu ? "Не удалось загрузить профиль" : "Could not load profile"));
       return;
     }
 
@@ -72,7 +75,7 @@ export default function ProfilePage() {
   async function saveProfile() {
     if (!profile) return;
 
-    setMessage("Сохраняем данные...");
+    setMessage(isRu ? "Сохраняем данные..." : "Saving profile...");
 
     const res = await fetch("/api/user/profile", {
       method: "PATCH",
@@ -92,7 +95,7 @@ export default function ProfilePage() {
 
     const data = await res.json();
 
-    setMessage(res.ok ? "Профиль сохранен" : data.error || "Не удалось сохранить профиль");
+    setMessage(res.ok ? (isRu ? "Профиль сохранен" : "Profile saved") : data.error || (isRu ? "Не удалось сохранить профиль" : "Could not save profile"));
 
     if (res.ok) {
       await loadProfile();
@@ -101,7 +104,7 @@ export default function ProfilePage() {
 
   async function uploadDocument() {
     if (!profile || !file) {
-      setUploadMessage("Выберите файл для отправки");
+      setUploadMessage(isRu ? "Выберите файл для отправки" : "Choose a file to upload");
       return;
     }
 
@@ -110,7 +113,7 @@ export default function ProfilePage() {
     formData.append("documentType", documentType);
     formData.append("file", file);
 
-    setUploadMessage("Загружаем документ...");
+    setUploadMessage(isRu ? "Загружаем документ..." : "Uploading document...");
 
     const res = await fetch("/api/user/verification", {
       method: "POST",
@@ -119,7 +122,7 @@ export default function ProfilePage() {
 
     const data = await res.json();
 
-    setUploadMessage(res.ok ? "Документ отправлен на проверку" : data.error || "Не удалось отправить документ");
+    setUploadMessage(res.ok ? (isRu ? "Документ отправлен на проверку" : "Document sent for review") : data.error || (isRu ? "Не удалось отправить документ" : "Could not upload document"));
 
     if (res.ok) {
       setFile(null);
@@ -130,7 +133,7 @@ export default function ProfilePage() {
   async function changePassword() {
     if (!profile) return;
 
-    setPasswordMessage("Обновляем пароль...");
+    setPasswordMessage(isRu ? "Обновляем пароль..." : "Updating password...");
 
     const res = await fetch("/api/user/change-password", {
       method: "PATCH",
@@ -146,7 +149,7 @@ export default function ProfilePage() {
 
     const data = await res.json();
 
-    setPasswordMessage(res.ok ? "Пароль изменен" : data.error || "Не удалось изменить пароль");
+    setPasswordMessage(res.ok ? (isRu ? "Пароль изменен" : "Password changed") : data.error || (isRu ? "Не удалось изменить пароль" : "Could not change password"));
 
     if (res.ok) {
       setCurrentPassword("");
@@ -161,7 +164,7 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-[calc(100vh-88px)] rounded-xl border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-        Загрузка профиля...
+        {isRu ? "Загрузка профиля..." : "Loading profile..."}
       </div>
     );
   }
@@ -174,27 +177,27 @@ export default function ProfilePage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-5">
           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-xl font-black text-slate-900 dark:text-white">Профиль клиента</h1>
+              <h1 className="text-xl font-black text-slate-900 dark:text-white">{isRu ? "Профиль клиента" : "Client profile"}</h1>
             </div>
-            <StatusBadge status={profile.kycStatus} />
+            <StatusBadge status={profile.kycStatus} isRu={isRu} />
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Имя">
+            <Field label={isRu ? "Имя" : "First name"}>
               <input
                 value={profile.firstName || ""}
                 onChange={(event) => setProfile({ ...profile, firstName: event.target.value })}
                 className={inputClass}
-                placeholder="Введите имя"
+                placeholder={isRu ? "Введите имя" : "Enter first name"}
               />
             </Field>
 
-            <Field label="Фамилия">
+            <Field label={isRu ? "Фамилия" : "Last name"}>
               <input
                 value={profile.lastName || ""}
                 onChange={(event) => setProfile({ ...profile, lastName: event.target.value })}
                 className={inputClass}
-                placeholder="Введите фамилию"
+                placeholder={isRu ? "Введите фамилию" : "Enter last name"}
               />
             </Field>
 
@@ -202,7 +205,7 @@ export default function ProfilePage() {
               <input value={profile.email} disabled className={inputClass} />
             </Field>
 
-            <Field label="Телефон">
+            <Field label={isRu ? "Телефон" : "Phone"}>
               <input
                 value={profile.phone || ""}
                 onChange={(event) => setProfile({ ...profile, phone: event.target.value })}
@@ -211,30 +214,30 @@ export default function ProfilePage() {
               />
             </Field>
 
-            <Field label="Страна">
+            <Field label={isRu ? "Страна" : "Country"}>
               <input
                 value={profile.country || ""}
                 onChange={(event) => setProfile({ ...profile, country: event.target.value })}
                 className={inputClass}
-                placeholder="Страна проживания"
+                placeholder={isRu ? "Страна проживания" : "Country of residence"}
               />
             </Field>
 
-            <Field label="Город">
+            <Field label={isRu ? "Город" : "City"}>
               <input
                 value={profile.city || ""}
                 onChange={(event) => setProfile({ ...profile, city: event.target.value })}
                 className={inputClass}
-                placeholder="Город"
+                placeholder={isRu ? "Город" : "City"}
               />
             </Field>
 
-            <Field label="Адрес" wide>
+            <Field label={isRu ? "Адрес" : "Address"} wide>
               <input
                 value={profile.address || ""}
                 onChange={(event) => setProfile({ ...profile, address: event.target.value })}
                 className={inputClass}
-                placeholder="Улица, дом, квартира"
+                placeholder={isRu ? "Улица, дом, квартира" : "Street, building, apartment"}
               />
             </Field>
           </div>
@@ -244,7 +247,7 @@ export default function ProfilePage() {
               onClick={saveProfile}
               className="h-12 rounded-xl bg-emerald-600 px-6 text-sm font-black text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-500"
             >
-              Сохранить профиль
+              {isRu ? "Сохранить профиль" : "Save profile"}
             </button>
 
             {message && <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{message}</p>}
@@ -254,18 +257,18 @@ export default function ProfilePage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[430px_0.5fr]">
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Верификация</h2>
+          <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Верификация" : "Verification"}</h2>
 
           <div className="mt-4 space-y-4">
-            <Field label="Тип документа">
+            <Field label={isRu ? "Тип документа" : "Document type"}>
               <select value={documentType} onChange={(event) => setDocumentType(event.target.value)} className={inputClass}>
-                <option value="Identity document">Документ личности</option>
-                <option value="Proof of address">Подтверждение адреса</option>
-                <option value="Bank proof">Банковский документ</option>
+                <option value="Identity document">{isRu ? "Документ личности" : "Identity document"}</option>
+                <option value="Proof of address">{isRu ? "Подтверждение адреса" : "Proof of address"}</option>
+                <option value="Bank proof">{isRu ? "Банковский документ" : "Bank proof"}</option>
               </select>
             </Field>
 
-            <Field label="Файл документа">
+            <Field label={isRu ? "Файл документа" : "Document file"}>
               <input type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} className={fileInputClass} />
             </Field>
 
@@ -273,7 +276,7 @@ export default function ProfilePage() {
               onClick={uploadDocument}
               className="h-12 w-full rounded-xl bg-emerald-600 text-sm font-black text-white transition hover:bg-emerald-500"
             >
-              Отправить документ
+              {isRu ? "Отправить документ" : "Send document"}
             </button>
 
             {uploadMessage && <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{uploadMessage}</p>}
@@ -282,14 +285,14 @@ export default function ProfilePage() {
 
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="border-b border-slate-100 p-4 dark:border-white/10">
-            <h2 className="text-base font-black text-slate-900 dark:text-white">Загруженные документы</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">История документов, отправленных на проверку</p>
+            <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Загруженные документы" : "Uploaded documents"}</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{isRu ? "История документов, отправленных на проверку" : "Documents sent for review"}</p>
           </div>
 
           <div className="p-4">
             {documents.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm font-bold text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Документы пока не загружены
+                {isRu ? "Документы пока не загружены" : "No documents uploaded yet"}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
@@ -297,12 +300,12 @@ export default function ProfilePage() {
                   <div key={doc.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/60">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-slate-900 dark:text-white">{documentTypeLabel(doc.documentType)}</p>
+                        <p className="truncate text-sm font-black text-slate-900 dark:text-white">{documentTypeLabel(doc.documentType, isRu)}</p>
                         <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{doc.fileName}</p>
                       </div>
-                      <StatusBadge status={doc.status} small />
+                      <StatusBadge status={doc.status} small isRu={isRu} />
                     </div>
-                    <p className="mt-3 text-xs font-bold text-slate-400">{new Date(doc.createdAt).toLocaleString("ru-RU")}</p>
+                    <p className="mt-3 text-xs font-bold text-slate-400">{new Date(doc.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")}</p>
                   </div>
                 ))}
               </div>
@@ -312,25 +315,25 @@ export default function ProfilePage() {
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <h2 className="text-base font-black text-slate-900 dark:text-white">Безопасность</h2>
+        <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Безопасность" : "Security"}</h2>
         <div className="mt-4 max-w-xl space-y-4">
-          <Field label="Текущий пароль">
+          <Field label={isRu ? "Текущий пароль" : "Current password"}>
             <input
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               type="password"
               className={inputClass}
-              placeholder="Введите текущий пароль"
+              placeholder={isRu ? "Введите текущий пароль" : "Enter current password"}
             />
           </Field>
 
-          <Field label="Новый пароль">
+          <Field label={isRu ? "Новый пароль" : "New password"}>
             <input
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               type="password"
               className={inputClass}
-              placeholder="Введите новый пароль"
+              placeholder={isRu ? "Введите новый пароль" : "Enter new password"}
             />
           </Field>
 
@@ -338,7 +341,7 @@ export default function ProfilePage() {
             onClick={changePassword}
             className="h-12 w-full rounded-xl bg-slate-950 px-6 text-sm font-black text-white transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
-            Изменить пароль
+            {isRu ? "Изменить пароль" : "Change password"}
           </button>
         </div>
         {passwordMessage && <p className="mt-3 text-sm font-bold text-emerald-700 dark:text-emerald-300">{passwordMessage}</p>}
@@ -364,7 +367,7 @@ function Field({
   );
 }
 
-function StatusBadge({ status, small = false }: { status: string; small?: boolean }) {
+function StatusBadge({ status, small = false, isRu = true }: { status: string; small?: boolean; isRu?: boolean }) {
   const normalized = status || "PENDING";
   const className =
     normalized === "APPROVED" || normalized === "VERIFIED"
@@ -375,21 +378,21 @@ function StatusBadge({ status, small = false }: { status: string; small?: boolea
 
   return (
     <span className={`inline-flex shrink-0 rounded-full border font-black ${small ? "px-2 py-1 text-[10px]" : "px-3 py-1 text-xs"} ${className}`}>
-      {statusLabel(normalized)}
+      {statusLabel(normalized, isRu)}
     </span>
   );
 }
 
-function statusLabel(value: string) {
-  if (value === "APPROVED" || value === "VERIFIED") return "Проверено";
-  if (value === "REJECTED") return "Отклонено";
-  if (value === "PENDING") return "На проверке";
+function statusLabel(value: string, isRu: boolean) {
+  if (value === "APPROVED" || value === "VERIFIED") return isRu ? "Проверено" : "Verified";
+  if (value === "REJECTED") return isRu ? "Отклонено" : "Rejected";
+  if (value === "PENDING") return isRu ? "На проверке" : "Pending";
   return value;
 }
 
-function documentTypeLabel(value?: string | null) {
-  if (value === "Identity document") return "Документ личности";
-  if (value === "Proof of address") return "Подтверждение адреса";
-  if (value === "Bank proof") return "Банковский документ";
-  return value || "Документ";
+function documentTypeLabel(value: string | null | undefined, isRu: boolean) {
+  if (value === "Identity document") return isRu ? "Документ личности" : "Identity document";
+  if (value === "Proof of address") return isRu ? "Подтверждение адреса" : "Proof of address";
+  if (value === "Bank proof") return isRu ? "Банковский документ" : "Bank proof";
+  return value || (isRu ? "Документ" : "Document");
 }

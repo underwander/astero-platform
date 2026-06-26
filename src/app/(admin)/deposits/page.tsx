@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Deposit = {
   id: string;
@@ -28,8 +29,18 @@ const methods: Array<{
   { value: "Bank Account", label: "Банк", hint: "Перевод на счет", icon: <BankIcon /> },
 ];
 
+function depositMethods(isRu: boolean) {
+  return [
+    { value: "Bank Card" as DepositMethod, label: isRu ? "Карта" : "Card", hint: "Visa / Mastercard", icon: <CardIcon /> },
+    { value: "Crypto Wallet" as DepositMethod, label: isRu ? "Крипто" : "Crypto", hint: "USDT / BTC / ETH", icon: <WalletIcon /> },
+    { value: "Bank Account" as DepositMethod, label: isRu ? "Банк" : "Bank", hint: isRu ? "Перевод на счет" : "Bank transfer", icon: <BankIcon /> },
+  ];
+}
+
 export default function DepositsPage() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const isRu = language === "ru";
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("500");
   const [method, setMethod] = useState<DepositMethod>("Bank Card");
@@ -53,16 +64,16 @@ export default function DepositsPage() {
     }
 
     if (!amount || Number(amount) <= 0) {
-      setMessage("Введите корректную сумму");
+      setMessage(isRu ? "Введите корректную сумму" : "Enter a valid amount");
       return;
     }
 
     if (!sourceDetails.trim()) {
-      setMessage("Укажите реквизиты или комментарий к платежу");
+      setMessage(isRu ? "Укажите реквизиты или комментарий к платежу" : "Enter payment details or a comment");
       return;
     }
 
-    setMessage("Создаем заявку...");
+    setMessage(isRu ? "Создаем заявку..." : "Creating request...");
 
     const res = await fetch("/api/deposits/create", {
       method: "POST",
@@ -73,11 +84,11 @@ export default function DepositsPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Не удалось создать заявку");
+      setMessage(data.error || (isRu ? "Не удалось создать заявку" : "Could not create request"));
       return;
     }
 
-    setMessage(`Заявка создана: €${Number(data.amount).toFixed(2)}`);
+    setMessage(`${isRu ? "Заявка создана" : "Request created"}: €${Number(data.amount).toFixed(2)}`);
     setSourceDetails("");
     await loadDeposits(userId);
   }
@@ -98,10 +109,10 @@ export default function DepositsPage() {
     <div className="min-h-[calc(100vh-88px)] text-slate-950 dark:text-white">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[430px_0.5fr]">
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-          <h1 className="text-base font-black text-slate-900 dark:text-white">Пополнение счета</h1>
+          <h1 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Пополнение счета" : "Fund account"}</h1>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
-            {methods.map((item) => (
+            {depositMethods(isRu).map((item) => (
               <button
                 key={item.value}
                 type="button"
@@ -122,7 +133,7 @@ export default function DepositsPage() {
           </div>
 
           <div className="mt-5 space-y-4">
-            <Field label="Сумма">
+            <Field label={isRu ? "Сумма" : "Amount"}>
               <div className="relative">
                 <input
                   value={amount}
@@ -138,12 +149,12 @@ export default function DepositsPage() {
               </div>
             </Field>
 
-            <Field label={detailsLabel(method)}>
+            <Field label={detailsLabel(method, isRu)}>
               <textarea
                 value={sourceDetails}
                 onChange={(event) => setSourceDetails(event.target.value)}
                 className="min-h-28 w-full resize-none rounded-xl border border-emerald-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white"
-                placeholder={detailsPlaceholder(method)}
+                placeholder={detailsPlaceholder(method, isRu)}
               />
             </Field>
 
@@ -151,7 +162,7 @@ export default function DepositsPage() {
               onClick={createDeposit}
               className="h-12 w-full rounded-xl bg-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-500"
             >
-              Отправить заявку
+              {isRu ? "Отправить заявку" : "Send request"}
             </button>
 
             {message && (
@@ -164,9 +175,9 @@ export default function DepositsPage() {
 
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-white/10">
-            <h2 className="text-base font-black text-slate-900 dark:text-white">История пополнений</h2>
+            <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "История пополнений" : "Deposit history"}</h2>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-              {loading ? "Загрузка" : `${deposits.length} заявок`}
+              {loading ? (isRu ? "Загрузка" : "Loading") : `${deposits.length} ${isRu ? "заявок" : "requests"}`}
             </span>
           </div>
 
@@ -174,18 +185,18 @@ export default function DepositsPage() {
             <table className="min-w-[620px] w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                  <th className="px-4 py-3">Сумма</th>
-                  <th className="px-4 py-3">Способ</th>
-                  <th className="px-4 py-3">Реквизиты</th>
-                  <th className="px-4 py-3">Статус</th>
-                  <th className="px-4 py-3">Дата</th>
+                  <th className="px-4 py-3">{isRu ? "Сумма" : "Amount"}</th>
+                  <th className="px-4 py-3">{isRu ? "Способ" : "Method"}</th>
+                  <th className="px-4 py-3">{isRu ? "Реквизиты" : "Details"}</th>
+                  <th className="px-4 py-3">{isRu ? "Статус" : "Status"}</th>
+                  <th className="px-4 py-3">{isRu ? "Дата" : "Date"}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
                     <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
-                      Загрузка...
+                      {isRu ? "Загрузка..." : "Loading..."}
                     </td>
                   </tr>
                 )}
@@ -193,7 +204,7 @@ export default function DepositsPage() {
                 {!loading && deposits.length === 0 && (
                   <tr>
                     <td className="px-4 py-10 text-center text-slate-500" colSpan={5}>
-                      Заявок пока нет
+                      {isRu ? "Заявок пока нет" : "No requests yet"}
                     </td>
                   </tr>
                 )}
@@ -209,17 +220,17 @@ export default function DepositsPage() {
                           <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                             {methodIcon(deposit.method)}
                           </span>
-                          {methodLabel(deposit.method)}
+                          {methodLabel(deposit.method, isRu)}
                         </div>
                       </td>
                       <td className="max-w-[360px] px-4 py-4">
                         <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{deposit.sourceDetails || "-"}</p>
                       </td>
                       <td className="px-4 py-4">
-                        <StatusBadge status={deposit.status} />
+                        <StatusBadge status={deposit.status} isRu={isRu} />
                       </td>
                       <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
-                        {new Date(deposit.createdAt).toLocaleString("ru-RU")}
+                        {new Date(deposit.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")}
                       </td>
                     </tr>
                   ))}
@@ -247,7 +258,7 @@ function Field({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, isRu }: { status: string; isRu: boolean }) {
   const className =
     status === "APPROVED"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300"
@@ -255,32 +266,32 @@ function StatusBadge({ status }: { status: string }) {
         ? "border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-300"
         : "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-400/20 dark:bg-yellow-500/10 dark:text-yellow-300";
 
-  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>{statusLabel(status)}</span>;
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>{statusLabel(status, isRu)}</span>;
 }
 
-function statusLabel(value: string) {
-  if (value === "APPROVED") return "Одобрено";
-  if (value === "REJECTED") return "Отклонено";
-  if (value === "PENDING") return "На проверке";
+function statusLabel(value: string, isRu: boolean) {
+  if (value === "APPROVED") return isRu ? "Одобрено" : "Approved";
+  if (value === "REJECTED") return isRu ? "Отклонено" : "Rejected";
+  if (value === "PENDING") return isRu ? "На проверке" : "Pending";
   return value;
 }
 
-function detailsLabel(method: DepositMethod) {
-  if (method === "Bank Card") return "Данные платежа";
-  if (method === "Crypto Wallet") return "Адрес или hash транзакции";
-  return "Банковские реквизиты";
+function detailsLabel(method: DepositMethod, isRu: boolean) {
+  if (method === "Bank Card") return isRu ? "Данные платежа" : "Payment details";
+  if (method === "Crypto Wallet") return isRu ? "Адрес или hash транзакции" : "Wallet address or transaction hash";
+  return isRu ? "Банковские реквизиты" : "Bank details";
 }
 
-function detailsPlaceholder(method: DepositMethod) {
-  if (method === "Bank Card") return "Последние 4 цифры карты или номер операции";
-  if (method === "Crypto Wallet") return "Адрес кошелька, сеть или hash транзакции";
-  return "Название банка, IBAN или номер платежа";
+function detailsPlaceholder(method: DepositMethod, isRu: boolean) {
+  if (method === "Bank Card") return isRu ? "Последние 4 цифры карты или номер операции" : "Last 4 card digits or transaction number";
+  if (method === "Crypto Wallet") return isRu ? "Адрес кошелька, сеть или hash транзакции" : "Wallet address, network or transaction hash";
+  return isRu ? "Название банка, IBAN или номер платежа" : "Bank name, IBAN or payment number";
 }
 
-function methodLabel(value: string) {
-  if (value === "Bank Card") return "Карта";
-  if (value === "Crypto Wallet") return "Криптовалюта";
-  if (value === "Bank Account") return "Банк";
+function methodLabel(value: string, isRu: boolean) {
+  if (value === "Bank Card") return isRu ? "Карта" : "Card";
+  if (value === "Crypto Wallet") return isRu ? "Криптовалюта" : "Crypto";
+  if (value === "Bank Account") return isRu ? "Банк" : "Bank";
   return value;
 }
 

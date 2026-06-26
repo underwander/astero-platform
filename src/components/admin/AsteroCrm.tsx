@@ -242,7 +242,7 @@ export default function AsteroCrm() {
   const [clientSearch, setClientSearch] = useState("");
   const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
   const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "kyc" | "unverified">("all");
-  const [depositAmount, setDepositAmount] = useState("100");
+  const [depositAmount, setDepositAmount] = useState("0");
   const [balanceAmount, setBalanceAmount] = useState("1000");
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [noteText, setNoteText] = useState("");

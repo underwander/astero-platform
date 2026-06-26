@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Withdrawal = {
   id: string;
@@ -44,8 +45,30 @@ const methodConfig: Record<
   },
 };
 
+function getMethodConfig(isRu: boolean): typeof methodConfig {
+  return {
+    CARD: {
+      title: isRu ? "Карта" : "Card",
+      description: isRu ? "Visa, Mastercard или банковская карта клиента" : "Visa, Mastercard or bank card",
+      icon: <CardIcon />,
+    },
+    CRYPTO: {
+      title: isRu ? "Крипто" : "Crypto",
+      description: isRu ? "USDT, BTC, ETH и другие криптокошельки" : "USDT, BTC, ETH and crypto wallets",
+      icon: <WalletIcon />,
+    },
+    BANK: {
+      title: isRu ? "Банк" : "Bank",
+      description: isRu ? "IBAN, SWIFT или банковский счет" : "IBAN, SWIFT or bank account",
+      icon: <BankIcon />,
+    },
+  };
+}
+
 export default function WithdrawalsPage() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const isRu = language === "ru";
 
   const [userId, setUserId] = useState("");
   const [method, setMethod] = useState<Method>("CARD");
@@ -98,19 +121,19 @@ export default function WithdrawalsPage() {
     const numericAmount = Number(amount);
 
     if (!numericAmount || numericAmount <= 0) {
-      return "Введите корректную сумму вывода";
+      return isRu ? "Введите корректную сумму вывода" : "Enter a valid withdrawal amount";
     }
 
     if (method === "CARD" && (!card.number || !card.holder || !card.expiry)) {
-      return "Заполните номер карты, имя владельца и срок действия";
+      return isRu ? "Заполните номер карты, имя владельца и срок действия" : "Enter card number, cardholder name and expiry date";
     }
 
     if (method === "CRYPTO" && (!crypto.currency || !crypto.wallet)) {
-      return "Выберите криптовалюту и введите адрес кошелька";
+      return isRu ? "Выберите криптовалюту и введите адрес кошелька" : "Select cryptocurrency and enter wallet address";
     }
 
     if (method === "BANK" && (!bank.beneficiary || !bank.bankName || !bank.accountNumber || !bank.swift)) {
-      return "Заполните получателя, банк, счет/IBAN и SWIFT";
+      return isRu ? "Заполните получателя, банк, счет/IBAN и SWIFT" : "Enter beneficiary, bank, account/IBAN and SWIFT";
     }
 
     return "";
@@ -151,7 +174,7 @@ export default function WithdrawalsPage() {
               swift: bank.swift,
             };
 
-    setMessage("Создаем заявку...");
+    setMessage(isRu ? "Создаем заявку..." : "Creating request...");
 
     const res = await fetch("/api/withdrawals/create", {
       method: "POST",
@@ -170,11 +193,11 @@ export default function WithdrawalsPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data.error || "Не удалось создать заявку на вывод");
+      setMessage(data.error || (isRu ? "Не удалось создать заявку на вывод" : "Could not create withdrawal request"));
       return;
     }
 
-    setMessage(`Заявка создана: €${Number(data.amount).toFixed(2)}`);
+    setMessage(`${isRu ? "Заявка создана" : "Request created"}: €${Number(data.amount).toFixed(2)}`);
 
     setAmount("");
     setCard({ number: "", holder: "", expiry: "" });
@@ -201,16 +224,16 @@ export default function WithdrawalsPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[430px_0.5fr]">
         <section className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-            <h2 className="text-base font-black text-slate-900 dark:text-white">Новая заявка</h2>
+            <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Новая заявка" : "New request"}</h2>
 
             <div className="mt-4 grid grid-cols-3 gap-2">
               {(Object.keys(methodConfig) as Method[]).map((item) => (
-                <MethodButton key={item} active={method === item} onClick={() => setMethod(item)} config={methodConfig[item]} />
+                <MethodButton key={item} active={method === item} onClick={() => setMethod(item)} config={getMethodConfig(isRu)[item]} />
               ))}
             </div>
 
             <div className="mt-5 space-y-4">
-              <Field label="Сумма вывода">
+              <Field label={isRu ? "Сумма вывода" : "Withdrawal amount"}>
                 <div className="relative">
                   <input
                     value={amount}
@@ -228,7 +251,7 @@ export default function WithdrawalsPage() {
 
               {method === "CARD" && (
                 <>
-                  <Field label="Номер карты">
+                  <Field label={isRu ? "Номер карты" : "Card number"}>
                     <input
                       value={card.number}
                       onChange={(event) => setCard({ ...card, number: formatCard(event.target.value) })}
@@ -238,16 +261,16 @@ export default function WithdrawalsPage() {
                     />
                   </Field>
 
-                  <Field label="Имя владельца">
+                  <Field label={isRu ? "Имя владельца" : "Cardholder name"}>
                     <input
                       value={card.holder}
                       onChange={(event) => setCard({ ...card, holder: event.target.value.toUpperCase() })}
                       className={inputClass}
-                      placeholder="Имя и фамилия на карте"
+                      placeholder={isRu ? "Имя и фамилия на карте" : "Name and surname on card"}
                     />
                   </Field>
 
-                  <Field label="Срок действия">
+                  <Field label={isRu ? "Срок действия" : "Expiry date"}>
                     <input
                       value={card.expiry}
                       onChange={(event) => setCard({ ...card, expiry: formatExpiry(event.target.value) })}
@@ -261,7 +284,7 @@ export default function WithdrawalsPage() {
 
               {method === "CRYPTO" && (
                 <>
-                  <Field label="Сеть и валюта">
+                  <Field label={isRu ? "Сеть и валюта" : "Network and currency"}>
                     <select
                       value={crypto.currency}
                       onChange={(event) => setCrypto({ ...crypto, currency: event.target.value })}
@@ -274,12 +297,12 @@ export default function WithdrawalsPage() {
                     </select>
                   </Field>
 
-                  <Field label="Адрес кошелька">
+                  <Field label={isRu ? "Адрес кошелька" : "Wallet address"}>
                     <input
                       value={crypto.wallet}
                       onChange={(event) => setCrypto({ ...crypto, wallet: event.target.value })}
                       className={inputClass}
-                      placeholder="Введите адрес кошелька"
+                      placeholder={isRu ? "Введите адрес кошелька" : "Enter wallet address"}
                     />
                   </Field>
                 </>
@@ -287,30 +310,30 @@ export default function WithdrawalsPage() {
 
               {method === "BANK" && (
                 <>
-                  <Field label="Получатель">
+                  <Field label={isRu ? "Получатель" : "Beneficiary"}>
                     <input
                       value={bank.beneficiary}
                       onChange={(event) => setBank({ ...bank, beneficiary: event.target.value })}
                       className={inputClass}
-                      placeholder="Имя получателя"
+                      placeholder={isRu ? "Имя получателя" : "Beneficiary name"}
                     />
                   </Field>
 
-                  <Field label="Банк">
+                  <Field label={isRu ? "Банк" : "Bank"}>
                     <input
                       value={bank.bankName}
                       onChange={(event) => setBank({ ...bank, bankName: event.target.value })}
                       className={inputClass}
-                      placeholder="Название банка"
+                      placeholder={isRu ? "Название банка" : "Bank name"}
                     />
                   </Field>
 
-                  <Field label="IBAN / номер счета">
+                  <Field label={isRu ? "IBAN / номер счета" : "IBAN / account number"}>
                     <input
                       value={bank.accountNumber}
                       onChange={(event) => setBank({ ...bank, accountNumber: event.target.value })}
                       className={inputClass}
-                      placeholder="IBAN или номер счета"
+                      placeholder={isRu ? "IBAN или номер счета" : "IBAN or account number"}
                     />
                   </Field>
 
@@ -329,7 +352,7 @@ export default function WithdrawalsPage() {
                 onClick={createWithdrawal}
                 className="h-12 w-full rounded-xl bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
               >
-                Отправить заявку
+                {isRu ? "Отправить заявку" : "Send request"}
               </button>
 
               {message && (
@@ -344,11 +367,11 @@ export default function WithdrawalsPage() {
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-black text-slate-900 dark:text-white">История заявок</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Все заявки на вывод средств по вашему счету</p>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "История заявок" : "Request history"}</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{isRu ? "Все заявки на вывод средств по вашему счету" : "All withdrawal requests for your account"}</p>
             </div>
             <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-              {loading ? "Загрузка" : `${withdrawals.length} заявок`}
+              {loading ? (isRu ? "Загрузка" : "Loading") : `${withdrawals.length} ${isRu ? "заявок" : "requests"}`}
             </span>
           </div>
 
@@ -356,18 +379,18 @@ export default function WithdrawalsPage() {
             <table className="min-w-[620px] w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                  <th className="px-4 py-3">Сумма</th>
-                  <th className="px-4 py-3">Способ</th>
-                  <th className="px-4 py-3">Реквизиты</th>
-                  <th className="px-4 py-3">Статус</th>
-                  <th className="px-4 py-3">Дата</th>
+                  <th className="px-4 py-3">{isRu ? "Сумма" : "Amount"}</th>
+                  <th className="px-4 py-3">{isRu ? "Способ" : "Method"}</th>
+                  <th className="px-4 py-3">{isRu ? "Реквизиты" : "Details"}</th>
+                  <th className="px-4 py-3">{isRu ? "Статус" : "Status"}</th>
+                  <th className="px-4 py-3">{isRu ? "Дата" : "Date"}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
                     <td className="px-4 py-8 text-center text-slate-500" colSpan={5}>
-                      Загрузка...
+                      {isRu ? "Загрузка..." : "Loading..."}
                     </td>
                   </tr>
                 )}
@@ -375,7 +398,7 @@ export default function WithdrawalsPage() {
                 {!loading && withdrawals.length === 0 && (
                   <tr>
                     <td className="px-4 py-10 text-center text-slate-500" colSpan={5}>
-                      Заявок на вывод пока нет
+                      {isRu ? "Заявок на вывод пока нет" : "No withdrawal requests yet"}
                     </td>
                   </tr>
                 )}
@@ -391,22 +414,22 @@ export default function WithdrawalsPage() {
                           <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                             {methodSmallIcon(item.method)}
                           </span>
-                          {methodLabel(item.method)}
+                          {methodLabel(item.method, isRu)}
                         </div>
                       </td>
                       <td className="max-w-[360px] px-4 py-4">
                         <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{formatDestination(item)}</p>
                         {item.adminComment && (
                           <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
-                            Комментарий: {item.adminComment}
+                            {isRu ? "Комментарий" : "Comment"}: {item.adminComment}
                           </p>
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        <StatusBadge status={item.status} />
+                        <StatusBadge status={item.status} isRu={isRu} />
                       </td>
                       <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
-                        {new Date(item.createdAt).toLocaleString("ru-RU")}
+                        {new Date(item.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")}
                       </td>
                     </tr>
                   ))}
@@ -466,7 +489,7 @@ function MethodButton({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, isRu }: { status: string; isRu: boolean }) {
   const className =
     status === "APPROVED"
       ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-400/20"
@@ -474,7 +497,7 @@ function StatusBadge({ status }: { status: string }) {
         ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-400/20"
         : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-400/20";
 
-  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>{statusLabel(status)}</span>;
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>{statusLabel(status, isRu)}</span>;
 }
 
 function formatCard(value: string) {
@@ -517,10 +540,10 @@ function shorten(value: string) {
   return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
-function methodLabel(value: string) {
-  if (value === "CARD" || value === "Bank Card") return "Карта";
-  if (value === "CRYPTO" || value === "Crypto Wallet") return "Криптовалюта";
-  if (value === "BANK" || value === "Bank Account") return "Банк";
+function methodLabel(value: string, isRu: boolean) {
+  if (value === "CARD" || value === "Bank Card") return isRu ? "Карта" : "Card";
+  if (value === "CRYPTO" || value === "Crypto Wallet") return isRu ? "Криптовалюта" : "Crypto";
+  if (value === "BANK" || value === "Bank Account") return isRu ? "Банк" : "Bank";
   return value;
 }
 
@@ -531,10 +554,10 @@ function methodSmallIcon(value: string) {
   return <DotIcon />;
 }
 
-function statusLabel(value: string) {
-  if (value === "APPROVED") return "Одобрено";
-  if (value === "REJECTED") return "Отклонено";
-  if (value === "PENDING") return "На проверке";
+function statusLabel(value: string, isRu: boolean) {
+  if (value === "APPROVED") return isRu ? "Одобрено" : "Approved";
+  if (value === "REJECTED") return isRu ? "Отклонено" : "Rejected";
+  if (value === "PENDING") return isRu ? "На проверке" : "Pending";
   return value;
 }
 

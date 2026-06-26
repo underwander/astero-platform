@@ -207,10 +207,10 @@ export default function SupportPage() {
           setHasUnread(false);
           setUnreadCount(0);
         }}
-        className={`fixed bottom-5 right-5 z-[9998] rounded-full border border-white/35 px-4 py-3 text-xs font-black text-white shadow-2xl backdrop-blur-xl transition hover:bg-emerald-500/70 ${
+        className={`fixed bottom-5 right-5 z-[9998] rounded-full border border-white/30 px-3 py-2 text-[11px] font-black text-white shadow-xl backdrop-blur-2xl transition hover:border-white/50 hover:bg-emerald-500/35 ${
           hasUnread
-            ? "bg-emerald-600/70 shadow-red-500/30 ring-4 ring-red-500/20"
-            : "bg-emerald-700/45 shadow-emerald-950/20"
+            ? "bg-emerald-500/35 shadow-red-500/25 ring-4 ring-red-500/20"
+            : "bg-white/12 shadow-emerald-950/10"
         }`}
       >
         {hasUnread && (
@@ -281,7 +281,7 @@ export default function SupportPage() {
                     <img src={attachmentUrl} alt={item.attachmentName || "attachment"} className="mt-2 max-h-40 rounded-lg object-contain" />
                   ) : (
                     <a href={attachmentUrl} download={item.attachmentName || "support-file"} className="mt-2 inline-flex rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
-                      Скачать файл
+                      {isRu ? "Скачать файл" : "Download file"}
                     </a>
                   )
                 )}
