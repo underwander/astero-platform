@@ -2710,7 +2710,7 @@ function SupportPanelV2({
                   {count}
                 </span>
               </div>
-              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Изображение" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
+              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
             </button>
           ))}
 
@@ -2773,12 +2773,12 @@ function SupportPanelV2({
                           )}
                           <a
                             href={attachmentUrl}
-                            download={message.attachmentName || "support-image"}
+                            download={message.attachmentName || "support-file"}
                             className={`inline-flex rounded-xl px-3 py-2 text-xs font-black ${
                               isStaff ? "bg-white/15 text-white" : isBot ? "bg-sky-100 text-sky-800" : "bg-emerald-50 text-emerald-700"
                             }`}
                           >
-                            Скачать изображение
+                            Скачать файл
                           </a>
                         </div>
                       )}
@@ -2793,13 +2793,39 @@ function SupportPanelV2({
               {dialog.length === 0 && <Empty text="История чата пуста" />}
             </div>
 
-            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-              <textarea
-                className={areaClass}
-                placeholder="Ответ клиенту..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[auto_1fr_auto]">
+              <label className="flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50">
+                Прикрепить файл
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(event) => onAttach(event.target.files?.[0] || null)}
+                />
+              </label>
+              <div className="min-w-0">
+                <textarea
+                  className={areaClass}
+                  placeholder="Ответ клиенту..."
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      onSend();
+                    }
+                  }}
+                />
+                {attachment && (
+                  <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="mt-2 max-w-full truncate rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
+                    title="Убрать файл"
+                  >
+                    {attachment.name} ×
+                  </button>
+                )}
+              </div>
               <button
                 onClick={onSend}
                 className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
