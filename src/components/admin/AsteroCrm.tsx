@@ -213,6 +213,11 @@ const inputClass =
 const areaClass =
   "min-h-24 w-full rounded-xl border border-emerald-100 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
 
+function readSessionValue(key: string, fallback = "") {
+  if (typeof window === "undefined") return fallback;
+  return window.sessionStorage.getItem(key) || fallback;
+}
+
 export default function AsteroCrm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -239,7 +244,7 @@ export default function AsteroCrm() {
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [clientSearch, setClientSearch] = useState("");
+  const [clientSearch, setClientSearch] = useState(() => readSessionValue("astero.crm.clientSearch"));
   const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
   const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("0");
@@ -481,6 +486,10 @@ export default function AsteroCrm() {
       }
     };
   }, [router]);
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.clientSearch", clientSearch);
+  }, [clientSearch]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 60000);
@@ -939,6 +948,10 @@ export default function AsteroCrm() {
               <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
             <input
+              name="crm-client-search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-11 w-full rounded-xl border border-emerald-300/20 bg-slate-950/40 px-4 text-sm text-white outline-none placeholder:text-emerald-50/45 focus:border-emerald-400 lg:max-w-lg"
               value={clientSearch}
               onChange={(event) => setClientSearch(event.target.value)}
@@ -1063,7 +1076,7 @@ export default function AsteroCrm() {
                     </button>
                   ))}
                 </div>
-                <input className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
               </div>
               <ClientsTable
                 clients={filteredClients}
@@ -1248,14 +1261,47 @@ function ManagerEditCard({
         <input className={`${inputClass} h-9 rounded-lg`} placeholder="Фамилия" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
         <input className={`${inputClass} h-9 rounded-lg`} placeholder="Почта" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
         <input className={`${inputClass} h-9 rounded-lg`} placeholder="Телефон" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
-        <div className="flex gap-2">
-          <input className={`${inputClass} h-9 rounded-lg`} placeholder="Новый пароль" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
-          <button type="button" onClick={() => setShowPassword((value) => !value)} className="rounded-lg border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700">
-            {showPassword ? "Скрыть" : "Глаз"}
+        <div className="relative">
+          <input
+            className={`${inputClass} h-9 rounded-lg pr-11`}
+            placeholder="Новый пароль"
+            type={showPassword ? "text" : "password"}
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((value) => !value)}
+            className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+            aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+            title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+          >
+            <EyeIcon closed={showPassword} />
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function EyeIcon({ closed = false }: { closed?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M2.8 12.1C4.6 8.7 7.8 6.5 12 6.5C16.2 6.5 19.4 8.7 21.2 12.1C19.4 15.5 16.2 17.7 12 17.7C7.8 17.7 4.6 15.5 2.8 12.1Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 14.6C13.38 14.6 14.5 13.48 14.5 12.1C14.5 10.72 13.38 9.6 12 9.6C10.62 9.6 9.5 10.72 9.5 12.1C9.5 13.48 10.62 14.6 12 14.6Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      {closed && <path d="M4 20L20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
+    </svg>
   );
 }
 
@@ -2163,7 +2209,7 @@ function TradingOperationsDesk({
 }) {
   const [mode, setMode] = useState<"open" | "closed" | "all">("open");
   const [account, setAccount] = useState("all");
-  const [symbol, setSymbol] = useState("");
+  const [symbol, setSymbol] = useState(() => readSessionValue("astero.crm.tradeSearch"));
   const [side, setSide] = useState("all");
   const [selectedTradeId, setSelectedTradeId] = useState("");
   const [quotes, setQuotes] = useState<Record<string, { price: number; bid: number; ask: number; tickValue?: number | null }>>({});
@@ -2173,6 +2219,10 @@ function TradingOperationsDesk({
     [trades]
   );
   const openQuoteSymbolsKey = openQuoteSymbols.join("|");
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.tradeSearch", symbol);
+  }, [symbol]);
 
   const clientMap = useMemo(() => {
     const map = new Map<string, User>();
@@ -2329,7 +2379,7 @@ function TradingOperationsDesk({
               <option value="BUY">BUY</option>
               <option value="SELL">SELL</option>
             </select>
-            <input className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Поиск: символ, клиент, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+            <input name="crm-trade-search" autoComplete="off" autoCorrect="off" spellCheck={false} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Поиск: символ, клиент, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
             <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-black text-white">Показать</button>
             <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-600">Сбросить</button>
           </div>
@@ -2611,7 +2661,7 @@ function SupportPanelV2({
   onClose: (userId: string) => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [supportSearch, setSupportSearch] = useState("");
+  const [supportSearch, setSupportSearch] = useState(() => readSessionValue("astero.crm.supportSearch"));
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const selectedConversation = conversations.find((item) => item.userId === selectedClientId);
   const dialog = messages
@@ -2638,6 +2688,10 @@ function SupportPanelV2({
       .includes(query);
   });
 
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.supportSearch", supportSearch);
+  }, [supportSearch]);
+
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
       {error && (
@@ -2658,6 +2712,10 @@ function SupportPanelV2({
           <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
             <input
               autoFocus
+              name="crm-support-client-search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-10 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-emerald-500"
               value={supportSearch}
               onChange={(event) => setSupportSearch(event.target.value)}
@@ -2672,7 +2730,6 @@ function SupportPanelV2({
                     setSelectedClientId(client.id);
                     onReadClient(client.id);
                     setSearchOpen(false);
-                    setSupportSearch("");
                   }}
                   className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
                 >
