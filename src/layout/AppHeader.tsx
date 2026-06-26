@@ -13,16 +13,32 @@ export default function AppHeader() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("Client");
   const [role, setRole] = useState("CLIENT");
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
 
   useEffect(() => {
     setEmail(localStorage.getItem("email") || "Client");
     setRole(localStorage.getItem("role") || "CLIENT");
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
   }, []);
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) toggleSidebar();
     else toggleMobileSidebar();
   };
+
+  async function installApp() {
+    if (installPrompt?.prompt) {
+      await installPrompt.prompt();
+      setInstallPrompt(null);
+      return;
+    }
+    alert("Чтобы установить приложение на iPhone: нажмите Поделиться в Safari и выберите «На экран Домой». На Android: откройте меню браузера и выберите «Установить приложение».");
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-900/10 bg-white/90 backdrop-blur-xl dark:border-emerald-400/10 dark:bg-[#07130d]/90">
@@ -50,6 +66,14 @@ export default function AppHeader() {
           <div className="hidden items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 sm:flex">
             <span className="size-2 rounded-full bg-emerald-500" /> {t("live")}
           </div>
+
+          <button
+            type="button"
+            onClick={installApp}
+            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[11px] font-black text-emerald-700 dark:text-emerald-300 lg:hidden"
+          >
+            Установить приложение
+          </button>
 
           <LanguageSwitcher />
 

@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { ensureSupportMessagesTable } from "@/lib/support-messages";
 
 export async function DELETE(req: Request) {
   try {
+    await ensureSupportMessagesTable();
     const { userId } = await req.json();
 
     if (!userId) {
@@ -48,6 +50,20 @@ export async function DELETE(req: Request) {
         userId,
       },
     });
+
+    await prisma.clientNote.deleteMany({ where: { userId } });
+    await prisma.clientAction.deleteMany({ where: { userId } });
+    await prisma.verificationDocument.deleteMany({ where: { userId } });
+
+    await prisma.$executeRaw`
+      DELETE FROM "SupportMessage"
+      WHERE "userId" = ${userId}
+    `;
+
+    await prisma.$executeRaw`
+      DELETE FROM "SupportConversation"
+      WHERE "userId" = ${userId}
+    `;
 
     await prisma.user.delete({
       where: {

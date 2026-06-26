@@ -57,7 +57,7 @@ function parsePositiveNumber(value: string, fallback = 0) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function formatCurrency(value: number, currency = "USD") {
+function formatCurrency(value: number, currency = "EUR") {
   try {
     return new Intl.NumberFormat("ru-RU", {
       style: "currency",
@@ -100,8 +100,8 @@ export default function TradingTerminalPage() {
   const activeLeverage = Math.max(1, selectedQuoteSettings?.leverage ?? 100);
   const activeMarginRate = Math.max(0, selectedQuoteSettings?.margin ?? 1);
   const activeContractSize = Math.max(1, selectedQuoteSettings?.contractSize ?? instrument.contractSize);
-  const marginCurrency = selectedQuoteSettings?.marginCurrency || "USD";
-  const profitCurrency = selectedQuoteSettings?.profitCurrency || "USD";
+  const marginCurrency = selectedQuoteSettings?.marginCurrency || "EUR";
+  const profitCurrency = selectedQuoteSettings?.profitCurrency || "EUR";
   const requiredMargin = calculateRequiredMargin(
     {
       symbol,
@@ -475,8 +475,8 @@ export default function TradingTerminalPage() {
             key={symbol}
             src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${
               instrument.tvSymbol
-            }&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&hideideas=1&locale=ru`}
-            className="h-[520px] w-full border-0 bg-[#07110f] sm:h-[620px] xl:h-[720px] 2xl:h-[780px]"
+            }&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
+            className="h-[360px] w-full border-0 bg-[#07110f] sm:h-[430px] xl:h-[520px] 2xl:h-[560px]"
             allowFullScreen
           />
           <PositionsPanel trades={trades} quotes={quotes} onClose={closeTrade} />

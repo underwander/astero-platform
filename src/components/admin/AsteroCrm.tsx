@@ -8,6 +8,7 @@ import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 type ManagerRef = {
   id: string;
   email: string;
+  plainPassword?: string | null;
   firstName?: string | null;
   lastName?: string | null;
 };
@@ -78,6 +79,12 @@ type SupportToast = {
   message: string;
 };
 
+type AttachmentPayload = {
+  name: string;
+  mimeType: string;
+  base64: string;
+};
+
 type WindowWithAudioContext = Window &
   typeof globalThis & {
     webkitAudioContext?: typeof AudioContext;
@@ -86,6 +93,7 @@ type WindowWithAudioContext = Window &
 type User = {
   id: string;
   email: string;
+  plainPassword?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -117,6 +125,7 @@ type Withdrawal = {
   method: string;
   destination?: string | null;
   details?: string | null;
+  adminComment?: string | null;
   status: string;
   createdAt: string;
   user: {
@@ -219,9 +228,11 @@ export default function AsteroCrm() {
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [supportConversations, setSupportConversations] = useState<SupportConversation[]>([]);
   const [supportText, setSupportText] = useState("");
+  const [supportAttachment, setSupportAttachment] = useState<AttachmentPayload | null>(null);
   const [supportClientId, setSupportClientId] = useState("");
   const [supportError, setSupportError] = useState("");
   const [supportToast, setSupportToast] = useState<SupportToast | null>(null);
+  const [supportUnreadIds, setSupportUnreadIds] = useState<Set<string>>(new Set());
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -427,6 +438,11 @@ export default function AsteroCrm() {
 
     if (supportMessagesReadyRef.current && newClientMessages.length > 0) {
       notifySupportMessage(newClientMessages[newClientMessages.length - 1], allClients);
+      setSupportUnreadIds((prev) => {
+        const next = new Set(prev);
+        newClientMessages.forEach((item) => next.add(item.userId));
+        return next;
+      });
     }
 
     seenSupportMessageIdsRef.current = new Set(visibleSupportMessages.map((item) => item.id));
@@ -557,7 +573,7 @@ export default function AsteroCrm() {
     const amount = Number(depositAmount);
     if (!amount || amount <= 0) return alert("Введите корректную сумму");
     const client = clients.find((item) => item.id === userId);
-    if (!confirm(`Начислить ${displayName(client || { email: userId })} депозит $${amount.toFixed(2)}?`)) return;
+    if (!confirm(`Начислить ${displayName(client || { email: userId })} депозит €${amount.toFixed(2)}?`)) return;
     const res = await fetch("/api/admin/users/deposit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -610,6 +626,17 @@ export default function AsteroCrm() {
     alert("Пароль изменён");
   }
 
+  async function updateUser(userId: string, payload: Partial<User> & { password?: string }) {
+    const res = await fetch("/api/admin/users/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, ...payload }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Ошибка обновления пользователя");
+    await loadAdminData();
+  }
+
   async function toggleBlockUser(userId: string, isBlocked: boolean) {
     const res = await fetch("/api/admin/users/block", {
       method: "PATCH",
@@ -634,10 +661,11 @@ export default function AsteroCrm() {
   }
 
   async function approveWithdrawal(withdrawalId: string) {
+    const comment = prompt("Комментарий для клиента при одобрении вывода:", "");
     const res = await fetch("/api/admin/withdrawals/approve", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ withdrawalId }),
+      body: JSON.stringify({ withdrawalId, comment }),
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка подтверждения");
@@ -645,10 +673,11 @@ export default function AsteroCrm() {
   }
 
   async function rejectWithdrawal(withdrawalId: string) {
+    const comment = prompt("Комментарий для клиента при отклонении вывода:", "");
     const res = await fetch("/api/admin/withdrawals/reject", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ withdrawalId }),
+      body: JSON.stringify({ withdrawalId, comment }),
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка отклонения");
@@ -787,7 +816,7 @@ export default function AsteroCrm() {
     const res = await fetch("/api/admin/support", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: supportClientId, message: supportText, authorId: localStorage.getItem("userId") }),
+      body: JSON.stringify({ userId: supportClientId, message: supportText || (supportAttachment ? "Файл" : ""), attachment: supportAttachment, authorId: localStorage.getItem("userId") }),
     });
 
     const data = await res.json();
@@ -797,7 +826,20 @@ export default function AsteroCrm() {
     }
 
     setSupportText("");
+    setSupportAttachment(null);
     await loadAdminData();
+  }
+
+  async function attachSupportFile(file: File | null) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return alert("Файл должен быть до 5MB");
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setSupportAttachment({ name: file.name, mimeType: file.type || "application/octet-stream", base64 });
   }
 
   async function closeSupportConversation(userId: string) {
@@ -844,7 +886,12 @@ export default function AsteroCrm() {
                   : "bg-white/[0.04] text-emerald-50 hover:bg-white/[0.08]"
               }`}
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-lg font-black">{tab.icon}</span>
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-lg font-black">
+                {tab.icon}
+                {tab.id === "support" && supportUnreadIds.size > 0 && (
+                  <span className="absolute -right-1 -top-1 size-3 rounded-full bg-red-500 ring-2 ring-[#07170f]" />
+                )}
+              </span>
               <span>
                 <span className="block text-sm font-black">{tab.label}</span>
                 <span className={`block text-xs ${activeTab === tab.id ? "text-slate-800" : "text-emerald-50/50"}`}>{tab.hint}</span>
@@ -937,7 +984,7 @@ export default function AsteroCrm() {
             <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
               <Metric title="Клиенты" value={loading ? "..." : clients.length} />
               <Metric title="Менеджеры" value={managers.length} />
-              <Metric title="Баланс клиентов" value={`$${totalBalance.toFixed(2)}`} />
+              <Metric title="Баланс клиентов" value={`€${totalBalance.toFixed(2)}`} />
               <Metric title="Открытые действия" value={openActions.length} />
               <Metric title="Просрочено" value={overdueActions.length} danger={overdueActions.length > 0} />
               <Metric title="KYC pending" value={pendingKyc.length} />
@@ -954,7 +1001,7 @@ export default function AsteroCrm() {
                 <div className="mt-4 space-y-2">
                   {pendingWithdrawals.slice(0, 4).map((item) => (
                     <div key={item.id} className="rounded-2xl border border-emerald-100 p-3 text-sm">
-                      <b>{item.user.email}</b> — ${Number(item.amount).toFixed(2)} · {item.method}
+                      <b>{item.user.email}</b> — €{Number(item.amount).toFixed(2)} · {item.method}
                     </div>
                   ))}
                   {pendingWithdrawals.length === 0 && <Empty text="Нет срочных финансовых заявок" />}
@@ -1061,6 +1108,8 @@ export default function AsteroCrm() {
             onUpdateTrade={updateClientTrade}
             onApproveDeposit={approveDeposit}
             onRejectDeposit={rejectDeposit}
+            onUpdateUser={updateUser}
+            onDeleteClient={(client) => deleteUser(client.id, client.email)}
           />
         )}
 
@@ -1092,6 +1141,14 @@ export default function AsteroCrm() {
             <Panel title="Команда CRM">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {managers.map((manager) => (
+                  <ManagerEditCard
+                    key={`edit-${manager.id}`}
+                    manager={manager}
+                    clientsCount={clients.filter((client) => client.managerId === manager.id).length}
+                    onSave={(payload) => updateUser(manager.id, payload)}
+                  />
+                ))}
+                {managers.map((manager) => (
                   <div key={manager.id} className="rounded-2xl border border-emerald-100 p-4">
                     <p className="text-lg font-black">{displayName(manager)}</p>
                     <p className="text-sm text-slate-500">{manager.email}</p>
@@ -1116,10 +1173,19 @@ export default function AsteroCrm() {
             messages={supportMessages}
             conversations={supportConversations}
             error={supportError}
+            unreadIds={supportUnreadIds}
             selectedClientId={supportClientId}
             setSelectedClientId={setSupportClientId}
+            onReadClient={(clientId: string) => setSupportUnreadIds((prev) => {
+              const next = new Set(prev);
+              next.delete(clientId);
+              return next;
+            })}
             text={supportText}
             setText={setSupportText}
+            attachment={supportAttachment}
+            setAttachment={setSupportAttachment}
+            onAttach={attachSupportFile}
             onSend={sendSupportMessage}
             onClose={closeSupportConversation}
           />
@@ -1132,6 +1198,65 @@ export default function AsteroCrm() {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="rounded-[1.5rem] border border-emerald-100 bg-white p-4 text-slate-950 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] dark:text-white sm:p-5"><h2 className="mb-4 text-lg font-black">{title}</h2>{children}</section>;
+}
+
+function ManagerEditCard({
+  manager,
+  clientsCount,
+  onSave,
+}: {
+  manager: User;
+  clientsCount: number;
+  onSave: (payload: Partial<User> & { password?: string }) => void;
+}) {
+  const [form, setForm] = useState({
+    firstName: manager.firstName || "",
+    lastName: manager.lastName || "",
+    email: manager.email || "",
+    phone: manager.phone || "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    setForm({
+      firstName: manager.firstName || "",
+      lastName: manager.lastName || "",
+      email: manager.email || "",
+      phone: manager.phone || "",
+      password: "",
+    });
+  }, [manager.id]);
+
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <p className="text-lg font-black text-slate-950">{displayName(manager)}</p>
+          <p className="text-xs text-slate-500">{clientsCount} клиентов</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onSave(form.password.trim() ? form : { ...form, password: undefined })}
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700"
+        >
+          Сохранить
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-2">
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Имя" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Фамилия" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Почта" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Телефон" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+        <div className="flex gap-2">
+          <input className={`${inputClass} h-9 rounded-lg`} placeholder="Новый пароль" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+          <button type="button" onClick={() => setShowPassword((value) => !value)} className="rounded-lg border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700">
+            {showPassword ? "Скрыть" : "Глаз"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Metric({ title, value, danger }: { title: string; value: string | number; danger?: boolean }) {
@@ -1199,6 +1324,8 @@ function ClientProfileUtip({
   onUpdateTrade,
   onApproveDeposit,
   onRejectDeposit,
+  onUpdateUser,
+  onDeleteClient,
 }: {
   selectedClient: User;
   managers: User[];
@@ -1229,11 +1356,38 @@ function ClientProfileUtip({
   onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
+  onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
+  onDeleteClient: (client: User) => void;
 }) {
   const [clientSection, setClientSection] = useState<
     "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
   >("overview");
   const [numberCopied, setNumberCopied] = useState(false);
+  const [showClientPassword, setShowClientPassword] = useState(false);
+  const [editClient, setEditClient] = useState({
+    firstName: selectedClient.firstName || "",
+    lastName: selectedClient.lastName || "",
+    email: selectedClient.email || "",
+    phone: selectedClient.phone || "",
+    country: selectedClient.country || "",
+    city: selectedClient.city || "",
+    address: selectedClient.address || "",
+    kycStatus: selectedClient.kycStatus || "PENDING",
+    managerId: selectedClient.managerId || "",
+  });
+  useEffect(() => {
+    setEditClient({
+      firstName: selectedClient.firstName || "",
+      lastName: selectedClient.lastName || "",
+      email: selectedClient.email || "",
+      phone: selectedClient.phone || "",
+      country: selectedClient.country || "",
+      city: selectedClient.city || "",
+      address: selectedClient.address || "",
+      kycStatus: selectedClient.kycStatus || "PENDING",
+      managerId: selectedClient.managerId || "",
+    });
+  }, [selectedClient.id]);
   const clientActions = (selectedClient.clientActions || []).map((action) => ({ ...action, client: selectedClient }));
   const clientTrades = trades.filter((trade) => trade.user.id === selectedClient.id || trade.user.email === selectedClient.email);
   const clientDeposits = deposits.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
@@ -1273,6 +1427,13 @@ function ClientProfileUtip({
                   {numberCopied ? "Скопировано" : "Копировать"}
                 </button>
               </span>
+              <button
+                type="button"
+                onClick={() => onDeleteClient(selectedClient)}
+                className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700 hover:bg-red-100"
+              >
+                Удалить счет
+              </button>
             </div>
           </div>
 
@@ -1301,12 +1462,45 @@ function ClientProfileUtip({
             ))}
           </div>
 
+          {clientSection === "overview" && (
+            <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-black text-slate-950">Редактировать данные клиента</h3>
+                <button
+                  type="button"
+                  onClick={() => onUpdateUser(selectedClient.id, editClient)}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+                >
+                  Сохранить
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Имя" value={editClient.firstName} onChange={(event) => setEditClient({ ...editClient, firstName: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Фамилия" value={editClient.lastName} onChange={(event) => setEditClient({ ...editClient, lastName: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Email" value={editClient.email} onChange={(event) => setEditClient({ ...editClient, email: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Телефон" value={editClient.phone} onChange={(event) => setEditClient({ ...editClient, phone: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Страна" value={editClient.country} onChange={(event) => setEditClient({ ...editClient, country: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Город" value={editClient.city} onChange={(event) => setEditClient({ ...editClient, city: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Адрес" value={editClient.address} onChange={(event) => setEditClient({ ...editClient, address: event.target.value })} />
+                <select className={`${inputClass} h-9 rounded-lg`} value={editClient.kycStatus} onChange={(event) => setEditClient({ ...editClient, kycStatus: event.target.value })}>
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+                <select className={`${inputClass} h-9 rounded-lg md:col-span-2`} value={editClient.managerId} onChange={(event) => setEditClient({ ...editClient, managerId: event.target.value })}>
+                  <option value="">Без менеджера</option>
+                  {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
           {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
             <UtipInfoPanel title="Общая информация">
               <UtipRow label="Имя" value={selectedClient.firstName || "-"} />
               <UtipRow label="Фамилия" value={selectedClient.lastName || "-"} />
               <UtipRow label="Статус" value={selectedClient.kycStatus} />
-              <UtipRow label="Баланс" value={`$${Number(selectedClient.balance || 0).toFixed(2)}`} />
+              <UtipRow label="Баланс" value={`€${Number(selectedClient.balance || 0).toFixed(2)}`} />
               <UtipRow label="Создан" value={new Date(selectedClient.createdAt).toLocaleString("ru-RU")} />
               <UtipRow label="Последний вход" value={selectedClient.lastLoginAt ? new Date(selectedClient.lastLoginAt).toLocaleString("ru-RU") : "Еще не входил"} />
               <UtipRow label="Последняя активность" value={selectedClient.lastSeenAt ? new Date(selectedClient.lastSeenAt).toLocaleString("ru-RU") : "Нет данных"} />
@@ -1324,6 +1518,21 @@ function ClientProfileUtip({
             </UtipInfoPanel>
 
             <UtipInfoPanel title="Управление">
+              <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-black text-slate-900">Пароль клиента</p>
+                    <p className="text-[11px] text-slate-500">{showClientPassword ? selectedClient.plainPassword || "Доступен после смены пароля" : "••••••••"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowClientPassword((value) => !value)}
+                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"
+                  >
+                    {showClientPassword ? "Скрыть" : "Показать"}
+                  </button>
+                </div>
+              </div>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
                 <div>
                   <p className="text-xs font-black text-slate-900">Разрешение торговли</p>
@@ -1466,13 +1675,13 @@ function ClientUtipSection({
       id: `deposit-${deposit.id}`,
       date: deposit.createdAt,
       author: "Финансы",
-      text: `Пополнение счета на $${Number(deposit.amount).toFixed(2)} (${deposit.status})`,
+      text: `Пополнение счета на €${Number(deposit.amount).toFixed(2)} (${deposit.status})`,
     })),
     ...withdrawals.map((withdrawal) => ({
       id: `withdrawal-${withdrawal.id}`,
       date: withdrawal.createdAt,
       author: "Финансы",
-      text: `Заявка на вывод $${Number(withdrawal.amount).toFixed(2)} (${withdrawal.status})`,
+      text: `Заявка на вывод €${Number(withdrawal.amount).toFixed(2)} (${withdrawal.status})`,
     })),
     ...documents.map((doc) => ({
       id: `doc-${doc.id}`,
@@ -1560,8 +1769,8 @@ function ClientUtipSection({
         <tbody>
           <tr className="border-b border-slate-100">
             <UtipTd>{accountNumber}</UtipTd>
-            <UtipTd>ASTERO USD Live</UtipTd>
-            <UtipTd>${Number(client.balance || 0).toFixed(2)}</UtipTd>
+            <UtipTd>ASTERO EUR Live</UtipTd>
+            <UtipTd>€{Number(client.balance || 0).toFixed(2)}</UtipTd>
             <UtipTd>0.00</UtipTd>
             <UtipTd><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></UtipTd>
             <UtipTd>{openTrades.length}</UtipTd>
@@ -2237,8 +2446,10 @@ function SupportPanel({
   clients,
   messages,
   error,
+  unreadIds = new Set<string>(),
   selectedClientId,
   setSelectedClientId,
+  onReadClient,
   text,
   setText,
   onSend,
@@ -2246,8 +2457,10 @@ function SupportPanel({
   clients: User[];
   messages: SupportMessage[];
   error: string;
+  unreadIds?: Set<string>;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
+  onReadClient: (id: string) => void;
   text: string;
   setText: (text: string) => void;
   onSend: () => void;
@@ -2290,7 +2503,10 @@ function SupportPanel({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-black text-slate-950">{displayName(client)}</p>
+                  <p className="flex items-center gap-2 font-black text-slate-950">
+                    {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
+                    {displayName(client)}
+                  </p>
                   <p className="text-xs text-slate-500">{client.email}</p>
                 </div>
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
@@ -2366,10 +2582,15 @@ function SupportPanelV2({
   messages,
   conversations,
   error,
+  unreadIds,
   selectedClientId,
   setSelectedClientId,
+  onReadClient,
   text,
   setText,
+  attachment,
+  setAttachment,
+  onAttach,
   onSend,
   onClose,
 }: {
@@ -2377,10 +2598,15 @@ function SupportPanelV2({
   messages: SupportMessage[];
   conversations: SupportConversation[];
   error: string;
+  unreadIds: Set<string>;
   selectedClientId: string;
   setSelectedClientId: (id: string) => void;
+  onReadClient: (id: string) => void;
   text: string;
   setText: (text: string) => void;
+  attachment: AttachmentPayload | null;
+  setAttachment: (attachment: AttachmentPayload | null) => void;
+  onAttach: (file: File | null) => void;
   onSend: () => void;
   onClose: (userId: string) => void;
 }) {
@@ -2444,6 +2670,7 @@ function SupportPanelV2({
                   type="button"
                   onClick={() => {
                     setSelectedClientId(client.id);
+                    onReadClient(client.id);
                     setSearchOpen(false);
                     setSupportSearch("");
                   }}
@@ -2461,7 +2688,10 @@ function SupportPanelV2({
           {clientsWithMessages.map(({ client, count, conversation, last }) => (
             <button
               key={client.id}
-              onClick={() => setSelectedClientId(client.id)}
+              onClick={() => {
+                setSelectedClientId(client.id);
+                onReadClient(client.id);
+              }}
               className={`w-full rounded-2xl border p-3 text-left transition ${
                 selectedClientId === client.id
                   ? "border-emerald-500 bg-emerald-50"
@@ -2470,7 +2700,10 @@ function SupportPanelV2({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-black text-slate-950">{displayName(client)}</p>
+                  <p className="flex items-center gap-2 font-black text-slate-950">
+                    {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
+                    {displayName(client)}
+                  </p>
                   <p className="text-xs text-slate-500">{client.email}</p>
                 </div>
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
@@ -2876,6 +3109,7 @@ function WithdrawalsTable({
 
                 <td className="p-3 min-w-[420px]">
   <WithdrawalDetails item={item} />
+  {item.adminComment && <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800">Комментарий: {item.adminComment}</p>}
 </td>
 
                 <td className="p-3">

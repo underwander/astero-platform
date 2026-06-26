@@ -15,6 +15,7 @@ export async function GET(req: Request) {
       select: {
         id: true,
         email: true,
+        plainPassword: true,
         firstName: true,
         lastName: true,
         phone: true,

@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function PATCH(req: Request) {
   try {
-    const { withdrawalId } = await req.json();
+    await ensureCrmSchema();
+    const { withdrawalId, comment } = await req.json();
 
     const withdrawal = await prisma.withdrawal.findUnique({
       where: {
@@ -30,6 +32,7 @@ export async function PATCH(req: Request) {
       },
       data: {
         status: "REJECTED",
+        adminComment: typeof comment === "string" && comment.trim() ? comment.trim() : null,
       },
     });
 

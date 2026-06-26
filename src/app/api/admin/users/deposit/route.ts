@@ -48,8 +48,8 @@ export async function PATCH(req: Request) {
       `
       <h2>Deposit completed</h2>
       <p>Your account has been funded.</p>
-      <p><b>Amount:</b> $${numericAmount.toFixed(2)}</p>
-      <p><b>New balance:</b> $${Number(user.balance).toFixed(2)}</p>
+      <p><b>Amount:</b> €${numericAmount.toFixed(2)}</p>
+      <p><b>New balance:</b> €${Number(user.balance).toFixed(2)}</p>
       `
     );
 

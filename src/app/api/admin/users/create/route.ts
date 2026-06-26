@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       data: {
         email,
         password: hashedPassword,
+        plainPassword: password,
         firstName: firstName || null,
         lastName: lastName || null,
         phone: phone || null,

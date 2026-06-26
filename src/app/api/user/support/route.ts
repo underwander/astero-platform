@@ -77,11 +77,11 @@ export async function POST(req: Request) {
     const attachmentBase64 = attachment?.base64 ? String(attachment.base64) : null;
 
     if (!userId || (!text && !attachmentBase64)) {
-      return Response.json({ error: "UserId and message or image required" }, { status: 400 });
+      return Response.json({ error: "UserId and message or file required" }, { status: 400 });
     }
 
-    if (attachmentBase64 && (!attachmentMimeType?.startsWith("image/") || attachmentBase64.length > 6_500_000)) {
-      return Response.json({ error: "Only images up to 5MB are supported" }, { status: 400 });
+    if (attachmentBase64 && (!attachmentMimeType || attachmentBase64.length > 6_500_000)) {
+      return Response.json({ error: "Files up to 5MB are supported" }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({

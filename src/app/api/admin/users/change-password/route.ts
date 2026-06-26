@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function PATCH(req: Request) {
   try {
+    await ensureCrmSchema();
     const { userId, password } = await req.json();
 
     if (!userId || !password || String(password).length < 6) {
@@ -10,7 +12,7 @@ export async function PATCH(req: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
+    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, plainPassword: String(password) } });
 
     return Response.json({ success: true });
   } catch (error) {

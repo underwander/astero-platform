@@ -111,7 +111,7 @@ export default function SupportPage() {
     }
 
     if (!message.trim() && !attachment) {
-      showToast(isRu ? "Введите сообщение или прикрепите изображение" : "Enter a message or attach an image");
+      showToast(isRu ? "Введите сообщение или прикрепите файл" : "Enter a message or attach a file");
       return;
     }
 
@@ -137,13 +137,8 @@ export default function SupportPage() {
   async function attachImage(file: File | null) {
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      showToast(isRu ? "Можно прикреплять только изображения" : "Only images can be attached");
-      return;
-    }
-
     if (file.size > 5 * 1024 * 1024) {
-      showToast(isRu ? "Изображение должно быть до 5MB" : "Image must be up to 5MB");
+      showToast(isRu ? "Файл должен быть до 5MB" : "File must be up to 5MB");
       return;
     }
 
@@ -212,10 +207,10 @@ export default function SupportPage() {
           setHasUnread(false);
           setUnreadCount(0);
         }}
-        className={`fixed bottom-6 right-6 z-[9998] rounded-full px-5 py-4 text-sm font-black text-white shadow-2xl transition hover:bg-emerald-500 ${
+        className={`fixed bottom-5 right-5 z-[9998] rounded-full border border-white/35 px-4 py-3 text-xs font-black text-white shadow-2xl backdrop-blur-xl transition hover:bg-emerald-500/70 ${
           hasUnread
-            ? "bg-emerald-600 shadow-red-500/30 ring-4 ring-red-500/20"
-            : "bg-emerald-600 shadow-emerald-950/25"
+            ? "bg-emerald-600/70 shadow-red-500/30 ring-4 ring-red-500/20"
+            : "bg-emerald-700/45 shadow-emerald-950/20"
         }`}
       >
         {hasUnread && (
@@ -282,7 +277,13 @@ export default function SupportPage() {
                 </p>
                 {item.message && <p className="mt-1 leading-6">{item.message}</p>}
                 {attachmentUrl && (
-                  <img src={attachmentUrl} alt={item.attachmentName || "attachment"} className="mt-2 max-h-40 rounded-lg object-contain" />
+                  item.attachmentMimeType?.startsWith("image/") ? (
+                    <img src={attachmentUrl} alt={item.attachmentName || "attachment"} className="mt-2 max-h-40 rounded-lg object-contain" />
+                  ) : (
+                    <a href={attachmentUrl} download={item.attachmentName || "support-file"} className="mt-2 inline-flex rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+                      Скачать файл
+                    </a>
+                  )
                 )}
                 <p className="mt-2 text-[10px] opacity-60">{new Date(item.createdAt).toLocaleString()}</p>
               </div>
@@ -293,11 +294,11 @@ export default function SupportPage() {
 
         <div className="border-t border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950">
           <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/[0.04]">
-            <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-lg font-black text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-500/10" title={isRu ? "Прикрепить изображение" : "Attach image"}>
+            <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-lg font-black text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-500/10" title={isRu ? "Прикрепить файл" : "Attach file"}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M20.3 11.7L12.1 19.9C9.8 22.2 6 22.2 3.7 19.9C1.4 17.6 1.4 13.8 3.7 11.5L12.5 2.7C14.1 1.1 16.7 1.1 18.3 2.7C19.9 4.3 19.9 6.9 18.3 8.5L9.6 17.2C8.7 18.1 7.3 18.1 6.4 17.2C5.5 16.3 5.5 14.9 6.4 14L14.1 6.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <input type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0] || null)} className="hidden" />
+              <input type="file" onChange={(event) => attachImage(event.target.files?.[0] || null)} className="hidden" />
             </label>
             <textarea
               value={message}

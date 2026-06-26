@@ -9,6 +9,7 @@ type Withdrawal = {
   method: string;
   destination?: string | null;
   details?: string | null;
+  adminComment?: string | null;
   status: string;
   createdAt: string;
 };
@@ -173,7 +174,7 @@ export default function WithdrawalsPage() {
       return;
     }
 
-    setMessage(`Заявка создана: $${Number(data.amount).toFixed(2)}`);
+    setMessage(`Заявка создана: €${Number(data.amount).toFixed(2)}`);
 
     setAmount("");
     setCard({ number: "", holder: "", expiry: "" });
@@ -220,7 +221,7 @@ export default function WithdrawalsPage() {
                     min="1"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500 dark:text-slate-300">
-                    USD
+                    EUR
                   </span>
                 </div>
               </Field>
@@ -383,7 +384,7 @@ export default function WithdrawalsPage() {
                   withdrawals.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0 dark:border-white/10">
                       <td className="px-4 py-4 font-black text-slate-950 dark:text-white">
-                        ${Number(item.amount).toFixed(2)}
+                        €{Number(item.amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
@@ -395,6 +396,11 @@ export default function WithdrawalsPage() {
                       </td>
                       <td className="max-w-[360px] px-4 py-4">
                         <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{formatDestination(item)}</p>
+                        {item.adminComment && (
+                          <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
+                            Комментарий: {item.adminComment}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge status={item.status} />

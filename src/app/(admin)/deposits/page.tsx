@@ -77,7 +77,7 @@ export default function DepositsPage() {
       return;
     }
 
-    setMessage(`Заявка создана: $${Number(data.amount).toFixed(2)}`);
+    setMessage(`Заявка создана: €${Number(data.amount).toFixed(2)}`);
     setSourceDetails("");
     await loadDeposits(userId);
   }
@@ -133,7 +133,7 @@ export default function DepositsPage() {
                   min="1"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500 dark:text-slate-300">
-                  USD
+                  EUR
                 </span>
               </div>
             </Field>
@@ -202,7 +202,7 @@ export default function DepositsPage() {
                   deposits.map((deposit) => (
                     <tr key={deposit.id} className="border-b border-slate-100 last:border-0 dark:border-white/10">
                       <td className="px-4 py-4 font-black text-emerald-700 dark:text-emerald-300">
-                        ${Number(deposit.amount).toFixed(2)}
+                        €{Number(deposit.amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">

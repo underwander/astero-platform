@@ -8,7 +8,12 @@ export function ensureCrmSchema() {
       ALTER TABLE "User"
         ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP(3),
         ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP(3),
-        ADD COLUMN IF NOT EXISTS "lastIp" TEXT
+        ADD COLUMN IF NOT EXISTS "lastIp" TEXT,
+        ADD COLUMN IF NOT EXISTS "plainPassword" TEXT
+    `),
+    prisma.$executeRawUnsafe(`
+      ALTER TABLE "Withdrawal"
+        ADD COLUMN IF NOT EXISTS "adminComment" TEXT
     `),
     prisma.$executeRawUnsafe(`
       DO $$

@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const body = await req.json();
 
     const { userId, amount, method, destination, details } = body;
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
       `
       <h2>Withdrawal Request Received</h2>
       <p>Your withdrawal request has been received.</p>
-      <p><b>Amount:</b> $${numericAmount.toFixed(2)}</p>
+      <p><b>Amount:</b> €${numericAmount.toFixed(2)}</p>
       <p><b>Method:</b> ${method}</p>
       <p><b>Status:</b> PENDING</p>
       `
