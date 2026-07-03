@@ -561,6 +561,7 @@ function MobileTerminal({
   const [marketsOpen, setMarketsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");
   const [pendingSide, setPendingSide] = useState<"BUY" | "SELL" | null>(null);
+  const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const visibleTrades = activeTab === "open" ? openTrades : closedTrades;
@@ -684,6 +685,37 @@ function MobileTerminal({
         </div>
       )}
 
+      {tradeToClose && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[#24453c] bg-[#101a18] p-5 text-white shadow-2xl">
+            <p className="text-lg font-black">Закрыть сделку?</p>
+            <p className="mt-2 text-sm text-[#b8d4c7]">
+              Закрыть {tradeToClose.side} {tradeToClose.symbol} объемом {tradeToClose.volume}?
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setTradeToClose(null)}
+                className="h-12 rounded-xl border border-[#24453c] text-sm font-black text-[#d7efe5]"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentTrade = tradeToClose;
+                  setTradeToClose(null);
+                  onClose(currentTrade);
+                }}
+                className="h-12 rounded-xl bg-[#e83b4b] text-sm font-black text-white"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border border-[#1f332f] bg-[#101a18]">
         <div className="flex border-b border-[#1f332f] p-2">
           <button onClick={() => setActiveTab("open")} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "open" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Открытые сделки</button>
@@ -698,7 +730,6 @@ function MobileTerminal({
                 <th className="px-2 py-2">Объем</th>
                 <th className="px-2 py-2">Дата</th>
                 <th className="px-2 py-2">Прибыль</th>
-                {activeTab === "open" && <th className="px-2 py-2" />}
               </tr>
             </thead>
             <tbody>
@@ -709,18 +740,31 @@ function MobileTerminal({
                   : Number(trade.profit || 0);
                 return (
                   <tr key={trade.id} className="border-b border-[#1a2b27] text-[#d7efe5]">
-                    <td className="px-2 py-2 font-black text-white">{trade.symbol}</td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-2">
+                        {activeTab === "open" && (
+                          <button
+                            type="button"
+                            onClick={() => setTradeToClose(trade)}
+                            aria-label={`Закрыть ${trade.symbol}`}
+                            className="flex size-7 shrink-0 items-center justify-center rounded-full border border-red-400/40 bg-red-500/10 text-base font-black leading-none text-red-300 transition hover:bg-red-500 hover:text-white"
+                          >
+                            ×
+                          </button>
+                        )}
+                        <span className="font-black text-white">{trade.symbol}</span>
+                      </div>
+                    </td>
                     <td className={trade.side === "BUY" ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>{trade.side}</td>
                     <td className="px-2 py-2">{trade.volume}</td>
                     <td className="px-2 py-2">{new Date(trade.createdAt).toLocaleDateString("ru-RU")}</td>
                     <td className={profit >= 0 ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>€{profit.toFixed(2)}</td>
-                    {activeTab === "open" && <td className="px-2 py-2"><button onClick={() => onClose(trade)} className="rounded bg-[#21483d] px-2 py-1 font-black text-white">Закрыть</button></td>}
                   </tr>
                 );
               })}
               {visibleTrades.length === 0 && (
                 <tr>
-                  <td colSpan={activeTab === "open" ? 6 : 5} className="px-3 py-8 text-center text-[#658579]">Нет сделок</td>
+                  <td colSpan={5} className="px-3 py-8 text-center text-[#658579]">Нет сделок</td>
                 </tr>
               )}
             </tbody>
