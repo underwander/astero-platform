@@ -109,3 +109,35 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    await ensureSupportMessagesTable();
+
+    const { messageId, message } = await req.json();
+    const text = String(message || "").trim();
+
+    if (!messageId || !text) {
+      return Response.json({ error: "Message id and text required" }, { status: 400 });
+    }
+
+    const updated = await prisma.$queryRaw<SupportMessageRow[]>`
+      UPDATE "SupportMessage"
+      SET "message" = ${text}
+      WHERE "id" = ${String(messageId)} AND COALESCE("sender", "fromRole") IN ('ADMIN', 'MANAGER')
+      RETURNING "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
+    `;
+
+    if (!updated[0]) {
+      return Response.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    return Response.json(updated[0], { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error(error);
+    return Response.json(
+      { error: "Admin support edit failed", details: supportErrorMessage(error) },
+      { status: 500 }
+    );
+  }
+}

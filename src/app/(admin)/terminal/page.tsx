@@ -131,6 +131,7 @@ export default function TradingTerminalPage() {
     () => marketInstruments.filter((item) => activeGroup === "All" || item.group === activeGroup),
     [activeGroup]
   );
+  const chartInterval = instrument.group === "Indices" ? "D" : "15";
 
   async function loadQuote(currentSymbol: string) {
     const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(currentSymbol)}`, {
@@ -277,7 +278,7 @@ export default function TradingTerminalPage() {
     });
   }
 
-  async function openTrade() {
+  async function openTrade(nextSide = side) {
     if (!userId) {
       setMessage("Сначала войдите в аккаунт");
       router.push("/login");
@@ -291,12 +292,12 @@ export default function TradingTerminalPage() {
 
     const bidPrice = selectedQuote?.bid ?? Number(openPrice);
     const askPrice = selectedQuote?.ask ?? bidPrice + instrument.pointSize * activeSpreadPoints;
-    const tradePrice = side === "BUY" ? askPrice : bidPrice;
+    const tradePrice = nextSide === "BUY" ? askPrice : bidPrice;
 
     const payload = {
       userId,
       symbol,
-      side,
+      side: nextSide,
       openPrice: tradePrice,
       volume: Number(volume),
       stopLoss: stopLoss ? Number(stopLoss) : null,
@@ -348,13 +349,30 @@ export default function TradingTerminalPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] w-full bg-[#0b1110] p-1 text-slate-100 shadow-2xl shadow-slate-950/30 sm:p-2">
+      <MobileTerminal
+        activeGroup={activeGroup}
+        setActiveGroup={setActiveGroup}
+        visibleSymbols={visibleSymbols}
+        symbol={symbol}
+        setSymbol={setSymbol}
+        quotes={quotes}
+        volume={volume}
+        setVolume={setVolume}
+        side={side}
+        setSide={setSide}
+        openTrade={openTrade}
+        chartInterval={chartInterval}
+        instrumentTvSymbol={instrument.tvSymbol}
+        trades={trades}
+        onClose={closeTrade}
+      />
       <div className="mb-2 border border-[#1f332f] bg-[#101a18] px-3 py-2">
         <div>
       <h1 className="text-base font-black text-white">Торговый терминал</h1>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 xl:grid-cols-[260px_minmax(0,1fr)_285px] 2xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+      <div className="hidden gap-2 xl:grid xl:grid-cols-[260px_minmax(0,1fr)_285px] 2xl:grid-cols-[280px_minmax(0,1fr)_300px]">
         <aside className="border border-[#1f332f] bg-[#101a18]">
           <div className="flex items-center justify-between border-b border-[#1f332f] px-3 py-2">
             <p className="text-xs font-black uppercase text-[#b8d4c7]">Котировки</p>
@@ -417,56 +435,8 @@ export default function TradingTerminalPage() {
         </aside>
 
         <main className="min-w-0 border border-[#1f332f] bg-[#101a18]">
-          <div className="flex items-stretch gap-1 overflow-x-auto border-b border-[#1f332f] bg-[#0e1715] px-2 pt-2">
-            {chartSymbols.map((chartSymbol) => (
-              <div
-                key={chartSymbol}
-                className={`flex min-w-32 items-center border-x border-t border-[#1f332f] ${
-                  symbol === chartSymbol ? "bg-[#101a18] text-white" : "bg-[#0a1311] text-[#7fa293]"
-                }`}
-              >
-                <button
-                  onClick={() => setSymbol(chartSymbol)}
-                  className="min-w-0 flex-1 px-3 py-2 text-left text-[11px] font-black hover:text-white"
-                >
-                  {chartSymbol}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeChartSymbol(chartSymbol)}
-                  className="flex h-full w-8 items-center justify-center border-l border-[#1f332f] text-sm font-black text-[#658579] hover:bg-[#21483d] hover:text-white"
-                  aria-label={`Удалить ${chartSymbol}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <div className="ml-auto flex shrink-0 items-center gap-1 pb-0">
-              <select
-                value={symbolToAdd}
-                onChange={(event) => setSymbolToAdd(event.target.value)}
-                className="h-9 rounded border border-[#1f332f] bg-[#0a1311] px-2 text-[11px] font-black text-[#d7efe5] outline-none"
-              >
-                {marketInstruments.map((item) => (
-                  <option key={item.symbol} value={item.symbol}>
-                    {item.symbol}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={addChartSymbol}
-                className="flex h-9 w-9 items-center justify-center rounded bg-[#16a34a] text-xl font-black leading-none text-white hover:bg-[#22c55e]"
-                aria-label="Добавить котировку"
-              >
-                +
-              </button>
-            </div>
-          </div>
           <div className="flex flex-wrap items-center gap-2 border-b border-[#1f332f] bg-[#07110f] px-3 py-2 text-xs font-bold text-[#b8d4c7]">
-            <span>{symbol} · M15 · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}</span>
-            <span>Цена пункта ${activeTickValue}</span>
-            <span>Шаг {instrument.pointSize}</span>
+            <span>{symbol} · {chartInterval} · O {openPrice ? formatPrice(symbol, Number(openPrice)) : "..."}</span>
             <span className="ml-auto rounded bg-[#0f3a2a] px-2 py-1 font-black text-[#8af5bd]">
               Свободные средства: {formatCurrency(accountMetrics.freeMargin)}
             </span>
@@ -475,8 +445,8 @@ export default function TradingTerminalPage() {
             key={symbol}
             src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${
               instrument.tvSymbol
-            }&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
-            className="h-[360px] w-full border-0 bg-[#07110f] sm:h-[430px] xl:h-[520px] 2xl:h-[560px]"
+            }&interval=${chartInterval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
+            className="h-[360px] w-full border-0 bg-[#07110f] sm:h-[400px] xl:h-[455px] 2xl:h-[500px]"
             allowFullScreen
           />
           <PositionsPanel trades={trades} quotes={quotes} onClose={closeTrade} />
@@ -522,16 +492,8 @@ export default function TradingTerminalPage() {
                   <p className="mt-1 text-sm font-black text-white">{formatCurrency(accountMetrics.equity)}</p>
                 </div>
                 <div className="border border-[#24453c] bg-[#0b1512] p-3">
-                  <p className="text-[10px] font-black uppercase text-[#7fa293]">Свободно</p>
-                  <p className="mt-1 text-sm font-black text-[#8af5bd]">{formatCurrency(accountMetrics.freeMargin)}</p>
-                </div>
-                <div className="border border-[#24453c] bg-[#0b1512] p-3">
                   <p className="text-[10px] font-black uppercase text-[#7fa293]">Залог</p>
-                  <p className="mt-1 text-sm font-black text-white">{formatCurrency(requiredMargin, marginCurrency)}</p>
-                </div>
-                <div className="border border-[#24453c] bg-[#0b1512] p-3">
-                  <p className="text-[10px] font-black uppercase text-[#7fa293]">Стоимость пункта</p>
-                  <p className="mt-1 text-sm font-black text-white">{formatCurrency(pointValue, profitCurrency)}</p>
+                  <p className="mt-1 text-sm font-black text-white">{formatCurrency(requiredMargin, "EUR")}</p>
                 </div>
               </div>
 
@@ -545,7 +507,7 @@ export default function TradingTerminalPage() {
                   <input value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className={inputClass} type="number" step={instrument.pointSize} />
                 </div>
               </div>
-              <button onClick={openTrade} className={`w-full px-4 py-4 text-sm font-black text-white shadow-lg ${side === "BUY" ? "bg-[#0bbf73] hover:bg-[#13d684]" : "bg-[#e83b4b] hover:bg-[#ff4d5e]"}`}>
+              <button onClick={() => openTrade()} className={`w-full px-4 py-4 text-sm font-black text-white shadow-lg ${side === "BUY" ? "bg-[#0bbf73] hover:bg-[#13d684]" : "bg-[#e83b4b] hover:bg-[#ff4d5e]"}`}>
                 Открыть {side}
               </button>
             </div>
@@ -558,6 +520,179 @@ export default function TradingTerminalPage() {
             </div>
           )}
         </aside>
+      </div>
+    </div>
+  );
+}
+
+function MobileTerminal({
+  activeGroup,
+  setActiveGroup,
+  visibleSymbols,
+  symbol,
+  setSymbol,
+  quotes,
+  volume,
+  setVolume,
+  side,
+  setSide,
+  openTrade,
+  chartInterval,
+  instrumentTvSymbol,
+  trades,
+  onClose,
+}: {
+  activeGroup: MarketGroup | "All";
+  setActiveGroup: (group: MarketGroup | "All") => void;
+  visibleSymbols: typeof marketInstruments;
+  symbol: string;
+  setSymbol: (symbol: string) => void;
+  quotes: Record<string, Quote>;
+  volume: string;
+  setVolume: (volume: string) => void;
+  side: "BUY" | "SELL";
+  setSide: (side: "BUY" | "SELL") => void;
+  openTrade: (side?: "BUY" | "SELL") => void;
+  chartInterval: string;
+  instrumentTvSymbol: string;
+  trades: Trade[];
+  onClose: (trade: Trade) => void;
+}) {
+  const [marketsOpen, setMarketsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+  const openTrades = trades.filter((trade) => trade.closePrice === null);
+  const closedTrades = trades.filter((trade) => trade.closePrice !== null);
+  const visibleTrades = activeTab === "open" ? openTrades : closedTrades;
+
+  return (
+    <div className="space-y-2 xl:hidden">
+      <div className="border border-[#1f332f] bg-[#101a18]">
+        <div className="flex items-center gap-2 border-b border-[#1f332f] p-2">
+          <button
+            type="button"
+            onClick={() => setMarketsOpen((value) => !value)}
+            className="flex size-10 shrink-0 items-center justify-center rounded bg-[#16a34a] text-xl font-black text-white"
+          >
+            +
+          </button>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-white">{symbol}</p>
+            <p className="text-[11px] text-[#7fa293]">{chartInterval} interval</p>
+          </div>
+        </div>
+        {marketsOpen && (
+          <div className="border-b border-[#1f332f] bg-[#0e1715] p-2">
+            <div className="flex gap-1 overflow-x-auto pb-2">
+              {marketGroups.map((group) => (
+                <button
+                  key={group}
+                  type="button"
+                  onClick={() => setActiveGroup(group)}
+                  className={`shrink-0 rounded px-3 py-2 text-[11px] font-black ${activeGroup === group ? "bg-[#16a34a] text-white" : "bg-[#17332b] text-[#b8d4c7]"}`}
+                >
+                  {group}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-52 overflow-y-auto">
+              {visibleSymbols.map((item) => (
+                <button
+                  key={item.symbol}
+                  type="button"
+                  onClick={() => {
+                    setSymbol(item.symbol);
+                    setMarketsOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between border-b border-[#1f332f] px-2 py-2 text-left ${symbol === item.symbol ? "bg-[#123d2f]" : ""}`}
+                >
+                  <span className="font-black text-white">{item.symbol}</span>
+                  <span className="text-xs text-[#7fa293]">{formatPrice(item.symbol, quotes[item.symbol]?.price || item.defaultPrice)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <iframe
+          key={symbol}
+          src={`https://s.tradingview.com/widgetembed/?frameElementId=mobile_tv&symbol=${instrumentTvSymbol}&interval=${chartInterval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
+          className="pointer-events-none h-[310px] w-full border-0 bg-[#07110f]"
+          allowFullScreen
+        />
+      </div>
+
+      <div className="grid grid-cols-[1fr_112px_1fr] gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setSide("BUY");
+            openTrade("BUY");
+          }}
+          className={`h-14 rounded bg-[#0bbf73] text-base font-black text-white ${side === "BUY" ? "ring-2 ring-white/50" : ""}`}
+        >
+          BUY
+        </button>
+        <input
+          value={volume}
+          onChange={(event) => setVolume(event.target.value)}
+          type="number"
+          min="0.01"
+          step="0.01"
+          className="h-14 rounded border border-[#24453c] bg-[#0e1815] px-2 text-center text-sm font-black text-white outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setSide("SELL");
+            openTrade("SELL");
+          }}
+          className={`h-14 rounded bg-[#e83b4b] text-base font-black text-white ${side === "SELL" ? "ring-2 ring-white/50" : ""}`}
+        >
+          SELL
+        </button>
+      </div>
+
+      <div className="border border-[#1f332f] bg-[#101a18]">
+        <div className="flex border-b border-[#1f332f] p-2">
+          <button onClick={() => setActiveTab("open")} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "open" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Открытые сделки</button>
+          <button onClick={() => setActiveTab("history")} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "history" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Отчет</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[560px] w-full text-xs">
+            <thead>
+              <tr className="border-b border-[#1f332f] text-left text-[#658579]">
+                <th className="px-2 py-2">Символ</th>
+                <th className="px-2 py-2">Тип</th>
+                <th className="px-2 py-2">Объем</th>
+                <th className="px-2 py-2">Дата</th>
+                <th className="px-2 py-2">Прибыль</th>
+                {activeTab === "open" && <th className="px-2 py-2" />}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTrades.map((trade) => {
+                const marketPrice = quotes[trade.symbol]?.price || trade.closePrice || trade.openPrice;
+                const profit = trade.closePrice === null
+                  ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)
+                  : Number(trade.profit || 0);
+                return (
+                  <tr key={trade.id} className="border-b border-[#1a2b27] text-[#d7efe5]">
+                    <td className="px-2 py-2 font-black text-white">{trade.symbol}</td>
+                    <td className={trade.side === "BUY" ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>{trade.side}</td>
+                    <td className="px-2 py-2">{trade.volume}</td>
+                    <td className="px-2 py-2">{new Date(trade.createdAt).toLocaleDateString("ru-RU")}</td>
+                    <td className={profit >= 0 ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>€{profit.toFixed(2)}</td>
+                    {activeTab === "open" && <td className="px-2 py-2"><button onClick={() => onClose(trade)} className="rounded bg-[#21483d] px-2 py-1 font-black text-white">Закрыть</button></td>}
+                  </tr>
+                );
+              })}
+              {visibleTrades.length === 0 && (
+                <tr>
+                  <td colSpan={activeTab === "open" ? 6 : 5} className="px-3 py-8 text-center text-[#658579]">Нет сделок</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

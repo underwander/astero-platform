@@ -36,10 +36,10 @@ export default function AdminLayout({
   }, []);
 
   const mainContentMargin = isMobileOpen
-    ? "ml-0"
+      ? "ml-0"
     : isExpanded || isHovered
-      ? "lg:ml-[290px]"
-      : "lg:ml-[90px]";
+      ? "xl:ml-[290px]"
+      : "xl:ml-[90px]";
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white xl:flex">

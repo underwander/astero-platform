@@ -242,7 +242,7 @@ export default function ProfilePage() {
             </Field>
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="mt-7 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-white/10 sm:flex-row sm:items-center">
             <button
               onClick={saveProfile}
               className="h-12 rounded-xl bg-emerald-600 px-6 text-sm font-black text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-500"
@@ -274,7 +274,7 @@ export default function ProfilePage() {
 
             <button
               onClick={uploadDocument}
-              className="h-12 w-full rounded-xl bg-emerald-600 text-sm font-black text-white transition hover:bg-emerald-500"
+              className="mt-3 h-12 w-full rounded-xl bg-emerald-600 text-sm font-black text-white transition hover:bg-emerald-500"
             >
               {isRu ? "Отправить документ" : "Send document"}
             </button>
@@ -339,7 +339,7 @@ export default function ProfilePage() {
 
           <button
             onClick={changePassword}
-            className="h-12 w-full rounded-xl bg-slate-950 px-6 text-sm font-black text-white transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+            className="mt-3 h-12 w-full rounded-xl bg-slate-950 px-6 text-sm font-black text-white transition hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
             {isRu ? "Изменить пароль" : "Change password"}
           </button>

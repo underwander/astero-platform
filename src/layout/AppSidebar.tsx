@@ -32,7 +32,7 @@ export default function AppSidebar() {
   const { t } = useLanguage();
 
   const showText = isExpanded || isHovered || isMobileOpen;
-  const sidebarWidth = showText ? "w-[min(82vw,290px)] lg:w-[290px]" : "w-[90px]";
+  const sidebarWidth = showText ? "w-[min(82vw,290px)] xl:w-[290px]" : "w-[90px]";
 
   function isActive(path: string) {
     if (path === "/") return pathname === "/";
@@ -41,7 +41,7 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-emerald-400/10 bg-[#07130d] px-4 text-white transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarWidth} ${
+      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-emerald-400/10 bg-[#07130d] px-4 text-white transition-all duration-300 ease-in-out xl:translate-x-0 ${sidebarWidth} ${
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       }`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}

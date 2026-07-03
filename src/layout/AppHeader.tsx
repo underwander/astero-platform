@@ -27,7 +27,7 @@ export default function AppHeader() {
   }, []);
 
   const handleToggle = () => {
-    if (window.innerWidth >= 1024) toggleSidebar();
+    if (window.innerWidth >= 1280) toggleSidebar();
     else toggleMobileSidebar();
   };
 
@@ -37,7 +37,9 @@ export default function AppHeader() {
       setInstallPrompt(null);
       return;
     }
-    alert("Чтобы установить приложение на iPhone: нажмите Поделиться в Safari и выберите «На экран Домой». На Android: откройте меню браузера и выберите «Установить приложение».");
+    if ("standalone" in window.navigator || /iphone|ipad|ipod/i.test(window.navigator.userAgent)) {
+      return;
+    }
   }
 
   return (
@@ -70,7 +72,7 @@ export default function AppHeader() {
           <button
             type="button"
             onClick={installApp}
-            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[11px] font-black text-emerald-700 dark:text-emerald-300 lg:hidden"
+            className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300 lg:hidden"
           >
             Установить приложение
           </button>

@@ -207,7 +207,7 @@ export default function SupportPage() {
           setHasUnread(false);
           setUnreadCount(0);
         }}
-        className={`fixed bottom-5 right-5 z-[9998] rounded-full border border-white/30 px-3 py-2 text-[11px] font-black text-white shadow-xl backdrop-blur-2xl transition hover:border-white/50 hover:bg-emerald-500/35 ${
+        className={`fixed bottom-5 right-5 z-[9998] rounded-full border border-white/30 px-3 py-2 text-[11px] font-black text-slate-950 shadow-xl backdrop-blur-2xl transition hover:border-white/50 hover:bg-emerald-500/35 dark:text-white ${
           hasUnread
             ? "bg-emerald-500/35 shadow-red-500/25 ring-4 ring-red-500/20"
             : "bg-white/12 shadow-emerald-950/10"

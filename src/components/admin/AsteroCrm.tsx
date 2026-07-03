@@ -73,6 +73,20 @@ type SupportConversation = {
   updatedAt?: string | null;
 };
 
+type Announcement = {
+  id: string;
+  title: string;
+  text: string;
+  imageName?: string | null;
+  imageMimeType?: string | null;
+  imageBase64?: string | null;
+  fontSize: number;
+  textColor: string;
+  fontFamily: string;
+  isPublished: boolean;
+  updatedAt: string;
+};
+
 type SupportToast = {
   userId: string;
   clientName: string;
@@ -194,6 +208,7 @@ type Tab =
   | "withdrawals"
   | "verification"
   | "support"
+  | "announcements"
   | "quotes";
 
 const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
@@ -205,6 +220,7 @@ const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
   { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
   { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
+  { id: "announcements", label: "Доска объявлений", hint: "Новости", icon: "!" },
   { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
 
@@ -818,7 +834,7 @@ export default function AsteroCrm() {
   }
 
   async function sendSupportMessage() {
-    if (!supportClientId || !supportText.trim()) {
+    if (!supportClientId || (!supportText.trim() && !supportAttachment)) {
       return alert("Выберите клиента и введите сообщение");
     }
 
@@ -865,6 +881,20 @@ export default function AsteroCrm() {
       return alert(data.error || "Не удалось закрыть обращение");
     }
 
+    await loadAdminData();
+  }
+
+  async function editSupportMessage(messageId: string, message: string) {
+    const res = await fetch("/api/admin/support", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, message }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      alert(data?.error || "Не удалось изменить сообщение");
+      return;
+    }
     await loadAdminData();
   }
 
@@ -1051,7 +1081,7 @@ export default function AsteroCrm() {
               </button>
               <button onClick={() => createUser("CLIENT")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать клиента</button>
             </Panel>
-            <Panel title="Клиентская база">
+            <Panel title={`Клиентская база: ${filteredClients.length} / ${clients.length}`}>
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap gap-2">
                   {[
@@ -1201,8 +1231,10 @@ export default function AsteroCrm() {
             onAttach={attachSupportFile}
             onSend={sendSupportMessage}
             onClose={closeSupportConversation}
+            onEditMessage={editSupportMessage}
           />
         )}
+        {activeTab === "announcements" && <AnnouncementsAdminPanel />}
         {activeTab === "quotes" && <ManualQuotesPanel />}
       </main>
     </div>
@@ -1302,6 +1334,148 @@ function EyeIcon({ closed = false }: { closed?: boolean }) {
       />
       {closed && <path d="M4 20L20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
     </svg>
+  );
+}
+
+function AnnouncementsAdminPanel() {
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [draft, setDraft] = useState({
+    id: "",
+    title: "",
+    text: "",
+    fontSize: 16,
+    textColor: "#0f172a",
+    fontFamily: "Inter",
+    isPublished: true,
+    image: null as AttachmentPayload | null,
+  });
+  const [message, setMessage] = useState("");
+
+  async function loadAnnouncements() {
+    const res = await fetch("/api/admin/announcements", { cache: "no-store" });
+    const data = await res.json().catch(() => []);
+    setItems(Array.isArray(data) ? data : []);
+  }
+
+  async function attachImage(file: File | null) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Файл должен быть до 5MB");
+      return;
+    }
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setDraft((prev) => ({ ...prev, image: { name: file.name, mimeType: file.type, base64 } }));
+  }
+
+  async function saveAnnouncement() {
+    const res = await fetch("/api/admin/announcements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setMessage(data?.error || "Не удалось сохранить объявление");
+      return;
+    }
+    setMessage("Объявление сохранено");
+    setDraft({
+      id: "",
+      title: "",
+      text: "",
+      fontSize: 16,
+      textColor: "#0f172a",
+      fontFamily: "Inter",
+      isPublished: true,
+      image: null,
+    });
+    await loadAnnouncements();
+  }
+
+  function editAnnouncement(item: Announcement) {
+    setDraft({
+      id: item.id,
+      title: item.title,
+      text: item.text,
+      fontSize: item.fontSize,
+      textColor: item.textColor,
+      fontFamily: item.fontFamily,
+      isPublished: item.isPublished,
+      image: null,
+    });
+  }
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, []);
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[420px_1fr]">
+      <Panel title="Редактор объявления">
+        <div className="space-y-3">
+          <input className={inputClass} placeholder="Заголовок" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <textarea className={areaClass} placeholder="Текст объявления" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs font-black text-slate-500">
+              Размер
+              <input className={`${inputClass} mt-1`} type="number" min={12} max={42} value={draft.fontSize} onChange={(event) => setDraft({ ...draft, fontSize: Number(event.target.value) })} />
+            </label>
+            <label className="text-xs font-black text-slate-500">
+              Цвет
+              <input className={`${inputClass} mt-1 h-10 p-1`} type="color" value={draft.textColor} onChange={(event) => setDraft({ ...draft, textColor: event.target.value })} />
+            </label>
+          </div>
+          <select className={inputClass} value={draft.fontFamily} onChange={(event) => setDraft({ ...draft, fontFamily: event.target.value })}>
+            <option value="Inter">Inter</option>
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+          </select>
+          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-black text-emerald-700">
+            Добавить картинку
+            <input type="file" accept="image/*" className="hidden" onChange={(event) => attachImage(event.target.files?.[0] || null)} />
+          </label>
+          {draft.image && <p className="truncate rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">{draft.image.name}</p>}
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+            <input type="checkbox" checked={draft.isPublished} onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })} />
+            Опубликовать
+          </label>
+          <button type="button" onClick={saveAnnouncement} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
+            Сохранить
+          </button>
+          {message && <p className="text-sm font-bold text-emerald-700">{message}</p>}
+        </div>
+      </Panel>
+
+      <Panel title="Опубликованные объявления">
+        <div className="grid grid-cols-1 gap-3">
+          {items.map((item) => {
+            const imageUrl = item.imageBase64 && item.imageMimeType ? `data:${item.imageMimeType};base64,${item.imageBase64}` : "";
+            return (
+              <button key={item.id} type="button" onClick={() => editAnnouncement(item)} className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left hover:border-emerald-300">
+                {imageUrl && <img src={imageUrl} alt={item.title || "announcement"} className="h-36 w-full object-cover" />}
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-black text-slate-950">{item.title || "Без заголовка"}</p>
+                    <Badge value={item.isPublished ? "PUBLISHED" : "HIDDEN"} />
+                  </div>
+                  <p className="mt-2 line-clamp-3 whitespace-pre-line" style={{ color: item.textColor, fontSize: item.fontSize, fontFamily: item.fontFamily }}>
+                    {item.text}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+          {items.length === 0 && <Empty text="Объявлений пока нет" />}
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -2643,6 +2817,7 @@ function SupportPanelV2({
   onAttach,
   onSend,
   onClose,
+  onEditMessage,
 }: {
   clients: User[];
   messages: SupportMessage[];
@@ -2659,9 +2834,12 @@ function SupportPanelV2({
   onAttach: (file: File | null) => void;
   onSend: () => void;
   onClose: (userId: string) => void;
+  onEditMessage: (messageId: string, message: string) => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [supportSearch, setSupportSearch] = useState(() => readSessionValue("astero.crm.supportSearch"));
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editingText, setEditingText] = useState("");
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const selectedConversation = conversations.find((item) => item.userId === selectedClientId);
   const dialog = messages
@@ -2822,7 +3000,40 @@ function SupportPanelV2({
                               : "bg-white text-slate-800 shadow-sm"
                       }`}
                     >
-                      {message.message && <p>{message.message}</p>}
+                      {editingMessageId === message.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            className="min-h-20 w-full rounded-xl border border-white/20 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                            value={editingText}
+                            onChange={(event) => setEditingText(event.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onEditMessage(message.id, editingText);
+                                setEditingMessageId("");
+                                setEditingText("");
+                              }}
+                              className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-black text-white"
+                            >
+                              OK
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingMessageId("");
+                                setEditingText("");
+                              }}
+                              className="rounded-lg bg-white/15 px-3 py-1 text-xs font-black text-white"
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        message.message && <p>{message.message}</p>
+                      )}
                       {attachmentUrl && (
                         <div className="mt-3 space-y-2">
                           {message.attachmentMimeType?.startsWith("image/") && (
@@ -2842,6 +3053,18 @@ function SupportPanelV2({
                       <p className={`mt-2 text-[11px] ${isStaff ? "text-white/65" : isBot ? "text-sky-600" : "text-slate-400"}`}>
                         {authorLabel} · {new Date(message.createdAt).toLocaleString()}
                       </p>
+                      {isStaff && editingMessageId !== message.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingMessageId(message.id);
+                            setEditingText(message.message || "");
+                          }}
+                          className={`mt-2 text-[11px] font-black ${isStaff ? "text-white/75 hover:text-white" : "text-emerald-700"}`}
+                        >
+                          Редактировать
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

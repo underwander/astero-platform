@@ -6,6 +6,7 @@ import MarketWatch from "@/components/broker/MarketWatch";
 import ProfitCalculator from "@/components/broker/ProfitCalculator";
 import TraderNews from "@/components/broker/TraderNews";
 import TransferHistory from "@/components/broker/TransferHistory";
+import AnnouncementsBoard from "@/components/broker/AnnouncementsBoard";
 import ProtectedPage from "@/components/auth/ProtectedPage";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function DashboardPage() {
         <BrokerMetrics />
         <ProfitCalculator />
         <TransferHistory />
+        <AnnouncementsBoard />
         <MarketWatch compact />
         <TraderNews />
       </div>
