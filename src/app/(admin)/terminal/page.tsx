@@ -726,10 +726,10 @@ function MobileTerminal({
             <thead>
               <tr className="border-b border-[#1f332f] text-left text-[#658579]">
                 <th className="px-2 py-2">Символ</th>
+                <th className="px-2 py-2">Прибыль</th>
                 <th className="px-2 py-2">Тип</th>
                 <th className="px-2 py-2">Объем</th>
                 <th className="px-2 py-2">Дата</th>
-                <th className="px-2 py-2">Прибыль</th>
               </tr>
             </thead>
             <tbody>
@@ -755,10 +755,10 @@ function MobileTerminal({
                         <span className="font-black text-white">{trade.symbol}</span>
                       </div>
                     </td>
+                    <td className={profit >= 0 ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>€{profit.toFixed(2)}</td>
                     <td className={trade.side === "BUY" ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>{trade.side}</td>
                     <td className="px-2 py-2">{trade.volume}</td>
                     <td className="px-2 py-2">{new Date(trade.createdAt).toLocaleDateString("ru-RU")}</td>
-                    <td className={profit >= 0 ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>€{profit.toFixed(2)}</td>
                   </tr>
                 );
               })}
