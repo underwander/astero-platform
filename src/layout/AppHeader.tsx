@@ -18,6 +18,9 @@ export default function AppHeader() {
   useEffect(() => {
     setEmail(localStorage.getItem("email") || "Client");
     setRole(localStorage.getItem("role") || "CLIENT");
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event);
@@ -37,8 +40,10 @@ export default function AppHeader() {
       setInstallPrompt(null);
       return;
     }
-    if ("standalone" in window.navigator || /iphone|ipad|ipod/i.test(window.navigator.userAgent)) {
-      return;
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    if (installPrompt?.prompt) {
+      await installPrompt.prompt();
+      setInstallPrompt(null);
     }
   }
 

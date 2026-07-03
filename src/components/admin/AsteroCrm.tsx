@@ -1397,6 +1397,33 @@ function AnnouncementsAdminPanel() {
     await loadAnnouncements();
   }
 
+  async function deleteAnnouncement(id: string) {
+    const res = await fetch("/api/admin/announcements", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setMessage(data?.error || "Не удалось удалить объявление");
+      return;
+    }
+    if (draft.id === id) {
+      setDraft({
+        id: "",
+        title: "",
+        text: "",
+        fontSize: 16,
+        textColor: "#0f172a",
+        fontFamily: "Inter",
+        isPublished: true,
+        image: null,
+      });
+    }
+    setMessage("Объявление удалено");
+    await loadAnnouncements();
+  }
+
   function editAnnouncement(item: Announcement) {
     setDraft({
       id: item.id,
@@ -1458,7 +1485,7 @@ function AnnouncementsAdminPanel() {
           {items.map((item) => {
             const imageUrl = item.imageBase64 && item.imageMimeType ? `data:${item.imageMimeType};base64,${item.imageBase64}` : "";
             return (
-              <button key={item.id} type="button" onClick={() => editAnnouncement(item)} className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left hover:border-emerald-300">
+              <div key={item.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left hover:border-emerald-300">
                 {imageUrl && <img src={imageUrl} alt={item.title || "announcement"} className="h-36 w-full object-cover" />}
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-2">
@@ -1468,8 +1495,16 @@ function AnnouncementsAdminPanel() {
                   <p className="mt-2 line-clamp-3 whitespace-pre-line" style={{ color: item.textColor, fontSize: item.fontSize, fontFamily: item.fontFamily }}>
                     {item.text}
                   </p>
+                  <div className="mt-4 flex gap-2">
+                    <button type="button" onClick={() => editAnnouncement(item)} className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700">
+                      Редактировать
+                    </button>
+                    <button type="button" onClick={() => deleteAnnouncement(item.id)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100">
+                      Удалить
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             );
           })}
           {items.length === 0 && <Empty text="Объявлений пока нет" />}
@@ -2762,7 +2797,7 @@ function SupportPanel({
                     className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                      className={`max-w-[96%] rounded-2xl px-4 py-3 text-sm xl:max-w-[78%] ${
                         isAdmin
                           ? "bg-emerald-600 text-white"
                           : "bg-white text-slate-800 shadow-sm"
@@ -3003,7 +3038,7 @@ function SupportPanelV2({
                       {editingMessageId === message.id ? (
                         <div className="space-y-2">
                           <textarea
-                            className="min-h-20 w-full rounded-xl border border-white/20 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                            className="min-h-40 w-[min(720px,calc(100vw-96px))] rounded-xl border border-white/20 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
                             value={editingText}
                             onChange={(event) => setEditingText(event.target.value)}
                           />

@@ -222,7 +222,7 @@ export default function SupportPage() {
       </button>
 
       {chatOpen && (
-      <div className="fixed bottom-24 right-6 z-[9999] w-[min(400px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-black/5 dark:border-white/10 dark:bg-slate-950">
+      <div className="fixed left-1/2 top-1/2 z-[9999] max-h-[calc(100dvh-32px)] w-[min(400px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-black/5 dark:border-white/10 dark:bg-slate-950 sm:bottom-24 sm:left-auto sm:right-6 sm:top-auto sm:translate-x-0 sm:translate-y-0">
         <div className="flex items-center justify-between bg-gradient-to-br from-[#0b2b1d] via-[#0f8a4b] to-[#45d478] px-4 py-4 text-white">
           <div className="flex items-center gap-3">
             <div className="relative flex size-10 items-center justify-center rounded-full bg-white text-sm font-black text-emerald-700 shadow-sm">
@@ -245,7 +245,7 @@ export default function SupportPage() {
           </div>
         )}
 
-        <div className="h-[430px] space-y-3 overflow-y-auto bg-[#f4f7f5] p-4 dark:bg-slate-900">
+        <div className="h-[min(430px,calc(100dvh-240px))] space-y-3 overflow-y-auto bg-[#f4f7f5] p-4 dark:bg-slate-900 sm:h-[430px]">
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <p className="px-4 py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400">

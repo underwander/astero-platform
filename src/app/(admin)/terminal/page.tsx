@@ -560,6 +560,7 @@ function MobileTerminal({
 }) {
   const [marketsOpen, setMarketsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+  const [pendingSide, setPendingSide] = useState<"BUY" | "SELL" | null>(null);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const visibleTrades = activeTab === "open" ? openTrades : closedTrades;
@@ -615,7 +616,7 @@ function MobileTerminal({
         <iframe
           key={symbol}
           src={`https://s.tradingview.com/widgetembed/?frameElementId=mobile_tv&symbol=${instrumentTvSymbol}&interval=${chartInterval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
-          className="pointer-events-none h-[310px] w-full border-0 bg-[#07110f]"
+          className="h-[310px] w-full touch-pan-y border-0 bg-[#07110f]"
           allowFullScreen
         />
       </div>
@@ -625,7 +626,7 @@ function MobileTerminal({
           type="button"
           onClick={() => {
             setSide("BUY");
-            openTrade("BUY");
+            setPendingSide("BUY");
           }}
           className={`h-14 rounded bg-[#0bbf73] text-base font-black text-white ${side === "BUY" ? "ring-2 ring-white/50" : ""}`}
         >
@@ -643,13 +644,45 @@ function MobileTerminal({
           type="button"
           onClick={() => {
             setSide("SELL");
-            openTrade("SELL");
+            setPendingSide("SELL");
           }}
           className={`h-14 rounded bg-[#e83b4b] text-base font-black text-white ${side === "SELL" ? "ring-2 ring-white/50" : ""}`}
         >
           SELL
         </button>
       </div>
+
+      {pendingSide && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[#24453c] bg-[#101a18] p-5 text-white shadow-2xl">
+            <p className="text-lg font-black">Подтвердите операцию</p>
+            <p className="mt-2 text-sm text-[#b8d4c7]">
+              Открыть сделку {pendingSide} по инструменту {symbol} с объемом {volume}?
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingSide(null)}
+                className="h-12 rounded-xl border border-[#24453c] text-sm font-black text-[#d7efe5]"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const sideToOpen = pendingSide;
+                  setPendingSide(null);
+                  setSide(sideToOpen);
+                  openTrade(sideToOpen);
+                }}
+                className={`h-12 rounded-xl text-sm font-black text-white ${pendingSide === "BUY" ? "bg-[#0bbf73]" : "bg-[#e83b4b]"}`}
+              >
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="border border-[#1f332f] bg-[#101a18]">
         <div className="flex border-b border-[#1f332f] p-2">

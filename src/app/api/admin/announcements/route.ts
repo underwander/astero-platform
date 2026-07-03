@@ -74,3 +74,21 @@ export async function POST(req: Request) {
 
   return Response.json(rows[0], { headers: { "Cache-Control": "no-store" } });
 }
+
+export async function DELETE(req: Request) {
+  await ensureAnnouncementsTable();
+
+  const body = await req.json().catch(() => null);
+  const id = body?.id ? String(body.id) : "";
+
+  if (!id) {
+    return Response.json({ error: "Announcement id required" }, { status: 400 });
+  }
+
+  await prisma.$executeRaw`
+    DELETE FROM "Announcement"
+    WHERE "id" = ${id}
+  `;
+
+  return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}

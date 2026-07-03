@@ -3,6 +3,20 @@ import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import type { Metadata, Viewport } from "next";
+
+export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Astero",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f8a4b",
+};
 
 export default function RootLayout({
   children,
