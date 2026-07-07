@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         balance: true,
         role: true,
         isBlocked: true,
+        clientStatus: true,
         tradingEnabled: true,
         kycStatus: true,
         managerId: true,

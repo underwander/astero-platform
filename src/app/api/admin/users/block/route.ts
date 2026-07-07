@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function PATCH(req: Request) {
   try {
-    const { userId, isBlocked } = await req.json();
+    await ensureCrmSchema();
+    const { userId, isBlocked, clientStatus } = await req.json();
 
-    if (!userId || typeof isBlocked !== "boolean") {
+    if (!userId || (typeof isBlocked !== "boolean" && typeof clientStatus !== "string")) {
       return Response.json(
-        { error: "UserId and isBlocked required" },
+        { error: "UserId and update field required" },
         { status: 400 }
       );
     }
@@ -16,7 +18,8 @@ export async function PATCH(req: Request) {
         id: userId,
       },
       data: {
-        isBlocked,
+        ...(typeof isBlocked === "boolean" ? { isBlocked } : {}),
+        ...(typeof clientStatus === "string" ? { clientStatus } : {}),
       },
     });
 
@@ -24,6 +27,7 @@ export async function PATCH(req: Request) {
       id: user.id,
       email: user.email,
       isBlocked: user.isBlocked,
+      clientStatus: user.clientStatus,
     });
   } catch (error) {
     console.error(error);

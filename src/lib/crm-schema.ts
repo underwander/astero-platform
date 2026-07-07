@@ -9,7 +9,8 @@ export function ensureCrmSchema() {
         ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP(3),
         ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP(3),
         ADD COLUMN IF NOT EXISTS "lastIp" TEXT,
-        ADD COLUMN IF NOT EXISTS "plainPassword" TEXT
+        ADD COLUMN IF NOT EXISTS "plainPassword" TEXT,
+        ADD COLUMN IF NOT EXISTS "clientStatus" TEXT NOT NULL DEFAULT 'ACTIVE'
     `),
     prisma.$executeRawUnsafe(`
       ALTER TABLE "Withdrawal"
@@ -43,7 +44,8 @@ export function ensureCrmSchema() {
     prisma.$executeRawUnsafe(`
       ALTER TABLE "ClientAction"
         ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        ADD COLUMN IF NOT EXISTS "managerId" TEXT
+        ADD COLUMN IF NOT EXISTS "managerId" TEXT,
+        ADD COLUMN IF NOT EXISTS "reminderMinutes" INTEGER
     `),
   ]).then(() => undefined);
 

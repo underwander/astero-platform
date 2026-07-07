@@ -12,6 +12,7 @@ export async function POST(req: Request) {
       description,
       dueAt,
       status,
+      reminderMinutes,
     } = await req.json();
 
     const targetUserId = clientId || userId;
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
         status: status || "OPEN",
         dueAt: new Date(dueAt),
         managerId: managerId || null,
+        reminderMinutes: reminderMinutes ? Number(reminderMinutes) : null,
       },
     });
 
@@ -55,6 +57,7 @@ export async function PATCH(req: Request) {
       status,
       dueAt,
       managerId,
+      reminderMinutes,
     } = await req.json();
 
     if (!actionId) {
@@ -74,6 +77,7 @@ export async function PATCH(req: Request) {
         ...(status ? { status } : {}),
         ...(dueAt ? { dueAt: new Date(dueAt) } : {}),
         ...(managerId !== undefined ? { managerId: managerId || null } : {}),
+        ...(reminderMinutes !== undefined ? { reminderMinutes: reminderMinutes ? Number(reminderMinutes) : null } : {}),
       },
     });
 
