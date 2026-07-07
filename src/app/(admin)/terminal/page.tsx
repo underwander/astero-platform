@@ -53,6 +53,7 @@ const inputClass =
   "h-9 w-full rounded border border-[#24453c] bg-[#0e1815] px-2 text-xs font-semibold text-slate-100 outline-none transition focus:border-[#22c55e]";
 const ACTIVE_QUOTE_REFRESH_MS = 2500;
 const WATCHLIST_REFRESH_MS = 5000;
+const CHART_POINTS = 72;
 
 function parsePositiveNumber(value: string, fallback = 0) {
   const parsed = Number(value);
@@ -72,6 +73,32 @@ function formatCurrency(value: number, currency = "EUR") {
   }
 }
 
+function buildInitialSeries(symbol: string, price: number) {
+  const seed = Array.from(symbol).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: CHART_POINTS - 1 }, (_, index) => {
+    const wave = Math.sin((index + seed) * 0.37) * 0.0025 + Math.cos((index + seed) * 0.19) * 0.0015;
+    return Math.max(price * (1 + wave), price * 0.2);
+  });
+}
+
+function appendChartPoint(current: number[] | undefined, symbol: string, price: number) {
+  if (!Number.isFinite(price) || price <= 0) {
+    return current || [];
+  }
+  const seeded = current && current.length > 0 ? current : buildInitialSeries(symbol, price);
+  return [...seeded.slice(-(CHART_POINTS - 1)), price];
+}
+
+function getTradeMarketPrice(trade: Trade, quote?: Quote) {
+  if (trade.closePrice !== null) {
+    return trade.closePrice ?? trade.openPrice;
+  }
+  const instrument = getInstrument(trade.symbol);
+  const bid = quote?.bid ?? quote?.price ?? trade.openPrice;
+  const ask = quote?.ask ?? bid + instrument.pointSize * (quote?.settings?.spreadAsk ?? 14);
+  return trade.side === "BUY" ? bid : ask;
+}
+
 export default function TradingTerminalPage() {
   const router = useRouter();
 
@@ -86,6 +113,7 @@ export default function TradingTerminalPage() {
   const [balance, setBalance] = useState(0);
   const [activeGroup, setActiveGroup] = useState<MarketGroup | "All">("Forex");
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
+  const [chartSeries, setChartSeries] = useState<Record<string, number[]>>({});
   const [trades, setTrades] = useState<Trade[]>([]);
   const [chartSymbols, setChartSymbols] = useState<string[]>(() => marketInstruments.slice(0, 9).map((item) => item.symbol));
   const [symbolToAdd, setSymbolToAdd] = useState(marketInstruments[9]?.symbol || marketInstruments[0].symbol);
@@ -146,18 +174,26 @@ export default function TradingTerminalPage() {
       return;
     }
 
+    const nextBid = Number(data.bid ?? data.price);
+    const nextAsk = Number(data.ask ?? data.price);
+    const nextPrice = Number(data.price);
+
     setQuotes((prev) => ({
       ...prev,
       [currentSymbol]: {
         symbol: currentSymbol,
-        price: Number(data.price),
-        bid: Number(data.bid ?? data.price),
-        ask: Number(data.ask ?? data.price),
+        price: nextPrice,
+        bid: nextBid,
+        ask: nextAsk,
         change: data.change,
         time: data.time,
         source: data.source,
         settings: data.settings ?? null,
       },
+    }));
+    setChartSeries((prev) => ({
+      ...prev,
+      [currentSymbol]: appendChartPoint(prev[currentSymbol], currentSymbol, nextBid),
     }));
 
     if (currentSymbol === symbol) {
@@ -167,6 +203,11 @@ export default function TradingTerminalPage() {
 
   async function loadVisibleQuotes() {
     await Promise.all(visibleSymbols.slice(0, 18).map((item) => loadQuote(item.symbol)));
+  }
+
+  async function loadOpenTradeQuotes() {
+    const openSymbols = Array.from(new Set(trades.filter((trade) => trade.closePrice === null).map((trade) => trade.symbol)));
+    await Promise.all(openSymbols.map((tradeSymbol) => loadQuote(tradeSymbol)));
   }
 
   async function loadTrades(currentUserId = userId) {
@@ -248,6 +289,21 @@ export default function TradingTerminalPage() {
     const interval = setInterval(() => loadTrades(userId), 10000);
     return () => clearInterval(interval);
   }, [userId]);
+
+  const openTradeSymbolsKey = useMemo(
+    () => Array.from(new Set(trades.filter((trade) => trade.closePrice === null).map((trade) => trade.symbol))).sort().join("|"),
+    [trades]
+  );
+
+  useEffect(() => {
+    if (!openTradeSymbolsKey) return;
+    const timer = window.setTimeout(loadOpenTradeQuotes, 0);
+    const interval = window.setInterval(loadOpenTradeQuotes, ACTIVE_QUOTE_REFRESH_MS);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
+  }, [openTradeSymbolsKey]);
 
   function setVolumePreset(next: string) {
     setVolume(next);
@@ -354,7 +410,7 @@ export default function TradingTerminalPage() {
         setSide={setSide}
         openTrade={openTrade}
         chartInterval={chartInterval}
-        instrumentTvSymbol={instrument.tvSymbol}
+        chartSeries={chartSeries}
         trades={trades}
         onClose={closeTrade}
       />
@@ -395,8 +451,8 @@ export default function TradingTerminalPage() {
             {visibleSymbols.map((item) => {
               const quote = quotes[item.symbol];
               const change = Number(quote?.change || 0);
-              const price = quote?.price || item.defaultPrice;
-              const spread = item.pointSize * 14;
+              const bid = quote?.bid ?? quote?.price ?? item.defaultPrice;
+              const ask = quote?.ask ?? bid + item.pointSize * (quote?.settings?.spreadAsk ?? 14);
 
               return (
                 <button
@@ -404,7 +460,7 @@ export default function TradingTerminalPage() {
                   onClick={() => {
                     setSymbol(item.symbol);
                     setMessage("");
-                    const nextQuote = quotes[item.symbol]?.price || item.defaultPrice;
+                    const nextQuote = quotes[item.symbol]?.bid ?? quotes[item.symbol]?.price ?? item.defaultPrice;
                     setOpenPrice(String(nextQuote));
                   }}
                   className={`grid w-full grid-cols-[1fr_72px_72px_54px] items-center gap-1 border-b border-[#1a2b27] px-3 py-2 text-left transition ${
@@ -415,8 +471,8 @@ export default function TradingTerminalPage() {
                     <p className="text-xs font-black text-white">{item.symbol}</p>
                     <p className="text-[10px] text-[#658579]">{item.group}</p>
                   </div>
-                  <p className="text-right text-xs font-bold text-[#d7efe5]">{formatPrice(item.symbol, price)}</p>
-                  <p className="text-right text-xs font-bold text-[#d7efe5]">{formatPrice(item.symbol, price + spread)}</p>
+                  <p className="text-right text-xs font-bold text-[#d7efe5]">{formatPrice(item.symbol, bid)}</p>
+                  <p className="text-right text-xs font-bold text-[#d7efe5]">{formatPrice(item.symbol, ask)}</p>
                   <p className={change >= 0 ? "text-right text-[11px] font-black text-[#0fd47a]" : "text-right text-[11px] font-black text-[#ff4d5e]"}>
                     {quote ? `${change.toFixed(2)}%` : "0.00%"}
                   </p>
@@ -433,14 +489,7 @@ export default function TradingTerminalPage() {
               Свободные средства: {formatCurrency(accountMetrics.freeMargin)}
             </span>
           </div>
-          <iframe
-            key={symbol}
-            src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${
-              instrument.tvSymbol
-            }&interval=${chartInterval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
-            className="h-[360px] w-full border-0 bg-[#07110f] sm:h-[400px] xl:h-[455px] 2xl:h-[500px]"
-            allowFullScreen
-          />
+          <LivePriceChart symbol={symbol} quote={selectedQuote} series={chartSeries[symbol]} />
           <PositionsPanel trades={trades} quotes={quotes} onClose={closeTrade} />
         </main>
 
@@ -517,6 +566,83 @@ export default function TradingTerminalPage() {
   );
 }
 
+function LivePriceChart({
+  symbol,
+  quote,
+  series,
+  compact = false,
+}: {
+  symbol: string;
+  quote?: Quote;
+  series?: number[];
+  compact?: boolean;
+}) {
+  const instrument = getInstrument(symbol);
+  const currentPrice = quote?.bid ?? quote?.price ?? instrument.defaultPrice;
+  const points = (series && series.length > 1 ? series : buildInitialSeries(symbol, currentPrice))
+    .concat(currentPrice)
+    .slice(-CHART_POINTS);
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || currentPrice * 0.01 || 1;
+  const width = 1000;
+  const height = 320;
+  const topPadding = 24;
+  const bottomPadding = 28;
+  const chartHeight = height - topPadding - bottomPadding;
+  const xStep = points.length > 1 ? width / (points.length - 1) : width;
+  const yFor = (price: number) => topPadding + (1 - (price - min) / range) * chartHeight;
+  const path = points
+    .map((price, index) => `${index === 0 ? "M" : "L"} ${(index * xStep).toFixed(2)} ${yFor(price).toFixed(2)}`)
+    .join(" ");
+  const lastY = yFor(currentPrice);
+  const change = points.length > 1 ? currentPrice - points[0] : 0;
+  const changePercent = points[0] ? (change / points[0]) * 100 : 0;
+
+  return (
+    <div className={`relative w-full overflow-hidden bg-[#07110f] ${compact ? "h-[310px] touch-pan-y" : "h-[360px] sm:h-[400px] xl:h-[455px] 2xl:h-[500px]"}`}>
+      <div className="absolute left-3 top-3 z-10 rounded border border-[#24453c] bg-[#07110f]/80 px-3 py-2 backdrop-blur">
+        <p className="text-[11px] font-black uppercase text-[#7fa293]">{symbol}</p>
+        <p className="text-lg font-black text-white">{formatPrice(symbol, currentPrice)}</p>
+        <p className={changePercent >= 0 ? "text-xs font-black text-[#0fd47a]" : "text-xs font-black text-[#ff4d5e]"}>
+          {changePercent >= 0 ? "+" : ""}
+          {changePercent.toFixed(2)}%
+        </p>
+      </div>
+      <div className="absolute right-3 top-3 z-10 rounded border border-[#24453c] bg-[#07110f]/80 px-3 py-2 text-right backdrop-blur">
+        <p className="text-[10px] font-black uppercase text-[#7fa293]">Bid / Ask</p>
+        <p className="text-xs font-black text-[#d7efe5]">
+          {formatPrice(symbol, quote?.bid ?? currentPrice)} / {formatPrice(symbol, quote?.ask ?? currentPrice)}
+        </p>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none" aria-label={`Live chart ${symbol}`}>
+        <defs>
+          <linearGradient id={`terminal-chart-fill-${symbol.replace(/[^a-zA-Z0-9]/g, "")}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.34" />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 1, 2, 3].map((line) => {
+          const y = topPadding + (chartHeight / 3) * line;
+          return <line key={line} x1="0" x2={width} y1={y} y2={y} stroke="#17332b" strokeWidth="1" />;
+        })}
+        {[0, 1, 2, 3, 4].map((line) => {
+          const x = (width / 4) * line;
+          return <line key={line} x1={x} x2={x} y1="0" y2={height} stroke="#10231e" strokeWidth="1" />;
+        })}
+        <path d={`${path} L ${width} ${height} L 0 ${height} Z`} fill={`url(#terminal-chart-fill-${symbol.replace(/[^a-zA-Z0-9]/g, "")})`} />
+        <path d={path} fill="none" stroke="#22c55e" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+        <line x1="0" x2={width} y1={lastY} y2={lastY} stroke="#8af5bd" strokeDasharray="6 8" strokeOpacity="0.6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <circle cx={width - 2} cy={lastY} r="5" fill="#8af5bd" />
+      </svg>
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] font-bold uppercase text-[#658579]">
+        <span>Live</span>
+        <span>Единая цена терминала</span>
+      </div>
+    </div>
+  );
+}
+
 function MobileTerminal({
   activeGroup,
   setActiveGroup,
@@ -530,7 +656,7 @@ function MobileTerminal({
   setSide,
   openTrade,
   chartInterval,
-  instrumentTvSymbol,
+  chartSeries,
   trades,
   onClose,
 }: {
@@ -546,7 +672,7 @@ function MobileTerminal({
   setSide: (side: "BUY" | "SELL") => void;
   openTrade: (side?: "BUY" | "SELL") => void;
   chartInterval: string;
-  instrumentTvSymbol: string;
+  chartSeries: Record<string, number[]>;
   trades: Trade[];
   onClose: (trade: Trade) => void;
 }) {
@@ -600,18 +726,13 @@ function MobileTerminal({
                   className={`flex w-full items-center justify-between border-b border-[#1f332f] px-2 py-2 text-left ${symbol === item.symbol ? "bg-[#123d2f]" : ""}`}
                 >
                   <span className="font-black text-white">{item.symbol}</span>
-                  <span className="text-xs text-[#7fa293]">{formatPrice(item.symbol, quotes[item.symbol]?.price || item.defaultPrice)}</span>
+                  <span className="text-xs text-[#7fa293]">{formatPrice(item.symbol, quotes[item.symbol]?.bid ?? quotes[item.symbol]?.price ?? item.defaultPrice)}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
-        <iframe
-          key={symbol}
-          src={`https://s.tradingview.com/widgetembed/?frameElementId=mobile_tv&symbol=${instrumentTvSymbol}&interval=${chartInterval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=10131b&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=0&hideideas=1&locale=ru`}
-          className="h-[310px] w-full touch-pan-y border-0 bg-[#07110f]"
-          allowFullScreen
-        />
+        <LivePriceChart symbol={symbol} quote={quotes[symbol]} series={chartSeries[symbol]} compact />
       </div>
 
       <div className="grid grid-cols-[1fr_112px_1fr] gap-2">
@@ -727,7 +848,7 @@ function MobileTerminal({
             <tbody>
               {visibleTrades.map((trade) => {
                 const isClosed = trade.closePrice !== null;
-                const marketPrice = isClosed ? trade.closePrice ?? trade.openPrice : quotes[trade.symbol]?.price || trade.openPrice;
+                const marketPrice = getTradeMarketPrice(trade, quotes[trade.symbol]);
                 const profit = trade.closePrice === null
                   ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)
                   : Number(trade.profit || 0);
@@ -826,7 +947,7 @@ function PositionsPanel({
           <tbody>
             {pagedTrades.map((trade) => {
               const isClosed = trade.closePrice !== null;
-              const marketPrice = isClosed ? trade.closePrice ?? trade.openPrice : quotes[trade.symbol]?.price || trade.openPrice;
+              const marketPrice = getTradeMarketPrice(trade, quotes[trade.symbol]);
               const profit =
                 trade.closePrice === null
                   ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)
