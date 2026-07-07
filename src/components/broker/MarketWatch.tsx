@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatPrice, getInstrument, marketGroups, marketInstruments, type MarketGroup } from "@/lib/market-instruments";
+import { useLanguage } from "@/context/LanguageContext";
 
 export type MarketSymbol = {
   symbol: string;
@@ -23,6 +24,7 @@ export const marketSymbols: MarketSymbol[] = marketInstruments.map(({ symbol, gr
 const MARKET_WATCH_REFRESH_MS = 5000;
 
 export default function MarketWatch({ compact = false }: { compact?: boolean }) {
+  const { language } = useLanguage();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [activeGroup, setActiveGroup] = useState<MarketSymbol["group"] | "All">("All");
 
@@ -67,7 +69,7 @@ export default function MarketWatch({ compact = false }: { compact?: boolean }) 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
       <div className="mb-4">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">Котировки</h2>
+        <h2 className="text-base font-bold text-slate-900 dark:text-white">{language === "ru" ? "Котировки" : "Quotes"}</h2>
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -81,7 +83,7 @@ export default function MarketWatch({ compact = false }: { compact?: boolean }) 
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             }`}
           >
-            {group}
+            {group === "All" ? (language === "ru" ? "Все" : "All") : group}
           </button>
         ))}
       </div>
@@ -94,8 +96,8 @@ export default function MarketWatch({ compact = false }: { compact?: boolean }) 
           const changeValue = Number(quote?.changeValue || 0);
           const bid = quote?.bid ?? quote?.price ?? instrument.defaultPrice;
           const ask = quote?.ask ?? bid + instrument.pointSize * 14;
-          const sourceLabel = quote?.source === "live" ? "Live" : quote?.source === "manual" ? "CRM" : "Market";
-          const timeLabel = quote?.time ? new Date(quote.time).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "";
+          const sourceLabel = quote?.source === "live" ? "Live" : quote?.source === "manual" ? "CRM" : (language === "ru" ? "Рынок" : "Market");
+          const timeLabel = quote?.time ? new Date(quote.time).toLocaleTimeString(language === "ru" ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" }) : "";
           const isPositive = change >= 0;
 
           return (

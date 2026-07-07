@@ -11,6 +11,7 @@ import {
   type MarketGroup,
 } from "@/lib/market-instruments";
 import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Quote = {
   symbol: string;
@@ -247,16 +248,6 @@ export default function TradingTerminalPage() {
     const interval = setInterval(() => loadTrades(userId), 10000);
     return () => clearInterval(interval);
   }, [userId]);
-
-  useEffect(() => {
-    if (!userId || openTrades.length === 0) return;
-    const timer = window.setTimeout(() => runRiskCheck(userId), 300);
-    const interval = setInterval(() => runRiskCheck(userId), 5000);
-    return () => {
-      window.clearTimeout(timer);
-      clearInterval(interval);
-    };
-  }, [userId, trades, quotes]);
 
   function setVolumePreset(next: string) {
     setVolume(next);
@@ -786,28 +777,33 @@ function PositionsPanel({
   quotes: Record<string, Quote>;
   onClose: (trade: Trade) => void;
 }) {
+  const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+  const [page, setPage] = useState(1);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const visibleTrades = activeTab === "open" ? openTrades : closedTrades;
+  const pageSize = 20;
+  const pageCount = Math.max(1, Math.ceil(visibleTrades.length / pageSize));
+  const pagedTrades = visibleTrades.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="border-t border-[#1f332f] bg-[#0e1715]">
       <div className="flex flex-wrap items-center gap-2 border-b border-[#1f332f] px-3 py-2">
         <button
-          onClick={() => setActiveTab("open")}
+          onClick={() => { setActiveTab("open"); setPage(1); }}
           className={`px-3 py-1 text-[11px] font-black ${activeTab === "open" ? "bg-[#16a34a] text-white" : "bg-[#17332b] text-[#b8d4c7] hover:bg-[#21483d]"}`}
         >
-          Открытые позиции
+          {language === "ru" ? "Открытые позиции" : "Open positions"}
         </button>
         <button
-          onClick={() => setActiveTab("history")}
+          onClick={() => { setActiveTab("history"); setPage(1); }}
           className={`px-3 py-1 text-[11px] font-black ${activeTab === "history" ? "bg-[#16a34a] text-white" : "bg-[#17332b] text-[#b8d4c7] hover:bg-[#21483d]"}`}
         >
-          Отчет
+          {language === "ru" ? "Отчет" : "Report"}
         </button>
         <span className="ml-auto text-[11px] font-bold text-[#7fa293]">
-          {activeTab === "open" ? `Открыто: ${openTrades.length}` : `Закрыто: ${closedTrades.length}`}
+          {activeTab === "open" ? `${language === "ru" ? "Открыто" : "Open"}: ${openTrades.length}` : `${language === "ru" ? "Закрыто" : "Closed"}: ${closedTrades.length}`}
         </span>
       </div>
 
@@ -815,20 +811,20 @@ function PositionsPanel({
         <table className="w-full min-w-[960px] text-xs">
           <thead>
             <tr className="border-b border-[#1f332f] text-left text-[10px] uppercase text-[#658579]">
-              <th className="px-3 py-2">Символ</th>
-              <th className="px-3 py-2">Тип</th>
-              <th className="px-3 py-2">Объем</th>
-              <th className="px-3 py-2">Открытие</th>
-              <th className="px-3 py-2">{activeTab === "open" ? "Рынок" : "Закрытие"}</th>
-              <th className="px-3 py-2">Дата открытия</th>
+              <th className="px-3 py-2">{language === "ru" ? "Символ" : "Symbol"}</th>
+              <th className="px-3 py-2">{language === "ru" ? "Тип" : "Type"}</th>
+              <th className="px-3 py-2">{language === "ru" ? "Объем" : "Volume"}</th>
+              <th className="px-3 py-2">{language === "ru" ? "Открытие" : "Open"}</th>
+              <th className="px-3 py-2">{activeTab === "open" ? (language === "ru" ? "Рынок" : "Market") : (language === "ru" ? "Закрытие" : "Close")}</th>
+              <th className="px-3 py-2">{language === "ru" ? "Дата открытия" : "Open date"}</th>
               <th className="px-3 py-2">T/P</th>
               <th className="px-3 py-2">S/L</th>
-              <th className="px-3 py-2">Прибыль</th>
+              <th className="px-3 py-2">{language === "ru" ? "Прибыль" : "Profit"}</th>
               {activeTab === "open" && <th className="px-3 py-2" />}
             </tr>
           </thead>
           <tbody>
-            {visibleTrades.map((trade) => {
+            {pagedTrades.map((trade) => {
               const isClosed = trade.closePrice !== null;
               const marketPrice = isClosed ? trade.closePrice ?? trade.openPrice : quotes[trade.symbol]?.price || trade.openPrice;
               const profit =
@@ -850,7 +846,7 @@ function PositionsPanel({
                   {activeTab === "open" && (
                     <td className="px-3 py-2 text-right">
                       <button onClick={() => onClose(trade)} className="bg-[#21483d] px-3 py-1 font-black text-white hover:bg-[#e83b4b]">
-                        Закрыть
+                        {language === "ru" ? "Закрыть" : "Close"}
                       </button>
                     </td>
                   )}
@@ -860,13 +856,20 @@ function PositionsPanel({
             {visibleTrades.length === 0 && (
               <tr>
                 <td className="px-3 py-8 text-center text-[#658579]" colSpan={activeTab === "open" ? 10 : 9}>
-                  {activeTab === "open" ? "Открытых позиций пока нет" : "Закрытых сделок пока нет"}
+                  {activeTab === "open" ? (language === "ru" ? "Открытых позиций пока нет" : "No open positions yet") : (language === "ru" ? "Закрытых сделок пока нет" : "No closed trades yet")}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {visibleTrades.length > pageSize && (
+        <div className="flex items-center justify-end gap-2 border-t border-[#1f332f] px-3 py-2 text-xs text-[#b8d4c7]">
+          <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="bg-[#17332b] px-3 py-1 font-black disabled:opacity-40">{language === "ru" ? "Назад" : "Back"}</button>
+          <span className="font-black">{page} / {pageCount}</span>
+          <button disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="bg-[#17332b] px-3 py-1 font-black disabled:opacity-40">{language === "ru" ? "Далее" : "Next"}</button>
+        </div>
+      )}
     </div>
   );
 }

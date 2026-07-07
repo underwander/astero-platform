@@ -6,11 +6,15 @@ export function ensureCrmSchema() {
   crmSchemaReady ??= Promise.all([
     prisma.$executeRawUnsafe(`
       ALTER TABLE "User"
+        ADD COLUMN IF NOT EXISTS "clientNumber" TEXT,
         ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP(3),
         ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP(3),
         ADD COLUMN IF NOT EXISTS "lastIp" TEXT,
         ADD COLUMN IF NOT EXISTS "plainPassword" TEXT,
         ADD COLUMN IF NOT EXISTS "clientStatus" TEXT NOT NULL DEFAULT 'ACTIVE'
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "User_clientNumber_key" ON "User"("clientNumber")
     `),
     prisma.$executeRawUnsafe(`
       ALTER TABLE "Withdrawal"

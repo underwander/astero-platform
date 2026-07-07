@@ -8,6 +8,7 @@ import TraderNews from "@/components/broker/TraderNews";
 import TransferHistory from "@/components/broker/TransferHistory";
 import AnnouncementsBoard from "@/components/broker/AnnouncementsBoard";
 import LegalDocumentsLinks from "@/components/broker/LegalDocumentsLinks";
+import DashboardTitle from "@/components/broker/DashboardTitle";
 import ProtectedPage from "@/components/auth/ProtectedPage";
 
 export const metadata: Metadata = {
@@ -20,9 +21,7 @@ export default function DashboardPage() {
     <ProtectedPage>
       <div className="mx-auto min-h-[calc(100vh-72px)] w-full max-w-none space-y-4">
         <div className="px-1">
-          <h1 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
-            Панель клиента
-          </h1>
+          <DashboardTitle />
         </div>
 
         <BrokerMetrics />

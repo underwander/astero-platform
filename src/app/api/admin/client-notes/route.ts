@@ -67,3 +67,24 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    await ensureCrmSchema();
+    const { noteId } = await req.json();
+
+    if (!noteId) {
+      return Response.json({ error: "Missing noteId" }, { status: 400 });
+    }
+
+    await prisma.clientNote.delete({ where: { id: noteId } });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("Client note delete error:", error);
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
+}

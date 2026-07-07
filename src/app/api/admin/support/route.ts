@@ -141,3 +141,27 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    await ensureSupportMessagesTable();
+
+    const { userId } = await req.json();
+    if (!userId) {
+      return Response.json({ error: "UserId required" }, { status: 400 });
+    }
+
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM "SupportMessage" WHERE "userId" = ${String(userId)}`,
+      prisma.$executeRaw`DELETE FROM "SupportConversation" WHERE "userId" = ${String(userId)} AND "status" = 'CLOSED'`,
+    ]);
+
+    return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error(error);
+    return Response.json(
+      { error: "Admin support delete failed", details: supportErrorMessage(error) },
+      { status: 500 }
+    );
+  }
+}

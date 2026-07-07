@@ -27,8 +27,21 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid balance" }, { status: 400 });
     }
 
+    let clientNumber: string | null = null;
+    if (selectedRole === "CLIENT") {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const candidate = String(100000 + Math.floor(Math.random() * 1000));
+        const exists = await prisma.user.findUnique({ where: { clientNumber: candidate } });
+        if (!exists) {
+          clientNumber = candidate;
+          break;
+        }
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
+        clientNumber,
         email,
         password: hashedPassword,
         plainPassword: password,

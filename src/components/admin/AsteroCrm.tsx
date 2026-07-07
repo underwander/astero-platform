@@ -107,6 +107,7 @@ type WindowWithAudioContext = Window &
 
 type User = {
   id: string;
+  clientNumber?: string | null;
   email: string;
   plainPassword?: string | null;
   firstName?: string | null;
@@ -322,17 +323,18 @@ export default function AsteroCrm() {
       const oscillator = audio.createOscillator();
       const gain = audio.createGain();
 
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, audio.currentTime);
-      oscillator.frequency.setValueAtTime(660, audio.currentTime + 0.12);
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(1040, audio.currentTime);
+      oscillator.frequency.setValueAtTime(780, audio.currentTime + 0.11);
+      oscillator.frequency.setValueAtTime(1180, audio.currentTime + 0.22);
       gain.gain.setValueAtTime(0.001, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.18, audio.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.28);
+      gain.gain.exponentialRampToValueAtTime(0.32, audio.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.45);
 
       oscillator.connect(gain);
       gain.connect(audio.destination);
       oscillator.start();
-      oscillator.stop(audio.currentTime + 0.3);
+      oscillator.stop(audio.currentTime + 0.46);
     } catch {
       // Browsers can block sound until the admin interacts with the page.
     }
@@ -348,11 +350,6 @@ export default function AsteroCrm() {
       message: supportMessage.message,
     });
 
-    if (supportToastTimerRef.current) {
-      clearTimeout(supportToastTimerRef.current);
-    }
-
-    supportToastTimerRef.current = setTimeout(() => setSupportToast(null), 8000);
     playSupportSound();
   }
 
@@ -531,17 +528,20 @@ export default function AsteroCrm() {
   const filteredClients = useMemo(() => {
     const q = clientSearch.trim().toLowerCase();
     return clients.filter((client) => {
-      const matchesSearch = `${client.id} ${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""} ${client.city || ""} ${client.address || ""} ${client.manager?.email || ""} ${client.manager?.firstName || ""} ${client.manager?.lastName || ""}`
+      const matchesSearch = `${client.id} ${client.clientNumber || ""} ${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""} ${client.country || ""} ${client.city || ""} ${client.address || ""} ${client.manager?.email || ""} ${client.manager?.firstName || ""} ${client.manager?.lastName || ""}`
         .toLowerCase()
         .includes(q);
+      const isBuffer = client.clientStatus === "BUFFER";
       const matchesQuickFilter =
-        clientQuickFilter === "all" ||
-        (clientQuickFilter === "active" && !client.isBlocked) ||
-        (clientQuickFilter === "online" && isClientOnline(client)) ||
-        (clientQuickFilter === "blocked" && client.isBlocked) ||
-        (clientQuickFilter === "buffer" && client.clientStatus === "BUFFER") ||
-        (clientQuickFilter === "kyc" && client.kycStatus === "APPROVED") ||
-        (clientQuickFilter === "unverified" && client.kycStatus !== "APPROVED");
+        (clientQuickFilter === "buffer" && isBuffer) ||
+        (!isBuffer && (
+          clientQuickFilter === "all" ||
+          (clientQuickFilter === "active" && !client.isBlocked) ||
+          (clientQuickFilter === "online" && isClientOnline(client)) ||
+          (clientQuickFilter === "blocked" && client.isBlocked) ||
+          (clientQuickFilter === "kyc" && client.kycStatus === "APPROVED") ||
+          (clientQuickFilter === "unverified" && client.kycStatus !== "APPROVED")
+        ));
 
       return matchesSearch && matchesQuickFilter;
     });
@@ -954,6 +954,47 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
+  async function updateDepositDate(depositId: string, createdAt: string) {
+    const res = await fetch("/api/admin/deposits/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ depositId, createdAt: new Date(createdAt).toISOString() }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.error || "Ошибка изменения даты депозита");
+    await loadAdminData();
+  }
+
+  async function deleteNote(noteId: string) {
+    if (!confirm("Удалить заметку?")) return;
+    const res = await fetch("/api/admin/client-notes", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ noteId }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.error || "Ошибка удаления заметки");
+    await loadAdminData();
+  }
+
+  async function deleteArchivedSupportConversation(userId: string) {
+    if (!userId || !confirm("Удалить обращение из архива?")) return;
+
+    const res = await fetch("/api/admin/support", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return alert(data?.error || "Не удалось удалить обращение");
+    }
+
+    setSupportClientId((current) => (current === userId ? "" : current));
+    await loadAdminData();
+  }
+
   async function editSupportMessage(messageId: string, message: string) {
     const res = await fetch("/api/admin/support", {
       method: "PATCH",
@@ -1063,17 +1104,17 @@ export default function AsteroCrm() {
         {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-100">{message}</div>}
 
         {supportToast && (
-          <div className="fixed right-4 top-24 z-[80] w-[min(420px,calc(100vw-2rem))] rounded-3xl border border-sky-300/40 bg-slate-950 p-4 text-white shadow-2xl shadow-sky-950/30">
+          <div className="fixed right-4 top-24 z-[80] w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-sky-300/40 bg-slate-950 p-3 text-white shadow-2xl shadow-sky-950/30">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
                 <p className="mt-1 font-black">{supportToast.clientName}</p>
-                <p className="mt-2 line-clamp-3 text-sm text-slate-200">{supportToast.message}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-200">{supportToast.message || "Файл"}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSupportToast(null)}
-                className="rounded-xl bg-white/10 px-3 py-1 text-sm font-black text-white hover:bg-white/20"
+                className="rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white hover:bg-white/20"
               >
                 x
               </button>
@@ -1085,7 +1126,7 @@ export default function AsteroCrm() {
                 openTab("support");
                 setSupportToast(null);
               }}
-              className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white hover:bg-sky-400"
+              className="mt-3 w-full rounded-xl bg-sky-500 px-3 py-2 text-xs font-black text-white hover:bg-sky-400"
             >
               Открыть чат
             </button>
@@ -1236,6 +1277,7 @@ export default function AsteroCrm() {
             setNoteStatus={setNoteStatus}
             addNote={addNote}
             updateNote={updateNote}
+            deleteNote={deleteNote}
             deposits={deposits}
             withdrawals={withdrawals}
             trades={trades}
@@ -1244,6 +1286,7 @@ export default function AsteroCrm() {
             onUpdateTrade={updateClientTrade}
             onApproveDeposit={approveDeposit}
             onRejectDeposit={rejectDeposit}
+            onUpdateDepositDate={updateDepositDate}
             onUpdateUser={updateUser}
             onDeleteClient={(client) => deleteUser(client.id, client.email)}
           />
@@ -1324,6 +1367,7 @@ export default function AsteroCrm() {
             onAttach={attachSupportFile}
             onSend={sendSupportMessage}
             onClose={closeSupportConversation}
+            onDeleteArchive={deleteArchivedSupportConversation}
             onEditMessage={editSupportMessage}
           />
         )}
@@ -1634,6 +1678,10 @@ function displayName(user: { email?: string; firstName?: string | null; lastName
   return `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "-";
 }
 
+function clientDisplayNumber(client: Pick<User, "id" | "clientNumber">) {
+  return client.clientNumber || client.id.slice(-6).toUpperCase();
+}
+
 function isClientOnline(user: User) {
   return Boolean(user.lastSeenAt && Date.now() - new Date(user.lastSeenAt).getTime() < 2 * 60 * 1000);
 }
@@ -1666,6 +1714,7 @@ function ClientProfileUtip({
   setNoteStatus,
   addNote,
   updateNote,
+  deleteNote,
   deposits,
   withdrawals,
   trades,
@@ -1674,6 +1723,7 @@ function ClientProfileUtip({
   onUpdateTrade,
   onApproveDeposit,
   onRejectDeposit,
+  onUpdateDepositDate,
   onUpdateUser,
   onDeleteClient,
 }: {
@@ -1700,6 +1750,7 @@ function ClientProfileUtip({
   setNoteStatus: (value: string) => void;
   addNote: () => void;
   updateNote: (noteId: string, payload: Partial<{ status: string; text: string }>) => void;
+  deleteNote: (noteId: string) => void;
   deposits: Deposit[];
   withdrawals: Withdrawal[];
   trades: Trade[];
@@ -1708,6 +1759,7 @@ function ClientProfileUtip({
   onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
+  onUpdateDepositDate: (depositId: string, createdAt: string) => void;
   onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
   onDeleteClient: (client: User) => void;
 }) {
@@ -1782,12 +1834,12 @@ function ClientProfileUtip({
               </span>
               {selectedClient.clientStatus === "BUFFER" && <Badge value="BUFFER" />}
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                ID {selectedClient.id.slice(-8).toUpperCase()}
+                ID {clientDisplayNumber(selectedClient)}
                 <button
                   type="button"
                   title="Копировать номер клиента"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(selectedClient.id);
+                    await navigator.clipboard.writeText(clientDisplayNumber(selectedClient));
                     setNumberCopied(true);
                     window.setTimeout(() => setNumberCopied(false), 1500);
                   }}
@@ -1964,6 +2016,7 @@ function ClientProfileUtip({
               onUpdateTrade={onUpdateTrade}
               onApproveDeposit={onApproveDeposit}
               onRejectDeposit={onRejectDeposit}
+              onUpdateDepositDate={onUpdateDepositDate}
             />
           )}
         </div>
@@ -1988,7 +2041,7 @@ function ClientProfileUtip({
               <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
             </div>
             <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-              {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} />)}
+              {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} onDelete={deleteNote} />)}
               {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
             </div>
             {sortedNotes.length > notePageSize && (
@@ -2048,6 +2101,7 @@ function ClientUtipSection({
   onUpdateTrade,
   onApproveDeposit,
   onRejectDeposit,
+  onUpdateDepositDate,
 }: {
   section: "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing";
   client: User;
@@ -2060,8 +2114,9 @@ function ClientUtipSection({
   onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
+  onUpdateDepositDate: (depositId: string, createdAt: string) => void;
 }) {
-  const accountNumber = client.id.slice(-6).toUpperCase();
+  const accountNumber = clientDisplayNumber(client);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const historyEvents = [
@@ -2212,7 +2267,7 @@ function ClientUtipSection({
           {deposits.map((deposit) => (
             <tr key={deposit.id} className="border-b border-slate-100">
               <UtipTd>{accountNumber}</UtipTd>
-              <UtipTd>{new Date(deposit.createdAt).toLocaleString("ru-RU")}</UtipTd>
+              <UtipTd><input type="datetime-local" className="h-9 rounded border border-slate-200 px-2 text-xs" defaultValue={toLocalDateTime(deposit.createdAt)} onBlur={(event) => event.target.value && onUpdateDepositDate(deposit.id, event.target.value)} /></UtipTd>
               <UtipTd>${Number(deposit.amount).toFixed(2)}</UtipTd>
               <UtipTd>{deposit.method || "-"}</UtipTd>
               <UtipTd><Badge value={deposit.status} /></UtipTd>
@@ -2404,9 +2459,9 @@ function UtipActionsTable({
             <th className="px-3 py-2">Тип</th>
             <th className="px-3 py-2">Создатель</th>
             <th className="px-3 py-2">Описание</th>
+            <th className="px-3 py-2">Напоминание</th>
             <th className="px-3 py-2">Ответственный</th>
             <th className="px-3 py-2">Статус</th>
-            <th className="px-3 py-2">Напоминание</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
@@ -2446,7 +2501,7 @@ function UtipActionsTable({
           ))}
           {actions.length === 0 && (
             <tr>
-              <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>Действий нет</td>
+              <td className="px-3 py-8 text-center text-slate-500" colSpan={8}>Действий нет</td>
             </tr>
           )}
         </tbody>
@@ -2490,7 +2545,7 @@ function ClientsTable({
         <tbody>
           {clients.map((client, index) => (
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
-              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{client.id.slice(-6).toUpperCase()}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(client.id)} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
+              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(clientDisplayNumber(client))} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
               <td className="px-3 py-2">
                 <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="text-left font-black text-slate-950 hover:text-emerald-700">
                   {displayName(client)}
@@ -2543,10 +2598,10 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
   return <div className="rounded-2xl border border-emerald-100 p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 font-black text-slate-950 dark:text-white">{value}</p>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>;
 }
 
-function NoteCard({ note, onUpdate }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void }) {
+function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void; onDelete: (id: string) => void }) {
   const [text, setText] = useState(note.text);
   const isImportant = note.status === "IMPORTANT";
-  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
 function ActionList({ actions, onUpdate, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
@@ -3039,6 +3094,7 @@ function SupportPanelV2({
   onAttach,
   onSend,
   onClose,
+  onDeleteArchive,
   onEditMessage,
 }: {
   clients: User[];
@@ -3056,9 +3112,11 @@ function SupportPanelV2({
   onAttach: (file: File | null) => void;
   onSend: () => void;
   onClose: (userId: string) => void;
+  onDeleteArchive: (userId: string) => void;
   onEditMessage: (messageId: string, message: string) => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [supportMode, setSupportMode] = useState<"open" | "archive">("open");
   const [supportSearch, setSupportSearch] = useState(() => readSessionValue("astero.crm.supportSearch"));
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editingText, setEditingText] = useState("");
@@ -3079,6 +3137,7 @@ function SupportPanelV2({
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0],
     }))
     .filter((item) => item.count > 0 || item.conversation)
+    .filter((item) => supportMode === "archive" ? item.conversation?.status === "CLOSED" : item.conversation?.status !== "CLOSED")
     .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime());
   const supportSearchResults = clients.filter((client) => {
     const query = supportSearch.trim().toLowerCase();
@@ -3101,6 +3160,24 @@ function SupportPanelV2({
       )}
 
       <Panel title="Диалоги поддержки">
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+          {([
+            ["open", "Диалоги"],
+            ["archive", "Архив"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setSupportMode(key);
+                setSelectedClientId("");
+              }}
+              className={`rounded-lg px-3 py-2 text-xs font-black transition ${supportMode === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => setSearchOpen((current) => !current)}
@@ -3168,6 +3245,18 @@ function SupportPanelV2({
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
+              {supportMode === "archive" && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteArchive(client.id);
+                  }}
+                  className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-100"
+                >
+                  Удалить из архива
+                </button>
+              )}
             </button>
           ))}
 
