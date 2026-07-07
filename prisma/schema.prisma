@@ -203,6 +203,10 @@ model ManualQuote {
   percentage      Float    @default(100)
   contractSize    Float    @default(100000)
   tickValue       Float?
+  demoMinPrice    Float?
+  demoMaxPrice    Float?
+  demoVolatility  Float    @default(1)
+  demoSpeed       Int      @default(3)
   marginCurrency  String   @default("USD")
   profitCurrency  String   @default("USD")
   digits          Int      @default(5)

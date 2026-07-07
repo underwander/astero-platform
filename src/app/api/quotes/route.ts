@@ -14,6 +14,7 @@ type CachedQuote = {
 };
 
 const quoteCache = new Map<string, CachedQuote>();
+const demoQuoteState = new Map<string, CachedQuote>();
 const CACHE_TTL = 3 * 1000;
 const TRADINGVIEW_SCAN_ENDPOINTS = [
   "https://scanner.tradingview.com/global/scan",
@@ -68,6 +69,64 @@ function buildFallbackQuote(
     changeValue,
     time,
     source,
+  };
+}
+
+function buildDemoProviderQuote(
+  symbol: string,
+  basePrice: number,
+  minPrice: number | null | undefined,
+  maxPrice: number | null | undefined,
+  volatility: number | null | undefined,
+  speed: number | null | undefined,
+  spreadPoints = 14
+) {
+  const instrument = getInstrument(symbol);
+  const now = Date.now();
+  const low = Number.isFinite(Number(minPrice)) && Number(minPrice) > 0 ? Number(minPrice) : basePrice * 0.75;
+  const high = Number.isFinite(Number(maxPrice)) && Number(maxPrice) > low ? Number(maxPrice) : basePrice * 1.25;
+  const updateMs = Math.max(1000, Math.round(Number(speed || 3)) * 1000);
+  const vol = Math.max(0.01, Number(volatility || 1));
+  const previous = demoQuoteState.get(symbol);
+
+  if (previous && now - previous.cachedAt < updateMs) {
+    return {
+      ...previous,
+      bid: previous.price,
+      ask: previous.price + instrument.pointSize * spreadPoints,
+    };
+  }
+
+  const previousPrice = previous?.price && previous.price >= low && previous.price <= high
+    ? previous.price
+    : Math.min(high, Math.max(low, basePrice));
+  const range = high - low;
+  const center = low + range / 2;
+  const centerPull = ((center - previousPrice) / range) * vol * 0.18;
+  const randomMove = (Math.random() - 0.5) * vol * 0.025;
+  const wave = Math.sin(now / updateMs + Array.from(symbol).reduce((sum, char) => sum + char.charCodeAt(0), 0)) * vol * 0.006;
+  const nextRaw = previousPrice + range * (randomMove + centerPull + wave);
+  const price = Math.min(high, Math.max(low, nextRaw));
+  const changeValue = price - previousPrice;
+  const changePercent = previousPrice ? (changeValue / previousPrice) * 100 : 0;
+
+  const quote: CachedQuote = {
+    symbol,
+    price,
+    open: previousPrice,
+    change: String(Number.isFinite(changePercent) ? changePercent : 0),
+    changeValue,
+    time: new Date().toISOString(),
+    cachedAt: now,
+    source: "demo-provider",
+  };
+
+  demoQuoteState.set(symbol, quote);
+
+  return {
+    ...quote,
+    bid: price,
+    ask: price + instrument.pointSize * spreadPoints,
   };
 }
 
@@ -155,6 +214,21 @@ export async function GET(req: Request) {
           manualQuote.quoteSource || "manual",
           true,
           manualQuote.updatedAt.toISOString(),
+          spreadPoints
+        ),
+        settings: buildQuoteSettings(manualQuote),
+      });
+    }
+
+    if (manualQuote?.quoteSource === "Demo Provider") {
+      return Response.json({
+        ...buildDemoProviderQuote(
+          symbol,
+          manualQuote.price || getInstrument(symbol).defaultPrice,
+          manualQuote.demoMinPrice,
+          manualQuote.demoMaxPrice,
+          manualQuote.demoVolatility,
+          manualQuote.demoSpeed,
           spreadPoints
         ),
         settings: buildQuoteSettings(manualQuote),
@@ -275,6 +349,10 @@ function buildQuoteSettings(manualQuote: {
   riskMode: string;
   tradeForbidden: boolean;
   tickValue: number | null;
+  demoMinPrice: number | null;
+  demoMaxPrice: number | null;
+  demoVolatility: number;
+  demoSpeed: number;
 }) {
   return {
     tradingHours: manualQuote.tradingHours,
@@ -294,5 +372,9 @@ function buildQuoteSettings(manualQuote: {
     riskMode: manualQuote.riskMode,
     tradeForbidden: manualQuote.tradeForbidden,
     tickValue: manualQuote.tickValue,
+    demoMinPrice: manualQuote.demoMinPrice,
+    demoMaxPrice: manualQuote.demoMaxPrice,
+    demoVolatility: manualQuote.demoVolatility,
+    demoSpeed: manualQuote.demoSpeed,
   };
 }

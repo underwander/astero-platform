@@ -36,6 +36,10 @@ type ManualQuote = {
   percentage: number;
   contractSize: number;
   tickValue?: number | null;
+  demoMinPrice?: number | null;
+  demoMaxPrice?: number | null;
+  demoVolatility: number;
+  demoSpeed: number;
   marginCurrency: string;
   profitCurrency: string;
   digits: number;
@@ -60,6 +64,10 @@ type SymbolForm = {
   percentage: string;
   contractSize: string;
   tickValue: string;
+  demoMinPrice: string;
+  demoMaxPrice: string;
+  demoVolatility: string;
+  demoSpeed: string;
   marginCurrency: string;
   profitCurrency: string;
   digits: string;
@@ -144,6 +152,10 @@ function buildForm(symbol: string, quote?: ManualQuote): SymbolForm {
     percentage: String(quote?.percentage ?? 100),
     contractSize: String(quote?.contractSize ?? instrument.contractSize),
     tickValue: String(quote?.tickValue ?? instrument.tickValue),
+    demoMinPrice: String(quote?.demoMinPrice ?? Math.round(instrument.defaultPrice * 0.75 * 100) / 100),
+    demoMaxPrice: String(quote?.demoMaxPrice ?? Math.round(instrument.defaultPrice * 1.25 * 100) / 100),
+    demoVolatility: String(quote?.demoVolatility ?? 1),
+    demoSpeed: String(quote?.demoSpeed ?? 3),
     marginCurrency: quote?.marginCurrency || "EUR",
     profitCurrency: quote?.profitCurrency || "EUR",
     digits: String(quote?.digits ?? instrument.digits),
@@ -244,6 +256,10 @@ export default function ManualQuotesPanel() {
       percentage: Number(nextForm.percentage),
       contractSize: Number(nextForm.contractSize),
       tickValue: Number(nextForm.tickValue),
+      demoMinPrice: Number(nextForm.demoMinPrice),
+      demoMaxPrice: Number(nextForm.demoMaxPrice),
+      demoVolatility: Number(nextForm.demoVolatility),
+      demoSpeed: Number(nextForm.demoSpeed),
       marginCurrency: nextForm.marginCurrency,
       profitCurrency: nextForm.profitCurrency,
       digits: Number(nextForm.digits),
@@ -495,10 +511,14 @@ function ModifySymbolModal({
             <Field label="Комиссия" value={form.commission} onChange={(value) => onChange("commission", value)} />
             <Field label="Ручная цена" value={form.price} onChange={(value) => onChange("price", value)} />
             <Field label="Часы торговли" value={form.tradingHours} onChange={(value) => onChange("tradingHours", value)} />
-            <SelectField label="Источник" value={form.quoteSource} options={["TradingView", "Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"]} onChange={(value) => onChange("quoteSource", value)} />
+            <SelectField label="Источник" value={form.quoteSource} options={["TradingView", "Demo Provider", "Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"]} onChange={(value) => onChange("quoteSource", value)} />
             <SelectField label="Риск-режим" value={form.riskMode} options={["B-Book", "A-Book", "Hybrid"]} onChange={(value) => onChange("riskMode", value)} />
             <Field label="Плечо" value={form.leverage} onChange={(value) => onChange("leverage", value)} />
             <Field label="Маржа" value={form.margin} onChange={(value) => onChange("margin", value)} />
+            <Field label="Demo min" value={form.demoMinPrice} onChange={(value) => onChange("demoMinPrice", value)} />
+            <Field label="Demo max" value={form.demoMaxPrice} onChange={(value) => onChange("demoMaxPrice", value)} />
+            <Field label="Demo volatility" value={form.demoVolatility} onChange={(value) => onChange("demoVolatility", value)} />
+            <Field label="Demo speed" value={form.demoSpeed} onChange={(value) => onChange("demoSpeed", value)} />
             <Field label="A-Book счета" value={form.aBookAccountIds} onChange={(value) => onChange("aBookAccountIds", value)} />
             <Field label="MT4 DDE" value={form.mt4DdeServer} onChange={(value) => onChange("mt4DdeServer", value)} />
           </div>

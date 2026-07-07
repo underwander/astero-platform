@@ -53,6 +53,7 @@ const inputClass =
   "h-9 w-full rounded border border-[#24453c] bg-[#0e1815] px-2 text-xs font-semibold text-slate-100 outline-none transition focus:border-[#22c55e]";
 const ACTIVE_QUOTE_REFRESH_MS = 2500;
 const WATCHLIST_REFRESH_MS = 5000;
+const CHART_POINTS = 72;
 
 function parsePositiveNumber(value: string, fallback = 0) {
   const parsed = Number(value);
@@ -70,6 +71,22 @@ function formatCurrency(value: number, currency = "EUR") {
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }
+}
+
+function buildInitialSeries(symbol: string, price: number) {
+  const seed = Array.from(symbol).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: CHART_POINTS - 1 }, (_, index) => {
+    const wave = Math.sin((index + seed) * 0.37) * 0.006 + Math.cos((index + seed) * 0.19) * 0.004;
+    return Math.max(price * (1 + wave), price * 0.2);
+  });
+}
+
+function appendChartPoint(current: number[] | undefined, symbol: string, price: number) {
+  if (!Number.isFinite(price) || price <= 0) {
+    return current || [];
+  }
+  const seeded = current && current.length > 0 ? current : buildInitialSeries(symbol, price);
+  return [...seeded.slice(-(CHART_POINTS - 1)), price];
 }
 
 function getTradeMarketPrice(trade: Trade, quote?: Quote) {
@@ -96,6 +113,7 @@ export default function TradingTerminalPage() {
   const [balance, setBalance] = useState(0);
   const [activeGroup, setActiveGroup] = useState<MarketGroup | "All">("Forex");
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
+  const [chartSeries, setChartSeries] = useState<Record<string, number[]>>({});
   const [trades, setTrades] = useState<Trade[]>([]);
   const [chartSymbols, setChartSymbols] = useState<string[]>(() => marketInstruments.slice(0, 9).map((item) => item.symbol));
   const [symbolToAdd, setSymbolToAdd] = useState(marketInstruments[9]?.symbol || marketInstruments[0].symbol);
@@ -172,6 +190,10 @@ export default function TradingTerminalPage() {
         source: data.source,
         settings: data.settings ?? null,
       },
+    }));
+    setChartSeries((prev) => ({
+      ...prev,
+      [currentSymbol]: appendChartPoint(prev[currentSymbol], currentSymbol, nextBid),
     }));
     if (currentSymbol === symbol) {
       setOpenPrice(String(data.price));
@@ -388,6 +410,7 @@ export default function TradingTerminalPage() {
         openTrade={openTrade}
         chartInterval={chartInterval}
         instrumentTvSymbol={instrument.tvSymbol}
+        chartSeries={chartSeries}
         trades={trades}
         onClose={closeTrade}
       />
@@ -466,7 +489,11 @@ export default function TradingTerminalPage() {
               Свободные средства: {formatCurrency(accountMetrics.freeMargin)}
             </span>
           </div>
-          <TradingViewChart symbol={symbol} tvSymbol={instrument.tvSymbol} chartInterval={chartInterval} />
+          {selectedQuote?.source === "demo-provider" ? (
+            <DemoPriceChart symbol={symbol} quote={selectedQuote} series={chartSeries[symbol]} />
+          ) : (
+            <TradingViewChart symbol={symbol} tvSymbol={instrument.tvSymbol} chartInterval={chartInterval} />
+          )}
           <PositionsPanel trades={trades} quotes={quotes} onClose={closeTrade} />
         </main>
 
@@ -543,6 +570,90 @@ export default function TradingTerminalPage() {
   );
 }
 
+function DemoPriceChart({
+  symbol,
+  quote,
+  series,
+  compact = false,
+}: {
+  symbol: string;
+  quote?: Quote;
+  series?: number[];
+  compact?: boolean;
+}) {
+  const instrument = getInstrument(symbol);
+  const currentPrice = quote?.bid ?? quote?.price ?? instrument.defaultPrice;
+  const points = (series && series.length > 1 ? series : buildInitialSeries(symbol, currentPrice))
+    .concat(currentPrice)
+    .slice(-CHART_POINTS);
+  const candles = points.map((close, index) => {
+    const open = index === 0 ? points[0] : points[index - 1];
+    const spread = Math.max(Math.abs(close - open), currentPrice * 0.001, instrument.pointSize * 8);
+    const seed = Array.from(symbol).reduce((sum, char) => sum + char.charCodeAt(0), 0) + index;
+    return {
+      open,
+      close,
+      high: Math.max(open, close) + spread * (0.25 + (seed % 7) * 0.04),
+      low: Math.max(0, Math.min(open, close) - spread * (0.22 + (seed % 5) * 0.04)),
+    };
+  });
+  const min = Math.min(...candles.map((candle) => candle.low));
+  const max = Math.max(...candles.map((candle) => candle.high));
+  const range = max - min || currentPrice * 0.01 || 1;
+  const width = 1000;
+  const height = 320;
+  const topPadding = 24;
+  const bottomPadding = 28;
+  const chartHeight = height - topPadding - bottomPadding;
+  const candleStep = candles.length > 0 ? width / candles.length : width;
+  const candleWidth = Math.max(5, candleStep * 0.54);
+  const yFor = (price: number) => topPadding + (1 - (price - min) / range) * chartHeight;
+  const lastY = yFor(currentPrice);
+  const change = points.length > 1 ? currentPrice - points[0] : 0;
+  const changePercent = points[0] ? (change / points[0]) * 100 : 0;
+
+  return (
+    <div className={`relative w-full overflow-hidden bg-[#07110f] ${compact ? "h-[310px] touch-pan-y" : "h-[360px] sm:h-[400px] xl:h-[455px] 2xl:h-[500px]"}`}>
+      <div className="absolute left-3 top-3 z-10 rounded border border-[#24453c] bg-[#07110f]/80 px-3 py-2 backdrop-blur">
+        <p className="text-[11px] font-black uppercase text-[#7fa293]">{symbol} · Demo Provider</p>
+        <p className="text-lg font-black text-white">{formatPrice(symbol, currentPrice)}</p>
+        <p className={changePercent >= 0 ? "text-xs font-black text-[#0fd47a]" : "text-xs font-black text-[#ff4d5e]"}>
+          {changePercent >= 0 ? "+" : ""}
+          {changePercent.toFixed(2)}%
+        </p>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none" aria-label={`Demo chart ${symbol}`}>
+        {[0, 1, 2, 3].map((line) => {
+          const y = topPadding + (chartHeight / 3) * line;
+          return <line key={line} x1="0" x2={width} y1={y} y2={y} stroke="#17332b" strokeWidth="1" />;
+        })}
+        {[0, 1, 2, 3, 4].map((line) => {
+          const x = (width / 4) * line;
+          return <line key={line} x1={x} x2={x} y1="0" y2={height} stroke="#10231e" strokeWidth="1" />;
+        })}
+        {candles.map((candle, index) => {
+          const isUp = candle.close >= candle.open;
+          const color = isUp ? "#22c55e" : "#ef4444";
+          const x = index * candleStep + candleStep / 2;
+          const openY = yFor(candle.open);
+          const closeY = yFor(candle.close);
+          const bodyTop = Math.min(openY, closeY);
+          const bodyHeight = Math.max(2.5, Math.abs(closeY - openY));
+
+          return (
+            <g key={`${index}-${candle.close}`}>
+              <line x1={x} x2={x} y1={yFor(candle.high)} y2={yFor(candle.low)} stroke={color} strokeOpacity="0.9" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+              <rect x={x - candleWidth / 2} y={bodyTop} width={candleWidth} height={bodyHeight} rx="1.5" fill={color} fillOpacity="0.86" stroke={color} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            </g>
+          );
+        })}
+        <line x1="0" x2={width} y1={lastY} y2={lastY} stroke="#8af5bd" strokeDasharray="6 8" strokeOpacity="0.6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <circle cx={width - 2} cy={lastY} r="5" fill="#8af5bd" />
+      </svg>
+    </div>
+  );
+}
+
 function TradingViewChart({
   symbol,
   tvSymbol,
@@ -580,6 +691,7 @@ function MobileTerminal({
   openTrade,
   chartInterval,
   instrumentTvSymbol,
+  chartSeries,
   trades,
   onClose,
 }: {
@@ -596,6 +708,7 @@ function MobileTerminal({
   openTrade: (side?: "BUY" | "SELL") => void;
   chartInterval: string;
   instrumentTvSymbol: string;
+  chartSeries: Record<string, number[]>;
   trades: Trade[];
   onClose: (trade: Trade) => void;
 }) {
@@ -655,7 +768,11 @@ function MobileTerminal({
             </div>
           </div>
         )}
-        <TradingViewChart symbol={symbol} tvSymbol={instrumentTvSymbol} chartInterval={chartInterval} compact />
+        {quotes[symbol]?.source === "demo-provider" ? (
+          <DemoPriceChart symbol={symbol} quote={quotes[symbol]} series={chartSeries[symbol]} compact />
+        ) : (
+          <TradingViewChart symbol={symbol} tvSymbol={instrumentTvSymbol} chartInterval={chartInterval} compact />
+        )}
       </div>
 
       <div className="grid grid-cols-[1fr_112px_1fr] gap-2">
