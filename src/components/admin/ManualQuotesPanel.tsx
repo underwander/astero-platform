@@ -149,11 +149,11 @@ function buildForm(symbol: string, quote?: ManualQuote): SymbolForm {
     digits: String(quote?.digits ?? instrument.digits),
     delay: String(quote?.delay ?? 0),
     commission: String(quote?.commission ?? 0),
-    manualPrice: false,
+    manualPrice: (quote?.enabled ?? false) && quote?.quoteSource === "Manual",
     tradeForbidden: quote?.tradeForbidden ?? false,
     aBookEnabled: quote?.aBookEnabled ?? false,
     ddeEnabled: quote?.ddeEnabled ?? false,
-    quoteSource: quote?.quoteSource || "TwelveData",
+    quoteSource: quote?.quoteSource || "TradingView",
     leverage: String(quote?.leverage ?? 100),
     margin: String(quote?.margin ?? 1),
     riskMode: quote?.riskMode || "B-Book",
@@ -253,7 +253,7 @@ export default function ManualQuotesPanel() {
       swapShort: Number(nextForm.swapShort),
       aBookEnabled: nextForm.aBookEnabled,
       ddeEnabled: nextForm.ddeEnabled,
-      quoteSource: nextForm.quoteSource,
+      quoteSource: nextForm.manualPrice ? "Manual" : nextForm.quoteSource,
       leverage: Number(nextForm.leverage),
       margin: Number(nextForm.margin),
       riskMode: nextForm.riskMode,
@@ -495,7 +495,7 @@ function ModifySymbolModal({
             <Field label="Комиссия" value={form.commission} onChange={(value) => onChange("commission", value)} />
             <Field label="Ручная цена" value={form.price} onChange={(value) => onChange("price", value)} />
             <Field label="Часы торговли" value={form.tradingHours} onChange={(value) => onChange("tradingHours", value)} />
-            <SelectField label="Источник" value={form.quoteSource} options={["Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"]} onChange={(value) => onChange("quoteSource", value)} />
+            <SelectField label="Источник" value={form.quoteSource} options={["TradingView", "Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"]} onChange={(value) => onChange("quoteSource", value)} />
             <SelectField label="Риск-режим" value={form.riskMode} options={["B-Book", "A-Book", "Hybrid"]} onChange={(value) => onChange("riskMode", value)} />
             <Field label="Плечо" value={form.leverage} onChange={(value) => onChange("leverage", value)} />
             <Field label="Маржа" value={form.margin} onChange={(value) => onChange("margin", value)} />

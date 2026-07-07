@@ -145,7 +145,9 @@ export async function GET(req: Request) {
       );
     }
 
-    if (manualQuote?.enabled) {
+    const useManualPrice = manualQuote?.enabled && manualQuote.quoteSource === "Manual";
+
+    if (useManualPrice) {
       return Response.json({
         ...buildFallbackQuote(
           symbol,
