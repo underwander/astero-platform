@@ -15,6 +15,13 @@ type CachedQuote = {
 
 const quoteCache = new Map<string, CachedQuote>();
 const CACHE_TTL = 3 * 1000;
+const TRADINGVIEW_SCAN_ENDPOINTS = [
+  "https://scanner.tradingview.com/global/scan",
+  "https://scanner.tradingview.com/forex/scan",
+  "https://scanner.tradingview.com/crypto/scan",
+  "https://scanner.tradingview.com/cfd/scan",
+  "https://scanner.tradingview.com/america/scan",
+];
 
 function getSyntheticChangePercent(symbol: string) {
   const seed = Array.from(symbol).reduce((total, char) => total + char.charCodeAt(0), 0);
@@ -62,6 +69,57 @@ function buildFallbackQuote(
     time,
     source,
   };
+}
+
+async function fetchTradingViewQuote(symbol: string, tvSymbol: string) {
+  const ticker = decodeURIComponent(tvSymbol);
+  const body = JSON.stringify({
+    symbols: {
+      tickers: [ticker],
+      query: { types: [] },
+    },
+    columns: ["close", "change", "change_abs"],
+  });
+
+  for (const endpoint of TRADINGVIEW_SCAN_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0",
+        },
+        body,
+        cache: "no-store",
+      });
+
+      if (!response.ok) continue;
+
+      const payload = await response.json();
+      const values = payload?.data?.[0]?.d;
+      const close = Number(values?.[0]);
+
+      if (!Number.isFinite(close) || close <= 0) continue;
+
+      const percentChange = Number(values?.[1] ?? 0);
+      const changeValue = Number(values?.[2] ?? 0);
+
+      return {
+        symbol,
+        price: close,
+        open: close - (Number.isFinite(changeValue) ? changeValue : 0),
+        change: String(Number.isFinite(percentChange) ? percentChange : 0),
+        changeValue: Number.isFinite(changeValue) ? changeValue : 0,
+        time: new Date().toISOString(),
+        cachedAt: Date.now(),
+        source: "tradingview",
+      } satisfies CachedQuote;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }
 
 export async function GET(req: Request) {
@@ -114,6 +172,24 @@ export async function GET(req: Request) {
         changeValue: cached.changeValue,
         time: cached.time,
         source: cached.source,
+        settings: manualQuote ? buildQuoteSettings(manualQuote) : null,
+      });
+    }
+
+    const tradingViewQuote = await fetchTradingViewQuote(symbol, instrument.tvSymbol);
+
+    if (tradingViewQuote) {
+      quoteCache.set(symbol, tradingViewQuote);
+
+      return Response.json({
+        symbol: tradingViewQuote.symbol,
+        price: tradingViewQuote.price,
+        bid: tradingViewQuote.price,
+        ask: tradingViewQuote.price + instrument.pointSize * spreadPoints,
+        change: tradingViewQuote.change,
+        changeValue: tradingViewQuote.changeValue,
+        time: tradingViewQuote.time,
+        source: tradingViewQuote.source,
         settings: manualQuote ? buildQuoteSettings(manualQuote) : null,
       });
     }
