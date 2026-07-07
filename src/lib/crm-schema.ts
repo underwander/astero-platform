@@ -16,6 +16,10 @@ export function ensureCrmSchema() {
         ADD COLUMN IF NOT EXISTS "adminComment" TEXT
     `),
     prisma.$executeRawUnsafe(`
+      ALTER TABLE "Trade"
+        ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3)
+    `),
+    prisma.$executeRawUnsafe(`
       DO $$
       BEGIN
         IF NOT EXISTS (

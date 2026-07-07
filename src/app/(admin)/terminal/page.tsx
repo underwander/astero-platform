@@ -45,6 +45,7 @@ type Trade = {
   takeProfit?: number | null;
   stopLoss?: number | null;
   createdAt: string;
+  closedAt?: string | null;
 };
 
 const inputClass =
@@ -734,7 +735,8 @@ function MobileTerminal({
             </thead>
             <tbody>
               {visibleTrades.map((trade) => {
-                const marketPrice = quotes[trade.symbol]?.price || trade.closePrice || trade.openPrice;
+                const isClosed = trade.closePrice !== null;
+                const marketPrice = isClosed ? trade.closePrice ?? trade.openPrice : quotes[trade.symbol]?.price || trade.openPrice;
                 const profit = trade.closePrice === null
                   ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)
                   : Number(trade.profit || 0);
@@ -758,7 +760,7 @@ function MobileTerminal({
                     <td className={profit >= 0 ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>€{profit.toFixed(2)}</td>
                     <td className={trade.side === "BUY" ? "px-2 py-2 font-black text-[#0fd47a]" : "px-2 py-2 font-black text-[#ff4d5e]"}>{trade.side}</td>
                     <td className="px-2 py-2">{trade.volume}</td>
-                    <td className="px-2 py-2">{new Date(trade.createdAt).toLocaleDateString("ru-RU")}</td>
+                    <td className="px-2 py-2">{new Date((isClosed && trade.closedAt) || trade.createdAt).toLocaleDateString("ru-RU")}</td>
                   </tr>
                 );
               })}
@@ -827,7 +829,8 @@ function PositionsPanel({
           </thead>
           <tbody>
             {visibleTrades.map((trade) => {
-              const marketPrice = quotes[trade.symbol]?.price || trade.closePrice || trade.openPrice;
+              const isClosed = trade.closePrice !== null;
+              const marketPrice = isClosed ? trade.closePrice ?? trade.openPrice : quotes[trade.symbol]?.price || trade.openPrice;
               const profit =
                 trade.closePrice === null
                   ? calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, marketPrice, trade.volume, trade.swap ?? 0, quotes[trade.symbol]?.settings?.tickValue)

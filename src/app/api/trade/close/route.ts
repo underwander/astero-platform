@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { calculateTradeProfit } from "@/lib/market-instruments";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const { tradeId, closePrice } = await req.json();
 
     if (!tradeId || !closePrice) {
@@ -67,6 +69,7 @@ export async function POST(req: Request) {
         data: {
           closePrice: numericClosePrice,
           profit,
+          closedAt: new Date(),
         },
       });
 

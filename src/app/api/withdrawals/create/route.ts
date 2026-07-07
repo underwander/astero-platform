@@ -38,6 +38,29 @@ export async function POST(req: Request) {
       );
     }
 
+    const pendingWithdrawals = await prisma.withdrawal.findMany({
+      where: {
+        userId,
+        status: "PENDING",
+      },
+      select: {
+        amount: true,
+      },
+    });
+    const pendingAmount = pendingWithdrawals.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const availableAmount = Math.max(0, Number(user.balance || 0) - pendingAmount);
+
+    if (numericAmount > availableAmount) {
+      return Response.json(
+        {
+          error: "Недостаточно доступных средств или уже есть ожидающая заявка на эту сумму",
+          availableAmount,
+          pendingAmount,
+        },
+        { status: 400 }
+      );
+    }
+
     const withdrawal = await prisma.withdrawal.create({
       data: {
         userId,

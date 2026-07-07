@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { calculateAccountRisk, getClosePriceForTrade, type RiskQuoteMap } from "@/lib/trading-risk";
 import { calculateTradeProfit } from "@/lib/market-instruments";
+import { ensureCrmSchema } from "@/lib/crm-schema";
 
 export async function POST(req: Request) {
   try {
+    await ensureCrmSchema();
     const { userId, quotes } = await req.json();
 
     if (!userId) {
@@ -57,6 +59,7 @@ export async function POST(req: Request) {
           data: {
             closePrice: item.closePrice,
             profit: item.profit,
+            closedAt: new Date(),
           },
         });
       }

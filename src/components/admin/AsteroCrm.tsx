@@ -180,6 +180,7 @@ type Trade = {
   stopLoss?: number | null;
   comment?: string | null;
   createdAt: string;
+  closedAt?: string | null;
   user: {
     id?: string;
     email: string;
@@ -193,6 +194,7 @@ type TradeUpdatePayload = {
   openPrice?: number;
   volume?: number;
   swap?: number;
+  profit?: number;
   takeProfit?: number | null;
   stopLoss?: number | null;
 };
@@ -253,6 +255,7 @@ export default function AsteroCrm() {
   const [supportClientId, setSupportClientId] = useState("");
   const [supportError, setSupportError] = useState("");
   const [supportToast, setSupportToast] = useState<SupportToast | null>(null);
+  const [actionReminder, setActionReminder] = useState<{ title: string; clientName: string; minutes: number } | null>(null);
   const [supportUnreadIds, setSupportUnreadIds] = useState<Set<string>>(new Set());
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -295,6 +298,7 @@ export default function AsteroCrm() {
     phone: "",
   });
   const seenSupportMessageIdsRef = useRef<Set<string>>(new Set());
+  const actionReminderKeysRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
   const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -555,8 +559,38 @@ export default function AsteroCrm() {
     return due >= end;
   });
 
+  useEffect(() => {
+    const reminderMinutes = [30, 15, 5];
+    const currentTime = Date.now();
+
+    for (const action of openActions) {
+      const dueTime = new Date(action.dueAt).getTime();
+      const minutesLeft = Math.ceil((dueTime - currentTime) / 60000);
+      const matchedMinute = reminderMinutes.find((minute) => minutesLeft <= minute && minutesLeft > minute - 1);
+
+      if (!matchedMinute) continue;
+
+      const key = `${action.id}:${matchedMinute}`;
+      if (actionReminderKeysRef.current.has(key)) continue;
+
+      actionReminderKeysRef.current.add(key);
+      playSupportSound();
+      setActionReminder({
+        title: action.title,
+        clientName: action.client ? displayName(action.client) : "Клиент",
+        minutes: matchedMinute,
+      });
+      break;
+    }
+  }, [now, openActions]);
+
   function openClientCard(client: User) {
     setSelectedClientId(client.id);
+    setDepositAmount("0");
+    setBalanceAmount("0");
+    setNoteText("");
+    setNoteStatus("OPEN");
+    setActionForm({ title: "", description: "", dueAt: "", status: "OPEN", managerId: "" });
     openTab("clientCard");
   }
 
@@ -596,9 +630,10 @@ export default function AsteroCrm() {
 
   async function depositToUser(userId: string) {
     const amount = Number(depositAmount);
-    if (!amount || amount <= 0) return alert("Введите корректную сумму");
+    if (!amount || Number.isNaN(amount)) return alert("Введите корректную сумму");
     const client = clients.find((item) => item.id === userId);
-    if (!confirm(`Начислить ${displayName(client || { email: userId })} депозит €${amount.toFixed(2)}?`)) return;
+    const actionText = amount < 0 ? "Списать" : "Начислить";
+    if (!confirm(`${actionText} ${displayName(client || { email: userId })} €${Math.abs(amount).toFixed(2)}?`)) return;
     const res = await fetch("/api/admin/users/deposit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -809,7 +844,7 @@ export default function AsteroCrm() {
         managerId: actionForm.managerId || localStorage.getItem("userId"),
         title: actionForm.title,
         description: actionForm.description,
-        dueAt: actionForm.dueAt,
+        dueAt: new Date(actionForm.dueAt).toISOString(),
         status: actionForm.status,
       }),
     });
@@ -823,10 +858,13 @@ export default function AsteroCrm() {
     actionId: string,
     payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>
   ) {
+    const nextPayload = payload.dueAt
+      ? { ...payload, dueAt: new Date(payload.dueAt).toISOString() }
+      : payload;
     const res = await fetch("/api/admin/client-actions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actionId, ...payload }),
+      body: JSON.stringify({ actionId, ...nextPayload }),
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка действия");
@@ -1019,6 +1057,26 @@ export default function AsteroCrm() {
             >
               Открыть чат
             </button>
+          </div>
+        )}
+
+        {actionReminder && (
+          <div className="fixed right-4 top-24 z-[85] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-amber-300/50 bg-amber-50 p-4 text-amber-950 shadow-2xl shadow-amber-950/20">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Напоминание</p>
+                <p className="mt-1 text-sm font-black">{actionReminder.clientName}</p>
+                <p className="mt-1 text-sm">{actionReminder.title}</p>
+                <p className="mt-2 text-xs font-bold text-amber-700">Через {actionReminder.minutes} минут</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionReminder(null)}
+                className="rounded-lg bg-amber-200 px-2 py-1 text-xs font-black text-amber-900 hover:bg-amber-300"
+              >
+                x
+              </button>
+            </div>
           </div>
         )}
 
@@ -1619,6 +1677,7 @@ function ClientProfileUtip({
   >("overview");
   const [numberCopied, setNumberCopied] = useState(false);
   const [showClientPassword, setShowClientPassword] = useState(false);
+  const [notePage, setNotePage] = useState(1);
   const [editClient, setEditClient] = useState({
     firstName: selectedClient.firstName || "",
     lastName: selectedClient.lastName || "",
@@ -1648,6 +1707,22 @@ function ClientProfileUtip({
   const clientDeposits = deposits.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientWithdrawals = withdrawals.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientDocs = documents.filter((doc) => doc.user?.id === selectedClient.id || doc.user?.email === selectedClient.email);
+  const sortedNotes = [...(selectedClient.clientNotes || [])].sort((a, b) => {
+    if (a.status === "IMPORTANT" && b.status !== "IMPORTANT") return -1;
+    if (a.status !== "IMPORTANT" && b.status === "IMPORTANT") return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  const notePageSize = 10;
+  const notePageCount = Math.max(1, Math.ceil(sortedNotes.length / notePageSize));
+  const visibleNotes = sortedNotes.slice((notePage - 1) * notePageSize, notePage * notePageSize);
+
+  useEffect(() => {
+    setNotePage(1);
+  }, [selectedClient.id]);
+
+  useEffect(() => {
+    if (notePage > notePageCount) setNotePage(notePageCount);
+  }, [notePage, notePageCount]);
 
   return (
     <div className="space-y-3">
@@ -1858,10 +1933,21 @@ function ClientProfileUtip({
               </select>
               <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
             </div>
-            <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
-              {(selectedClient.clientNotes || []).map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} />)}
+            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+              {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} />)}
               {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
             </div>
+            {sortedNotes.length > notePageSize && (
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button type="button" disabled={notePage <= 1} onClick={() => setNotePage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+                  Назад
+                </button>
+                <span className="text-xs font-black text-slate-500">{notePage} / {notePageCount}</span>
+                <button type="button" disabled={notePage >= notePageCount} onClick={() => setNotePage((value) => Math.min(notePageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+                  Далее
+                </button>
+              </div>
+            )}
           </Panel>
         </div>}
 
@@ -2251,7 +2337,7 @@ function UtipActionsTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
-      <table className="min-w-[980px] w-full text-xs">
+      <table className="min-w-[1100px] w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
             <th className="px-3 py-2">Дата</th>
@@ -2266,18 +2352,18 @@ function UtipActionsTable({
         <tbody>
           {actions.map((action) => (
             <tr key={action.id} className="border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50">
-              <td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
-              <td className="px-2 py-1.5"><input className="h-8 w-40 rounded border border-slate-200 px-2 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
+              <td className="px-3 py-2"><input type="datetime-local" className="h-10 rounded border border-slate-200 px-3" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
+              <td className="px-3 py-2"><input className="h-10 w-44 rounded border border-slate-200 px-3 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
               <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
-              <td className="px-2 py-1.5"><input className="h-8 w-56 rounded border border-slate-200 px-2" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
+              <td className="px-3 py-2"><input className="h-10 w-64 rounded border border-slate-200 px-3" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
               <td className="px-3 py-2">
-                <select className="h-8 w-44 rounded border border-slate-200 px-2 text-xs" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}>
+                <select className="h-10 w-48 rounded border border-slate-200 px-3 text-sm" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}>
                   <option value="">Без менеджера</option>
                   {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
                 </select>
               </td>
               <td className="px-3 py-2">
-                <select className="h-8 rounded border border-slate-200 px-2 text-xs" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}>
+                <select className="h-10 rounded border border-slate-200 px-3 text-sm" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}>
                   <option value="OPEN">Открыто</option>
                   <option value="IN_PROGRESS">В работе</option>
                   <option value="POSTPONED">Перенесено</option>
@@ -2285,7 +2371,7 @@ function UtipActionsTable({
                 </select>
               </td>
               <td className="px-3 py-2 text-right">
-                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-3 py-1.5 font-black text-white">Закрыть</button>
+                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-4 py-2 font-black text-white">Закрыть</button>
               </td>
             </tr>
           ))}
@@ -2326,7 +2412,7 @@ function ClientsTable({
             <th className="px-3 py-2">Телефон</th>
             <th className="px-3 py-2">Страна</th>
             <th className="px-3 py-2">Баланс</th>
-            <th className="px-3 py-2">KYC</th>
+            <th className="px-3 py-2">Дата создания</th>
             <th className="px-3 py-2">Статус</th>
             <th className="px-3 py-2">Менеджер</th>
             <th className="px-3 py-2 text-right">Действия</th>
@@ -2345,8 +2431,8 @@ function ClientsTable({
               <td className="px-3 py-2">{client.email}</td>
               <td className="px-3 py-2">{client.phone || "-"}</td>
               <td className="px-3 py-2">{client.country || "-"}</td>
-              <td className="px-3 py-2 font-black text-emerald-700">${Number(client.balance || 0).toFixed(2)}</td>
-              <td className="px-3 py-2"><Badge value={client.kycStatus} /></td>
+              <td className="px-3 py-2 font-black text-emerald-700">€{Number(client.balance || 0).toFixed(2)}</td>
+              <td className="px-3 py-2">{new Date(client.createdAt).toLocaleDateString("ru-RU")}</td>
               <td className="px-3 py-2"><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></td>
               <td className="px-3 py-2">
                 <select
@@ -2394,7 +2480,8 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
 
 function NoteCard({ note, onUpdate }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void }) {
   const [text, setText] = useState(note.text);
-  return <div className="rounded-xl border border-emerald-100 p-3"><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className="min-h-16 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500" value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button></div><p className="mt-2 text-[11px] text-slate-400">Изменено: {new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  const isImportant = note.status === "IMPORTANT";
+  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
 function ActionList({ actions, onUpdate, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
@@ -2422,6 +2509,7 @@ function TradingOperationsDesk({
   const [side, setSide] = useState("all");
   const [selectedTradeId, setSelectedTradeId] = useState("");
   const [quotes, setQuotes] = useState<Record<string, { price: number; bid: number; ask: number; tickValue?: number | null }>>({});
+  const [page, setPage] = useState(1);
 
   const openQuoteSymbols = useMemo(
     () => Array.from(new Set(trades.filter((trade) => trade.closePrice === null).map((trade) => trade.symbol))),
@@ -2459,10 +2547,21 @@ function TradingOperationsDesk({
     });
   }, [account, clientMap, mode, side, symbol, trades]);
 
+  const pageSize = 20;
+  const pageCount = Math.max(1, Math.ceil(filteredTrades.length / pageSize));
+  const pagedTrades = filteredTrades.slice((page - 1) * pageSize, page * pageSize);
   const selectedTrade = filteredTrades.find((trade) => trade.id === selectedTradeId) || filteredTrades[0];
   const openCount = trades.filter((trade) => trade.closePrice === null).length;
   const closedCount = trades.length - openCount;
   const filteredProfit = filteredTrades.reduce((sum, trade) => sum + getTradeProfit(trade), 0);
+
+  useEffect(() => {
+    setPage(1);
+  }, [account, mode, side, symbol]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2550,7 +2649,7 @@ function TradingOperationsDesk({
         <Metric title="Открытые позиции" value={openCount} />
         <Metric title="Закрытые сделки" value={closedCount} />
         <Metric title="В выборке" value={filteredTrades.length} />
-        <Metric title="Итог по выборке" value={`$${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
+        <Metric title="Итог по выборке" value={`€${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
       </div>
 
       <section className="rounded-xl border border-emerald-100 bg-white text-slate-950 shadow-sm">
@@ -2604,6 +2703,7 @@ function TradingOperationsDesk({
                 <th className="px-3 py-2">Тип</th>
                 <th className="px-3 py-2">Объем</th>
                 <th className="px-3 py-2">Дата открытия</th>
+                <th className="px-3 py-2">Дата закрытия</th>
                 <th className="px-3 py-2">Цена открытия</th>
                 <th className="px-3 py-2">Текущая/закрытия</th>
                 <th className="px-3 py-2">Take Profit</th>
@@ -2615,7 +2715,7 @@ function TradingOperationsDesk({
               </tr>
             </thead>
             <tbody>
-              {filteredTrades.map((trade) => {
+              {pagedTrades.map((trade) => {
                 const client = clientMap.get(trade.user.id || "") || clientMap.get(trade.user.email);
                 const isOpen = trade.closePrice === null;
 
@@ -2636,6 +2736,7 @@ function TradingOperationsDesk({
                       {isOpen ? <TradeEditInput label="Объем" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} /> : trade.volume}
                     </td>
                     <td className="px-3 py-2">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
+                    <td className="px-3 py-2">{trade.closedAt ? new Date(trade.closedAt).toLocaleString("ru-RU") : "-"}</td>
                     <td className="px-3 py-2">
                       {isOpen ? <TradeEditInput label="Цена открытия" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} /> : formatPrice(trade.symbol, trade.openPrice)}
                     </td>
@@ -2650,7 +2751,17 @@ function TradingOperationsDesk({
                       {isOpen ? <TradeEditInput label="Swap" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} /> : Number(trade.swap || 0).toFixed(2)}
                     </td>
                     <td className={`px-3 py-2 font-black ${getTradeProfit(trade) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                      ${getTradeProfit(trade).toFixed(2)}
+                      {isOpen ? (
+                        `€${getTradeProfit(trade).toFixed(2)}`
+                      ) : (
+                        <TradeEditInput
+                          label="Profit"
+                          value={getTradeProfit(trade)}
+                          step="0.01"
+                          allowNegative
+                          onCommit={(value) => value !== null && onUpdate(trade.id, { profit: value })}
+                        />
+                      )}
                     </td>
                     <td className="px-3 py-2"><Badge value={isOpen ? "OPEN" : "CLOSED"} /></td>
                     <td className="px-3 py-2 text-right">
@@ -2665,14 +2776,14 @@ function TradingOperationsDesk({
               })}
               {filteredTrades.length === 0 && (
                 <tr>
-                  <td className="px-3 py-10 text-center text-slate-500" colSpan={14}>По выбранным фильтрам ничего не найдено</td>
+                  <td className="px-3 py-10 text-center text-slate-500" colSpan={15}>По выбранным фильтрам ничего не найдено</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 p-3 xl:flex-row xl:items-center xl:justify-between">
           {selectedTrade ? (
             <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-6">
               <MiniCell label="Символ" value={selectedTrade.symbol} />
@@ -2680,11 +2791,22 @@ function TradingOperationsDesk({
               <MiniCell label="Тип" value={selectedTrade.side} />
               <MiniCell label="Объем" value={String(selectedTrade.volume)} />
               <MiniCell label="Open price" value={formatPrice(selectedTrade.symbol, selectedTrade.openPrice)} />
-              <MiniCell label="Profit" value={`$${getTradeProfit(selectedTrade).toFixed(2)}`} />
+              <MiniCell label="Profit" value={`€${getTradeProfit(selectedTrade).toFixed(2)}`} />
             </div>
           ) : (
             <p className="text-sm text-slate-500">Выберите операцию в таблице</p>
           )}
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+              Назад
+            </button>
+            <span className="text-xs font-black text-slate-500">
+              {page} / {pageCount}
+            </span>
+            <button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+              Далее
+            </button>
+          </div>
         </div>
       </section>
     </div>
@@ -3314,7 +3436,7 @@ function TradeTable({
                       trade.swap ?? 0
                     )}
                   </td>
-                  <td className="p-3">{trade.profit === null ? "-" : `$${Number(trade.profit).toFixed(2)}`}</td>
+                  <td className="p-3">{trade.profit === null ? "-" : `€${Number(trade.profit).toFixed(2)}`}</td>
                   <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
                   <td className="p-3">
                     {isOpen ? (

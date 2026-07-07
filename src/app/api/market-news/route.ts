@@ -20,10 +20,10 @@ export async function GET() {
   }
 
   try {
-    const url = "https://news.google.com/rss/search?q=forex%20OR%20stocks%20OR%20crypto%20OR%20trading%20when:2d&hl=ru&gl=RU&ceid=RU:ru";
+    const url = "https://www.investing.com/rss/news_25.rss";
     const response = await fetch(url, { cache: "no-store" });
     const xml = await response.text();
-    const items = parseRss(xml).slice(0, 8);
+    const items = dedupeNews(parseRss(xml)).slice(0, 8);
 
     cache.items = items;
     cache.cachedAt = now;
@@ -42,7 +42,7 @@ function parseRss(xml: string): NewsItem[] {
     const title = decodeXml(readTag(block, "title")).replace(/\s+-\s+[^-]+$/, "");
     const link = decodeXml(readTag(block, "link"));
     const publishedAt = readTag(block, "pubDate");
-    const source = decodeXml(readTag(block, "source")) || "Market news";
+    const source = "Investing.com";
 
     return {
       title,
@@ -51,6 +51,16 @@ function parseRss(xml: string): NewsItem[] {
       publishedAt,
     };
   }).filter((item) => item.title && item.link);
+}
+
+function dedupeNews(items: NewsItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.title.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function readTag(block: string, tag: string) {

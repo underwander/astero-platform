@@ -56,6 +56,7 @@ model Trade {
   takeProfit Float?
   stopLoss   Float?
   createdAt  DateTime @default(now())
+  closedAt   DateTime?
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
