@@ -582,19 +582,30 @@ function LivePriceChart({
   const points = (series && series.length > 1 ? series : buildInitialSeries(symbol, currentPrice))
     .concat(currentPrice)
     .slice(-CHART_POINTS);
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+  const candles = points.map((close, index) => {
+    const open = index === 0 ? points[0] : points[index - 1];
+    const spread = Math.max(Math.abs(close - open), currentPrice * 0.0008, instrument.pointSize * 8);
+    const seed = Array.from(symbol).reduce((sum, char) => sum + char.charCodeAt(0), 0) + index;
+    const upperWick = spread * (0.28 + (seed % 7) * 0.035);
+    const lowerWick = spread * (0.24 + (seed % 5) * 0.04);
+    return {
+      open,
+      close,
+      high: Math.max(open, close) + upperWick,
+      low: Math.max(0, Math.min(open, close) - lowerWick),
+    };
+  });
+  const min = Math.min(...candles.map((candle) => candle.low));
+  const max = Math.max(...candles.map((candle) => candle.high));
   const range = max - min || currentPrice * 0.01 || 1;
   const width = 1000;
   const height = 320;
   const topPadding = 24;
   const bottomPadding = 28;
   const chartHeight = height - topPadding - bottomPadding;
-  const xStep = points.length > 1 ? width / (points.length - 1) : width;
+  const candleStep = candles.length > 0 ? width / candles.length : width;
+  const candleWidth = Math.max(5, candleStep * 0.54);
   const yFor = (price: number) => topPadding + (1 - (price - min) / range) * chartHeight;
-  const path = points
-    .map((price, index) => `${index === 0 ? "M" : "L"} ${(index * xStep).toFixed(2)} ${yFor(price).toFixed(2)}`)
-    .join(" ");
   const lastY = yFor(currentPrice);
   const change = points.length > 1 ? currentPrice - points[0] : 0;
   const changePercent = points[0] ? (change / points[0]) * 100 : 0;
@@ -616,12 +627,6 @@ function LivePriceChart({
         </p>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none" aria-label={`Live chart ${symbol}`}>
-        <defs>
-          <linearGradient id={`terminal-chart-fill-${symbol.replace(/[^a-zA-Z0-9]/g, "")}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.34" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-          </linearGradient>
-        </defs>
         {[0, 1, 2, 3].map((line) => {
           const y = topPadding + (chartHeight / 3) * line;
           return <line key={line} x1="0" x2={width} y1={y} y2={y} stroke="#17332b" strokeWidth="1" />;
@@ -630,8 +635,42 @@ function LivePriceChart({
           const x = (width / 4) * line;
           return <line key={line} x1={x} x2={x} y1="0" y2={height} stroke="#10231e" strokeWidth="1" />;
         })}
-        <path d={`${path} L ${width} ${height} L 0 ${height} Z`} fill={`url(#terminal-chart-fill-${symbol.replace(/[^a-zA-Z0-9]/g, "")})`} />
-        <path d={path} fill="none" stroke="#22c55e" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+        {candles.map((candle, index) => {
+          const isUp = candle.close >= candle.open;
+          const color = isUp ? "#22c55e" : "#ef4444";
+          const x = index * candleStep + candleStep / 2;
+          const openY = yFor(candle.open);
+          const closeY = yFor(candle.close);
+          const bodyTop = Math.min(openY, closeY);
+          const bodyHeight = Math.max(2.5, Math.abs(closeY - openY));
+
+          return (
+            <g key={`${index}-${candle.close}`}>
+              <line
+                x1={x}
+                x2={x}
+                y1={yFor(candle.high)}
+                y2={yFor(candle.low)}
+                stroke={color}
+                strokeOpacity="0.9"
+                strokeWidth="1.4"
+                vectorEffect="non-scaling-stroke"
+              />
+              <rect
+                x={x - candleWidth / 2}
+                y={bodyTop}
+                width={candleWidth}
+                height={bodyHeight}
+                rx="1.5"
+                fill={isUp ? "#22c55e" : "#ef4444"}
+                fillOpacity={isUp ? "0.88" : "0.82"}
+                stroke={color}
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            </g>
+          );
+        })}
         <line x1="0" x2={width} y1={lastY} y2={lastY} stroke="#8af5bd" strokeDasharray="6 8" strokeOpacity="0.6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         <circle cx={width - 2} cy={lastY} r="5" fill="#8af5bd" />
       </svg>
