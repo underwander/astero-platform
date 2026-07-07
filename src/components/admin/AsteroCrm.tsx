@@ -216,16 +216,16 @@ type Tab =
   | "quotes";
 
 const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
-  { id: "desktop", label: "РћР±Р·РѕСЂ", hint: "РЎРІРѕРґРєР°", icon: "в–Ў" },
-  { id: "clients", label: "РљР»РёРµРЅС‚С‹", hint: "Р‘Р°Р·Р°", icon: "в—Ћ" },
-  { id: "actions", label: "Р”РµР№СЃС‚РІРёСЏ", hint: "Р—Р°РґР°С‡Рё", icon: "в—‡" },
-  { id: "managers", label: "РњРµРЅРµРґР¶РµСЂС‹", hint: "РљРѕРјР°РЅРґР°", icon: "в™џ" },
-  { id: "tradeOperations", label: "РўРѕСЂРіРѕРІС‹Рµ РѕРїРµСЂР°С†РёРё", hint: "РћРїРµСЂР°С†РёРё", icon: "TO" },
-  { id: "withdrawals", label: "Р’С‹РІРѕРґС‹", hint: "Р—Р°СЏРІРєРё", icon: "в‡„" },
-  { id: "verification", label: "Р’РµСЂРёС„РёРєР°С†РёСЏ", hint: "Р”РѕРєСѓРјРµРЅС‚С‹", icon: "вњ“" },
-  { id: "support", label: "РџРѕРґРґРµСЂР¶РєР°", hint: "Р§Р°С‚С‹", icon: "вњ‰" },
-  { id: "announcements", label: "Р”РѕСЃРєР° РѕР±СЉСЏРІР»РµРЅРёР№", hint: "РќРѕРІРѕСЃС‚Рё", icon: "!" },
-  { id: "quotes", label: "РљРѕС‚РёСЂРѕРІРєРё", hint: "Р¦РµРЅС‹", icon: "вЊЃ" },
+  { id: "desktop", label: "Обзор", hint: "Сводка", icon: "□" },
+  { id: "clients", label: "Клиенты", hint: "База", icon: "◎" },
+  { id: "actions", label: "Действия", hint: "Задачи", icon: "◇" },
+  { id: "managers", label: "Менеджеры", hint: "Команда", icon: "♟" },
+  { id: "tradeOperations", label: "Торговые операции", hint: "Операции", icon: "TO" },
+  { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
+  { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
+  { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
+  { id: "announcements", label: "Доска объявлений", hint: "Новости", icon: "!" },
+  { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
 
 const inputClass =
@@ -340,7 +340,7 @@ export default function AsteroCrm() {
 
   function notifySupportMessage(supportMessage: SupportMessage, allClients: User[]) {
     const client = allClients.find((item) => item.id === supportMessage.userId);
-    const clientName = client ? displayName(client) : supportMessage.user?.email || "РљР»РёРµРЅС‚";
+    const clientName = client ? displayName(client) : supportMessage.user?.email || "Клиент";
 
     setSupportToast({
       userId: supportMessage.userId,
@@ -374,7 +374,7 @@ export default function AsteroCrm() {
       );
     }
     if (!res.ok) {
-      setMessage(data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ CRM");
+      setMessage(data.error || "Не удалось загрузить CRM");
       setLoading(false);
       return;
     }
@@ -585,7 +585,7 @@ export default function AsteroCrm() {
       playSupportSound();
       setActionReminder({
         title: action.title,
-        clientName: action.client ? displayName(action.client) : "РљР»РёРµРЅС‚",
+        clientName: action.client ? displayName(action.client) : "Клиент",
         minutes: matchedMinute,
       });
       break;
@@ -604,7 +604,7 @@ export default function AsteroCrm() {
   }
 
   async function createUser(role: "CLIENT" | "MANAGER") {
-    setMessage(role === "MANAGER" ? "РЎРѕР·РґР°СЋ РјРµРЅРµРґР¶РµСЂР°..." : "РЎРѕР·РґР°СЋ РєР»РёРµРЅС‚Р°...");
+    setMessage(role === "MANAGER" ? "Создаю менеджера..." : "Создаю клиента...");
     const currentRole = localStorage.getItem("role");
     const currentUserId = localStorage.getItem("userId");
     const payload = role === "MANAGER"
@@ -617,10 +617,10 @@ export default function AsteroCrm() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setMessage(data.error || "РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ");
+      setMessage(data.error || "Ошибка создания пользователя");
       return;
     }
-    setMessage(role === "MANAGER" ? `РњРµРЅРµРґР¶РµСЂ СЃРѕР·РґР°РЅ: ${data.email}` : `РљР»РёРµРЅС‚ СЃРѕР·РґР°РЅ: ${data.email}`);
+    setMessage(role === "MANAGER" ? `Менеджер создан: ${data.email}` : `Клиент создан: ${data.email}`);
     setNewClient({ email: "", password: "123456", firstName: "", lastName: "", phone: "", country: "", city: "", address: "", balance: "0", managerId: "" });
     setNewManager({ email: "", password: "123456", firstName: "", lastName: "", phone: "" });
     await loadAdminData();
@@ -633,30 +633,30 @@ export default function AsteroCrm() {
       body: JSON.stringify({ userId, managerId }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°Р·РЅР°С‡РёС‚СЊ РјРµРЅРµРґР¶РµСЂР°");
+    if (!res.ok) return alert(data.error || "Не удалось назначить менеджера");
     await loadAdminData();
   }
 
   async function depositToUser(userId: string) {
     const amount = Number(depositAmount);
-    if (!amount || Number.isNaN(amount)) return alert("Р’РІРµРґРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅСѓСЋ СЃСѓРјРјСѓ");
+    if (!amount || Number.isNaN(amount)) return alert("Введите корректную сумму");
     const client = clients.find((item) => item.id === userId);
-    const actionText = amount < 0 ? "РЎРїРёСЃР°С‚СЊ" : "РќР°С‡РёСЃР»РёС‚СЊ";
-    if (!confirm(`${actionText} ${displayName(client || { email: userId })} в‚¬${Math.abs(amount).toFixed(2)}?`)) return;
+    const actionText = amount < 0 ? "Списать" : "Начислить";
+    if (!confirm(`${actionText} ${displayName(client || { email: userId })} €${Math.abs(amount).toFixed(2)}?`)) return;
     const res = await fetch("/api/admin/users/deposit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, amount }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РґРµРїРѕР·РёС‚Р°");
+    if (!res.ok) return alert(data.error || "Ошибка депозита");
     await loadAdminData();
   }
 
   async function toggleClientTrading(userId: string, tradingEnabled: boolean) {
     const client = clients.find((item) => item.id === userId);
-    const action = tradingEnabled ? "Р·Р°РїСЂРµС‚РёС‚СЊ" : "СЂР°Р·СЂРµС€РёС‚СЊ";
-    if (!confirm(`${action[0].toUpperCase()}${action.slice(1)} С‚РѕСЂРіРѕРІР»СЋ РґР»СЏ ${displayName(client || { email: userId })}?`)) return;
+    const action = tradingEnabled ? "запретить" : "разрешить";
+    if (!confirm(`${action[0].toUpperCase()}${action.slice(1)} торговлю для ${displayName(client || { email: userId })}?`)) return;
 
     const res = await fetch("/api/admin/users/trading", {
       method: "PATCH",
@@ -664,35 +664,35 @@ export default function AsteroCrm() {
       body: JSON.stringify({ userId, tradingEnabled: !tradingEnabled }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ РёР·РјРµРЅРёС‚СЊ СЂР°Р·СЂРµС€РµРЅРёРµ С‚РѕСЂРіРѕРІР»Рё");
+    if (!res.ok) return alert(data.error || "Не удалось изменить разрешение торговли");
     await loadAdminData();
   }
 
   async function setUserBalance(userId: string) {
     const balance = Number(balanceAmount);
-    if (Number.isNaN(balance) || balance < 0) return alert("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ Р±Р°Р»Р°РЅСЃ");
+    if (Number.isNaN(balance) || balance < 0) return alert("Некорректный баланс");
     const res = await fetch("/api/admin/users/set-balance", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, balance }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° Р±Р°Р»Р°РЅСЃР°");
+    if (!res.ok) return alert(data.error || "Ошибка баланса");
     await loadAdminData();
   }
 
   async function changeClientPassword(userId: string) {
     const password = passwords[userId];
-    if (!password || password.length < 6) return alert("РџР°СЂРѕР»СЊ РјРёРЅРёРјСѓРј 6 СЃРёРјРІРѕР»РѕРІ");
+    if (!password || password.length < 6) return alert("Пароль минимум 6 символов");
     const res = await fetch("/api/admin/users/change-password", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, password }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ");
+    if (!res.ok) return alert(data.error || "Ошибка смены пароля");
     setPasswords((prev) => ({ ...prev, [userId]: "" }));
-    alert("РџР°СЂРѕР»СЊ РёР·РјРµРЅС‘РЅ");
+    alert("Пароль изменён");
   }
 
   async function updateUser(userId: string, payload: Partial<User> & { password?: string }) {
@@ -702,7 +702,7 @@ export default function AsteroCrm() {
       body: JSON.stringify({ userId, ...payload }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ");
+    if (!res.ok) return alert(data.error || "Ошибка обновления пользователя");
     await loadAdminData();
   }
 
@@ -713,7 +713,7 @@ export default function AsteroCrm() {
       body: JSON.stringify({ userId, isBlocked: !isBlocked }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° Р±Р»РѕРєРёСЂРѕРІРєРё");
+    if (!res.ok) return alert(data.error || "Ошибка блокировки");
     await loadAdminData();
   }
 
@@ -730,38 +730,38 @@ export default function AsteroCrm() {
   }
 
   async function deleteUser(userId: string, email: string) {
-    if (!confirm(`РЈРґР°Р»РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ${email}?`)) return;
+    if (!confirm(`Удалить пользователя ${email}?`)) return;
     const res = await fetch("/api/admin/users/delete", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка удаления");
     await loadAdminData();
   }
 
   async function approveWithdrawal(withdrawalId: string) {
-    const comment = prompt("РљРѕРјРјРµРЅС‚Р°СЂРёР№ РґР»СЏ РєР»РёРµРЅС‚Р° РїСЂРё РѕРґРѕР±СЂРµРЅРёРё РІС‹РІРѕРґР°:", "");
+    const comment = prompt("Комментарий для клиента при одобрении вывода:", "");
     const res = await fetch("/api/admin/withdrawals/approve", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ withdrawalId, comment }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка подтверждения");
     await loadAdminData();
   }
 
   async function rejectWithdrawal(withdrawalId: string) {
-    const comment = prompt("РљРѕРјРјРµРЅС‚Р°СЂРёР№ РґР»СЏ РєР»РёРµРЅС‚Р° РїСЂРё РѕС‚РєР»РѕРЅРµРЅРёРё РІС‹РІРѕРґР°:", "");
+    const comment = prompt("Комментарий для клиента при отклонении вывода:", "");
     const res = await fetch("/api/admin/withdrawals/reject", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ withdrawalId, comment }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РѕС‚РєР»РѕРЅРµРЅРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка отклонения");
     await loadAdminData();
   }
 
@@ -772,7 +772,7 @@ export default function AsteroCrm() {
       body: JSON.stringify({ depositId }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕРїРѕР»РЅРµРЅРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка подтверждения пополнения");
     await loadAdminData();
   }
 
@@ -783,7 +783,7 @@ export default function AsteroCrm() {
       body: JSON.stringify({ depositId }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РѕС‚РєР»РѕРЅРµРЅРёСЏ РїРѕРїРѕР»РЅРµРЅРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка отклонения пополнения");
     await loadAdminData();
   }
 
@@ -830,7 +830,7 @@ export default function AsteroCrm() {
       body: JSON.stringify({ documentId, status }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РІРµСЂРёС„РёРєР°С†РёРё");
+    if (!res.ok) return alert(data.error || "Ошибка верификации");
     await loadAdminData();
   }
 
@@ -847,7 +847,7 @@ export default function AsteroCrm() {
       }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° Р·Р°РјРµС‚РєРё");
+    if (!res.ok) return alert(data.error || "Ошибка заметки");
     setNoteText("");
     await loadAdminData();
   }
@@ -859,13 +859,13 @@ export default function AsteroCrm() {
       body: JSON.stringify({ noteId, ...payload }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° СЃС‚Р°С‚СѓСЃР° Р·Р°РјРµС‚РєРё");
+    if (!res.ok) return alert(data.error || "Ошибка статуса заметки");
     await loadAdminData();
   }
 
   async function addAction() {
     if (!selectedClient || !actionForm.title.trim() || !actionForm.dueAt) {
-      return alert("Р—Р°РїРѕР»РЅРёС‚Рµ РґРµР№СЃС‚РІРёРµ Рё РґР°С‚Сѓ");
+      return alert("Заполните действие и дату");
     }
     const res = await fetch("/api/admin/client-actions", {
       method: "POST",
@@ -881,7 +881,7 @@ export default function AsteroCrm() {
       }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РґРµР№СЃС‚РІРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка действия");
     setActionForm({ title: "", description: "", dueAt: "", reminderMinutes: "", status: "OPEN", managerId: "" });
     await loadAdminData();
   }
@@ -899,25 +899,25 @@ export default function AsteroCrm() {
       body: JSON.stringify({ actionId, ...nextPayload }),
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "РћС€РёР±РєР° РґРµР№СЃС‚РІРёСЏ");
+    if (!res.ok) return alert(data.error || "Ошибка действия");
     await loadAdminData();
   }
 
   async function sendSupportMessage() {
     if (!supportClientId || (!supportText.trim() && !supportAttachment)) {
-      return alert("Р’С‹Р±РµСЂРёС‚Рµ РєР»РёРµРЅС‚Р° Рё РІРІРµРґРёС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ");
+      return alert("Выберите клиента и введите сообщение");
     }
 
     const res = await fetch("/api/admin/support", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: supportClientId, message: supportText || (supportAttachment ? "Р¤Р°Р№Р»" : ""), attachment: supportAttachment, authorId: localStorage.getItem("userId") }),
+      body: JSON.stringify({ userId: supportClientId, message: supportText || (supportAttachment ? "Файл" : ""), attachment: supportAttachment, authorId: localStorage.getItem("userId") }),
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      return alert(data.error || "РћС€РёР±РєР° РѕС‚РїСЂР°РІРєРё СЃРѕРѕР±С‰РµРЅРёСЏ");
+      return alert(data.error || "Ошибка отправки сообщения");
     }
 
     setSupportText("");
@@ -927,7 +927,7 @@ export default function AsteroCrm() {
 
   async function attachSupportFile(file: File | null) {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return alert("Р¤Р°Р№Р» РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РґРѕ 5MB");
+    if (file.size > 5 * 1024 * 1024) return alert("Файл должен быть до 5MB");
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
@@ -948,7 +948,7 @@ export default function AsteroCrm() {
     const data = await res.json();
 
     if (!res.ok) {
-      return alert(data.error || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РєСЂС‹С‚СЊ РѕР±СЂР°С‰РµРЅРёРµ");
+      return alert(data.error || "Не удалось закрыть обращение");
     }
 
     await loadAdminData();
@@ -962,7 +962,7 @@ export default function AsteroCrm() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      alert(data?.error || "РќРµ СѓРґР°Р»РѕСЃСЊ РёР·РјРµРЅРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ");
+      alert(data?.error || "Не удалось изменить сообщение");
       return;
     }
     await loadAdminData();
@@ -971,7 +971,7 @@ export default function AsteroCrm() {
   if (!allowed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#06130d] text-white">
-        РџСЂРѕРІРµСЂРєР° РґРѕСЃС‚СѓРїР°...
+        Проверка доступа...
       </div>
     );
   }
@@ -981,8 +981,8 @@ export default function AsteroCrm() {
       <aside className="hidden w-80 shrink-0 border-r border-emerald-400/10 bg-[#07170f] p-4 lg:block">
         <div className="mb-4 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.04] p-5">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Astero CRM</p>
-          <h2 className="mt-2 text-2xl font-black">РџР°РЅРµР»СЊ РјРµРЅРµРґР¶РµСЂР°</h2>
-          <p className="mt-1 text-sm text-emerald-50/60">РљР»РёРµРЅС‚С‹, РґРµР№СЃС‚РІРёСЏ, СЃРґРµР»РєРё, С„РёРЅР°РЅСЃС‹ Рё РІРµСЂРёС„РёРєР°С†РёСЏ.</p>
+          <h2 className="mt-2 text-2xl font-black">Панель менеджера</h2>
+          <p className="mt-1 text-sm text-emerald-50/60">Клиенты, действия, сделки, финансы и верификация.</p>
         </div>
         <nav className="space-y-2">
           {tabs.map((tab) => (
@@ -1016,8 +1016,8 @@ export default function AsteroCrm() {
             onClick={() => setMobileMenuOpen((prev) => !prev)}
             className="flex h-12 w-full items-center justify-between rounded-2xl border border-emerald-400/10 bg-[#07170f] px-4 text-sm font-black text-white"
           >
-            <span>в° {activeTab === "clientCard" ? "РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р°" : tabs.find((tab) => tab.id === activeTab)?.label}</span>
-            <span className="text-emerald-300">{mobileMenuOpen ? "Р—Р°РєСЂС‹С‚СЊ" : "РњРµРЅСЋ"}</span>
+            <span>☰ {activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</span>
+            <span className="text-emerald-300">{mobileMenuOpen ? "Закрыть" : "Меню"}</span>
           </button>
 
           {mobileMenuOpen && (
@@ -1045,7 +1045,7 @@ export default function AsteroCrm() {
         <div className="rounded-xl border border-emerald-400/10 bg-white/[0.04] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р°" : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
             <input
               name="crm-client-search"
@@ -1055,7 +1055,7 @@ export default function AsteroCrm() {
               className="h-11 w-full rounded-xl border border-emerald-300/20 bg-slate-950/40 px-4 text-sm text-white outline-none placeholder:text-emerald-50/45 focus:border-emerald-400 lg:max-w-lg"
               value={clientSearch}
               onChange={(event) => setClientSearch(event.target.value)}
-              placeholder="РџРѕРёСЃРє РєР»РёРµРЅС‚Р°: ID, С‚РµР»РµС„РѕРЅ, email, РёРјСЏ, С„Р°РјРёР»РёСЏ..."
+              placeholder="Поиск клиента: ID, телефон, email, имя, фамилия..."
             />
           </div>
         </div>
@@ -1066,7 +1066,7 @@ export default function AsteroCrm() {
           <div className="fixed right-4 top-24 z-[80] w-[min(420px,calc(100vw-2rem))] rounded-3xl border border-sky-300/40 bg-slate-950 p-4 text-white shadow-2xl shadow-sky-950/30">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">РќРѕРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
                 <p className="mt-1 font-black">{supportToast.clientName}</p>
                 <p className="mt-2 line-clamp-3 text-sm text-slate-200">{supportToast.message}</p>
               </div>
@@ -1087,7 +1087,7 @@ export default function AsteroCrm() {
               }}
               className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white hover:bg-sky-400"
             >
-              РћС‚РєСЂС‹С‚СЊ С‡Р°С‚
+              Открыть чат
             </button>
           </div>
         )}
@@ -1096,10 +1096,10 @@ export default function AsteroCrm() {
           <div className="fixed right-4 top-24 z-[85] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-amber-300/50 bg-amber-50 p-4 text-amber-950 shadow-2xl shadow-amber-950/20">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">РќР°РїРѕРјРёРЅР°РЅРёРµ</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Напоминание</p>
                 <p className="mt-1 text-sm font-black">{actionReminder.clientName}</p>
                 <p className="mt-1 text-sm">{actionReminder.title}</p>
-                <p className="mt-2 text-xs font-bold text-amber-700">Р§РµСЂРµР· {actionReminder.minutes} РјРёРЅСѓС‚</p>
+                <p className="mt-2 text-xs font-bold text-amber-700">Через {actionReminder.minutes} минут</p>
               </div>
               <button
                 type="button"
@@ -1115,29 +1115,29 @@ export default function AsteroCrm() {
         {activeTab === "desktop" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-              <Metric title="РљР»РёРµРЅС‚С‹" value={loading ? "..." : clients.length} />
-              <Metric title="РњРµРЅРµРґР¶РµСЂС‹" value={managers.length} />
-              <Metric title="Р‘Р°Р»Р°РЅСЃ РєР»РёРµРЅС‚РѕРІ" value={`в‚¬${totalBalance.toFixed(2)}`} />
-              <Metric title="РћС‚РєСЂС‹С‚С‹Рµ РґРµР№СЃС‚РІРёСЏ" value={openActions.length} />
-              <Metric title="РџСЂРѕСЃСЂРѕС‡РµРЅРѕ" value={overdueActions.length} danger={overdueActions.length > 0} />
+              <Metric title="Клиенты" value={loading ? "..." : clients.length} />
+              <Metric title="Менеджеры" value={managers.length} />
+              <Metric title="Баланс клиентов" value={`€${totalBalance.toFixed(2)}`} />
+              <Metric title="Открытые действия" value={openActions.length} />
+              <Metric title="Просрочено" value={overdueActions.length} danger={overdueActions.length > 0} />
               <Metric title="KYC pending" value={pendingKyc.length} />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Panel title="Р‘Р»РёР¶Р°Р№С€РёРµ РґРµР№СЃС‚РІРёСЏ">
+              <Panel title="Ближайшие действия">
                 <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onOpenClient={openClientCard} showClient />
               </Panel>
-              <Panel title="Р¤РёРЅР°РЅСЃС‹ Рё РІРµСЂРёС„РёРєР°С†РёСЏ">
+              <Panel title="Финансы и верификация">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <MiniStat title="Р—Р°СЏРІРєРё РЅР° РІС‹РІРѕРґ" value={pendingWithdrawals.length} />
-                  <MiniStat title="Р”РѕРєСѓРјРµРЅС‚С‹ KYC" value={pendingKyc.length} />
+                  <MiniStat title="Заявки на вывод" value={pendingWithdrawals.length} />
+                  <MiniStat title="Документы KYC" value={pendingKyc.length} />
                 </div>
                 <div className="mt-4 space-y-2">
                   {pendingWithdrawals.slice(0, 4).map((item) => (
                     <div key={item.id} className="rounded-2xl border border-emerald-100 p-3 text-sm">
-                      <b>{item.user.email}</b> вЂ” в‚¬{Number(item.amount).toFixed(2)} В· {item.method}
+                      <b>{item.user.email}</b> — €{Number(item.amount).toFixed(2)} · {item.method}
                     </div>
                   ))}
-                  {pendingWithdrawals.length === 0 && <Empty text="РќРµС‚ СЃСЂРѕС‡РЅС‹С… С„РёРЅР°РЅСЃРѕРІС‹С… Р·Р°СЏРІРѕРє" />}
+                  {pendingWithdrawals.length === 0 && <Empty text="Нет срочных финансовых заявок" />}
                 </div>
               </Panel>
             </div>
@@ -1146,19 +1146,19 @@ export default function AsteroCrm() {
 
         {activeTab === "clients" && (
           <div className="space-y-4">
-            <Panel title="РЎРѕР·РґР°С‚СЊ РєР»РёРµРЅС‚Р°">
+            <Panel title="Создать клиента">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <input className={inputClass} placeholder="Email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
-                <input className={inputClass} placeholder="РџР°СЂРѕР»СЊ" type={showPasswords ? "text" : "password"} value={newClient.password} onChange={(e) => setNewClient({ ...newClient, password: e.target.value })} />
-                <input className={inputClass} placeholder="РРјСЏ" value={newClient.firstName} onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })} />
-                <input className={inputClass} placeholder="Р¤Р°РјРёР»РёСЏ" value={newClient.lastName} onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })} />
-                <input className={inputClass} placeholder="РўРµР»РµС„РѕРЅ" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
-                <input className={inputClass} placeholder="РЎС‚СЂР°РЅР°" value={newClient.country} onChange={(e) => setNewClient({ ...newClient, country: e.target.value })} />
-                <input className={inputClass} placeholder="Р“РѕСЂРѕРґ" value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} />
-                <input className={inputClass} placeholder="РђРґСЂРµСЃ" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} />
-                <input className={inputClass} type="number" placeholder="Р‘Р°Р»Р°РЅСЃ" value={newClient.balance} onChange={(e) => setNewClient({ ...newClient, balance: e.target.value })} />
+                <input className={inputClass} placeholder="Пароль" type={showPasswords ? "text" : "password"} value={newClient.password} onChange={(e) => setNewClient({ ...newClient, password: e.target.value })} />
+                <input className={inputClass} placeholder="Имя" value={newClient.firstName} onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })} />
+                <input className={inputClass} placeholder="Фамилия" value={newClient.lastName} onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })} />
+                <input className={inputClass} placeholder="Телефон" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
+                <input className={inputClass} placeholder="Страна" value={newClient.country} onChange={(e) => setNewClient({ ...newClient, country: e.target.value })} />
+                <input className={inputClass} placeholder="Город" value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} />
+                <input className={inputClass} placeholder="Адрес" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} />
+                <input className={inputClass} type="number" placeholder="Баланс" value={newClient.balance} onChange={(e) => setNewClient({ ...newClient, balance: e.target.value })} />
                 <select className={inputClass} value={newClient.managerId} onChange={(e) => setNewClient({ ...newClient, managerId: e.target.value })}>
-                  <option value="">Р‘РµР· РјРµРЅРµРґР¶РµСЂР°</option>
+                  <option value="">Без менеджера</option>
                   {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
                 </select>
               </div>
@@ -1167,21 +1167,21 @@ export default function AsteroCrm() {
                 onClick={() => setShowPasswords((prev) => !prev)}
                 className="mt-3 rounded-xl border border-emerald-100 px-4 py-2 text-xs font-black text-emerald-700"
               >
-                {showPasswords ? "РЎРєСЂС‹С‚СЊ РїР°СЂРѕР»Рё" : "РџРѕРєР°Р·Р°С‚СЊ РїР°СЂРѕР»Рё"}
+                {showPasswords ? "Скрыть пароли" : "Показать пароли"}
               </button>
-              <button onClick={() => createUser("CLIENT")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">РЎРѕР·РґР°С‚СЊ РєР»РёРµРЅС‚Р°</button>
+              <button onClick={() => createUser("CLIENT")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать клиента</button>
             </Panel>
-            <Panel title={`РљР»РёРµРЅС‚СЃРєР°СЏ Р±Р°Р·Р°: ${filteredClients.length} / ${clients.length}`}>
+            <Panel title={`Клиентская база: ${filteredClients.length} / ${clients.length}`}>
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap gap-2">
                   {[
-                    ["all", "Р’СЃРµ"],
-                    ["active", "РђРєС‚РёРІРЅС‹Рµ"],
-                    ["online", "Р’ СЃРµС‚Рё"],
-                    ["blocked", "Р‘Р»РѕРєРёСЂРѕРІР°РЅРЅС‹Рµ"],
+                    ["all", "Все"],
+                    ["active", "Активные"],
+                    ["online", "В сети"],
+                    ["blocked", "Блокированные"],
                     ["buffer", "Бафер"],
                     ["kyc", "KYC"],
-                    ["unverified", "Р‘РµР· KYC"],
+                    ["unverified", "Без KYC"],
                   ].map(([key, label]) => (
                     <button
                       key={key}
@@ -1197,7 +1197,7 @@ export default function AsteroCrm() {
                     </button>
                   ))}
                 </div>
-                <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="РџРѕРёСЃРє: email, РёРјСЏ, С‚РµР»РµС„РѕРЅ, СЃС‚СЂР°РЅР°" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
               </div>
               <ClientsTable
                 clients={filteredClients}
@@ -1250,9 +1250,9 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "actions" && (
-          <Panel title="Р”РµР№СЃС‚РІРёСЏ">
+          <Panel title="Действия">
             <div className="mb-3 flex flex-wrap gap-2">
-              {([['overdue', 'РџСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Рµ'], ['today', 'РЎРµРіРѕРґРЅСЏ'], ['future', 'Р‘СѓРґСѓС‰РёРµ']] as const).map(([key, label]) => (
+              {([['overdue', 'Просроченные'], ['today', 'Сегодня'], ['future', 'Будущие']] as const).map(([key, label]) => (
                 <button key={key} onClick={() => setActionPeriod(key)} className={`rounded-lg px-3 py-2 text-xs font-black ${actionPeriod === key ? 'bg-emerald-500 text-slate-950' : 'border border-slate-200 bg-white text-slate-600'}`}>
                   {label}
                 </button>
@@ -1264,17 +1264,17 @@ export default function AsteroCrm() {
 
         {activeTab === "managers" && (
           <div className="space-y-4">
-            <Panel title="РЎРѕР·РґР°С‚СЊ РјРµРЅРµРґР¶РµСЂР°">
+            <Panel title="Создать менеджера">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 <input className={inputClass} placeholder="Email" value={newManager.email} onChange={(e) => setNewManager({ ...newManager, email: e.target.value })} />
-                <input className={inputClass} placeholder="РџР°СЂРѕР»СЊ" type={showPasswords ? "text" : "password"} value={newManager.password} onChange={(e) => setNewManager({ ...newManager, password: e.target.value })} />
-                <input className={inputClass} placeholder="РРјСЏ" value={newManager.firstName} onChange={(e) => setNewManager({ ...newManager, firstName: e.target.value })} />
-                <input className={inputClass} placeholder="Р¤Р°РјРёР»РёСЏ" value={newManager.lastName} onChange={(e) => setNewManager({ ...newManager, lastName: e.target.value })} />
-                <input className={inputClass} placeholder="РўРµР»РµС„РѕРЅ" value={newManager.phone} onChange={(e) => setNewManager({ ...newManager, phone: e.target.value })} />
+                <input className={inputClass} placeholder="Пароль" type={showPasswords ? "text" : "password"} value={newManager.password} onChange={(e) => setNewManager({ ...newManager, password: e.target.value })} />
+                <input className={inputClass} placeholder="Имя" value={newManager.firstName} onChange={(e) => setNewManager({ ...newManager, firstName: e.target.value })} />
+                <input className={inputClass} placeholder="Фамилия" value={newManager.lastName} onChange={(e) => setNewManager({ ...newManager, lastName: e.target.value })} />
+                <input className={inputClass} placeholder="Телефон" value={newManager.phone} onChange={(e) => setNewManager({ ...newManager, phone: e.target.value })} />
               </div>
-              <button onClick={() => createUser("MANAGER")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">РЎРѕР·РґР°С‚СЊ РјРµРЅРµРґР¶РµСЂР°</button>
+              <button onClick={() => createUser("MANAGER")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать менеджера</button>
             </Panel>
-            <Panel title="РљРѕРјР°РЅРґР° CRM">
+            <Panel title="Команда CRM">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {managers.map((manager) => (
                   <ManagerEditCard
@@ -1289,7 +1289,7 @@ export default function AsteroCrm() {
                     <p className="text-lg font-black">{displayName(manager)}</p>
                     <p className="text-sm text-slate-500">{manager.email}</p>
                     <p className="mt-3 text-2xl font-black text-emerald-600">{clients.filter((client) => client.managerId === manager.id).length}</p>
-                    <p className="text-xs text-slate-500">Р·Р°РєСЂРµРїР»С‘РЅРЅС‹С… РєР»РёРµРЅС‚РѕРІ</p>
+                    <p className="text-xs text-slate-500">закреплённых клиентов</p>
                   </div>
                 ))}
               </div>
@@ -1371,25 +1371,25 @@ function ManagerEditCard({
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <p className="text-lg font-black text-slate-950">{displayName(manager)}</p>
-          <p className="text-xs text-slate-500">{clientsCount} РєР»РёРµРЅС‚РѕРІ</p>
+          <p className="text-xs text-slate-500">{clientsCount} клиентов</p>
         </div>
         <button
           type="button"
           onClick={() => onSave(form.password.trim() ? form : { ...form, password: undefined })}
           className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700"
         >
-          РЎРѕС…СЂР°РЅРёС‚СЊ
+          Сохранить
         </button>
       </div>
       <div className="grid grid-cols-1 gap-2">
-        <input className={`${inputClass} h-9 rounded-lg`} placeholder="РРјСЏ" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
-        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Р¤Р°РјРёР»РёСЏ" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
-        <input className={`${inputClass} h-9 rounded-lg`} placeholder="РџРѕС‡С‚Р°" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
-        <input className={`${inputClass} h-9 rounded-lg`} placeholder="РўРµР»РµС„РѕРЅ" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Имя" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Фамилия" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Почта" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        <input className={`${inputClass} h-9 rounded-lg`} placeholder="Телефон" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
         <div className="relative">
           <input
             className={`${inputClass} h-9 rounded-lg pr-11`}
-            placeholder="РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ"
+            placeholder="Новый пароль"
             type={showPassword ? "text" : "password"}
             value={form.password}
             onChange={(event) => setForm({ ...form, password: event.target.value })}
@@ -1399,8 +1399,8 @@ function ManagerEditCard({
             type="button"
             onClick={() => setShowPassword((value) => !value)}
             className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-            aria-label={showPassword ? "РЎРєСЂС‹С‚СЊ РїР°СЂРѕР»СЊ" : "РџРѕРєР°Р·Р°С‚СЊ РїР°СЂРѕР»СЊ"}
-            title={showPassword ? "РЎРєСЂС‹С‚СЊ РїР°СЂРѕР»СЊ" : "РџРѕРєР°Р·Р°С‚СЊ РїР°СЂРѕР»СЊ"}
+            aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+            title={showPassword ? "Скрыть пароль" : "Показать пароль"}
           >
             <EyeIcon closed={showPassword} />
           </button>
@@ -1453,7 +1453,7 @@ function AnnouncementsAdminPanel() {
   async function attachImage(file: File | null) {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      setMessage("Р¤Р°Р№Р» РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РґРѕ 5MB");
+      setMessage("Файл должен быть до 5MB");
       return;
     }
     const base64 = await new Promise<string>((resolve, reject) => {
@@ -1473,10 +1473,10 @@ function AnnouncementsAdminPanel() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      setMessage(data?.error || "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РѕР±СЉСЏРІР»РµРЅРёРµ");
+      setMessage(data?.error || "Не удалось сохранить объявление");
       return;
     }
-    setMessage("РћР±СЉСЏРІР»РµРЅРёРµ СЃРѕС…СЂР°РЅРµРЅРѕ");
+    setMessage("Объявление сохранено");
     setDraft({
       id: "",
       title: "",
@@ -1498,7 +1498,7 @@ function AnnouncementsAdminPanel() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setMessage(data?.error || "РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ РѕР±СЉСЏРІР»РµРЅРёРµ");
+      setMessage(data?.error || "Не удалось удалить объявление");
       return;
     }
     if (draft.id === id) {
@@ -1513,7 +1513,7 @@ function AnnouncementsAdminPanel() {
         image: null,
       });
     }
-    setMessage("РћР±СЉСЏРІР»РµРЅРёРµ СѓРґР°Р»РµРЅРѕ");
+    setMessage("Объявление удалено");
     await loadAnnouncements();
   }
 
@@ -1536,17 +1536,17 @@ function AnnouncementsAdminPanel() {
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[420px_1fr]">
-      <Panel title="Р РµРґР°РєС‚РѕСЂ РѕР±СЉСЏРІР»РµРЅРёСЏ">
+      <Panel title="Редактор объявления">
         <div className="space-y-3">
-          <input className={inputClass} placeholder="Р—Р°РіРѕР»РѕРІРѕРє" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-          <textarea className={areaClass} placeholder="РўРµРєСЃС‚ РѕР±СЉСЏРІР»РµРЅРёСЏ" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
+          <input className={inputClass} placeholder="Заголовок" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <textarea className={areaClass} placeholder="Текст объявления" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-black text-slate-500">
-              Р Р°Р·РјРµСЂ
+              Размер
               <input className={`${inputClass} mt-1`} type="number" min={12} max={42} value={draft.fontSize} onChange={(event) => setDraft({ ...draft, fontSize: Number(event.target.value) })} />
             </label>
             <label className="text-xs font-black text-slate-500">
-              Р¦РІРµС‚
+              Цвет
               <input className={`${inputClass} mt-1 h-10 p-1`} type="color" value={draft.textColor} onChange={(event) => setDraft({ ...draft, textColor: event.target.value })} />
             </label>
           </div>
@@ -1558,22 +1558,22 @@ function AnnouncementsAdminPanel() {
             <option value="Courier New">Courier New</option>
           </select>
           <label className="flex cursor-pointer items-center justify-between rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-black text-emerald-700">
-            Р”РѕР±Р°РІРёС‚СЊ РєР°СЂС‚РёРЅРєСѓ
+            Добавить картинку
             <input type="file" accept="image/*" className="hidden" onChange={(event) => attachImage(event.target.files?.[0] || null)} />
           </label>
           {draft.image && <p className="truncate rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">{draft.image.name}</p>}
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
             <input type="checkbox" checked={draft.isPublished} onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })} />
-            РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ
+            Опубликовать
           </label>
           <button type="button" onClick={saveAnnouncement} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
-            РЎРѕС…СЂР°РЅРёС‚СЊ
+            Сохранить
           </button>
           {message && <p className="text-sm font-bold text-emerald-700">{message}</p>}
         </div>
       </Panel>
 
-      <Panel title="РћРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹Рµ РѕР±СЉСЏРІР»РµРЅРёСЏ">
+      <Panel title="Опубликованные объявления">
         <div className="grid grid-cols-1 gap-3">
           {items.map((item) => {
             const imageUrl = item.imageBase64 && item.imageMimeType ? `data:${item.imageMimeType};base64,${item.imageBase64}` : "";
@@ -1582,7 +1582,7 @@ function AnnouncementsAdminPanel() {
                 {imageUrl && <img src={imageUrl} alt={item.title || "announcement"} className="h-36 w-full object-cover" />}
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-black text-slate-950">{item.title || "Р‘РµР· Р·Р°РіРѕР»РѕРІРєР°"}</p>
+                    <p className="font-black text-slate-950">{item.title || "Без заголовка"}</p>
                     <Badge value={item.isPublished ? "PUBLISHED" : "HIDDEN"} />
                   </div>
                   <p className="mt-2 line-clamp-3 whitespace-pre-line" style={{ color: item.textColor, fontSize: item.fontSize, fontFamily: item.fontFamily }}>
@@ -1590,17 +1590,17 @@ function AnnouncementsAdminPanel() {
                   </p>
                   <div className="mt-4 flex gap-2">
                     <button type="button" onClick={() => editAnnouncement(item)} className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700">
-                      Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ
+                      Редактировать
                     </button>
                     <button type="button" onClick={() => deleteAnnouncement(item.id)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100">
-                      РЈРґР°Р»РёС‚СЊ
+                      Удалить
                     </button>
                   </div>
                 </div>
               </div>
             );
           })}
-          {items.length === 0 && <Empty text="РћР±СЉСЏРІР»РµРЅРёР№ РїРѕРєР° РЅРµС‚" />}
+          {items.length === 0 && <Empty text="Объявлений пока нет" />}
         </div>
       </Panel>
     </div>
@@ -1768,24 +1768,24 @@ function ClientProfileUtip({
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex flex-col gap-2 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase text-slate-400">РљР»РёРµРЅС‚</p>
+              <p className="text-xs font-bold uppercase text-slate-400">Клиент</p>
               <h2 className="text-xl font-black text-slate-950">{displayName(selectedClient)}</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge value={selectedClient.kycStatus} />
               <Badge value={selectedClient.isBlocked ? "BLOCKED" : "ACTIVE"} />
               <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedClient.tradingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                {selectedClient.tradingEnabled ? "РўРѕСЂРіРѕРІР»СЏ СЂР°Р·СЂРµС€РµРЅР°" : "РўРѕСЂРіРѕРІР»СЏ Р·Р°РїСЂРµС‰РµРЅР°"}
+                {selectedClient.tradingEnabled ? "Торговля разрешена" : "Торговля запрещена"}
               </span>
               <span className={`rounded-full px-3 py-1 text-xs font-black ${isClientOnline(selectedClient) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                {isClientOnline(selectedClient) ? "РћРЅР»Р°Р№РЅ" : "РќРµ РІ СЃРµС‚Рё"}
+                {isClientOnline(selectedClient) ? "Онлайн" : "Не в сети"}
               </span>
               {selectedClient.clientStatus === "BUFFER" && <Badge value="BUFFER" />}
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                 ID {selectedClient.id.slice(-8).toUpperCase()}
                 <button
                   type="button"
-                  title="РљРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂ РєР»РёРµРЅС‚Р°"
+                  title="Копировать номер клиента"
                   onClick={async () => {
                     await navigator.clipboard.writeText(selectedClient.id);
                     setNumberCopied(true);
@@ -1793,8 +1793,8 @@ function ClientProfileUtip({
                   }}
                   className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black text-emerald-700 shadow-sm hover:bg-emerald-50"
                 >
-                  <span aria-hidden="true">в§‰</span>
-                  {numberCopied ? "РЎРєРѕРїРёСЂРѕРІР°РЅРѕ" : "РљРѕРїРёСЂРѕРІР°С‚СЊ"}
+                  <span aria-hidden="true">⧉</span>
+                  {numberCopied ? "Скопировано" : "Копировать"}
                 </button>
               </span>
               <button
@@ -1816,22 +1816,22 @@ function ClientProfileUtip({
                 onClick={() => onDeleteClient(selectedClient)}
                 className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700 hover:bg-red-100"
               >
-                РЈРґР°Р»РёС‚СЊ СЃС‡РµС‚
+                Удалить счет
               </button>
             </div>
           </div>
 
           <div className="mb-3 flex gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1">
             {[
-              ["overview", "РћР±Р·РѕСЂ"],
-              ["history", "РСЃС‚РѕСЂРёСЏ"],
-              ["documents", "Р”РѕРєСѓРјРµРЅС‚С‹"],
-              ["accounts", "РўРѕСЂРіРѕРІС‹Рµ СЃС‡РµС‚Р°"],
-              ["operations", "РўРѕСЂРіРѕРІС‹Рµ РѕРїРµСЂР°С†РёРё"],
-              ["deposits", "Р”РµРїРѕР·РёС‚С‹"],
-              ["requests", "Р—Р°СЏРІРєРё"],
-              ["tickets", "РўРёРєРµС‚С‹"],
-              ["mailing", "Р Р°СЃСЃС‹Р»РєР°"],
+              ["overview", "Обзор"],
+              ["history", "История"],
+              ["documents", "Документы"],
+              ["accounts", "Торговые счета"],
+              ["operations", "Торговые операции"],
+              ["deposits", "Депозиты"],
+              ["requests", "Заявки"],
+              ["tickets", "Тикеты"],
+              ["mailing", "Рассылка"],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -1849,30 +1849,30 @@ function ClientProfileUtip({
           {clientSection === "overview" && (
             <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-black text-slate-950">Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РґР°РЅРЅС‹Рµ РєР»РёРµРЅС‚Р°</h3>
+                <h3 className="text-sm font-black text-slate-950">Редактировать данные клиента</h3>
                 <button
                   type="button"
                   onClick={() => onUpdateUser(selectedClient.id, editClient)}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
                 >
-                  РЎРѕС…СЂР°РЅРёС‚СЊ
+                  Сохранить
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="РРјСЏ" value={editClient.firstName} onChange={(event) => setEditClient({ ...editClient, firstName: event.target.value })} />
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Р¤Р°РјРёР»РёСЏ" value={editClient.lastName} onChange={(event) => setEditClient({ ...editClient, lastName: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Имя" value={editClient.firstName} onChange={(event) => setEditClient({ ...editClient, firstName: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Фамилия" value={editClient.lastName} onChange={(event) => setEditClient({ ...editClient, lastName: event.target.value })} />
                 <input className={`${inputClass} h-9 rounded-lg`} placeholder="Email" value={editClient.email} onChange={(event) => setEditClient({ ...editClient, email: event.target.value })} />
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="РўРµР»РµС„РѕРЅ" value={editClient.phone} onChange={(event) => setEditClient({ ...editClient, phone: event.target.value })} />
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="РЎС‚СЂР°РЅР°" value={editClient.country} onChange={(event) => setEditClient({ ...editClient, country: event.target.value })} />
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Р“РѕСЂРѕРґ" value={editClient.city} onChange={(event) => setEditClient({ ...editClient, city: event.target.value })} />
-                <input className={`${inputClass} h-9 rounded-lg`} placeholder="РђРґСЂРµСЃ" value={editClient.address} onChange={(event) => setEditClient({ ...editClient, address: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Телефон" value={editClient.phone} onChange={(event) => setEditClient({ ...editClient, phone: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Страна" value={editClient.country} onChange={(event) => setEditClient({ ...editClient, country: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Город" value={editClient.city} onChange={(event) => setEditClient({ ...editClient, city: event.target.value })} />
+                <input className={`${inputClass} h-9 rounded-lg`} placeholder="Адрес" value={editClient.address} onChange={(event) => setEditClient({ ...editClient, address: event.target.value })} />
                 <select className={`${inputClass} h-9 rounded-lg`} value={editClient.kycStatus} onChange={(event) => setEditClient({ ...editClient, kycStatus: event.target.value })}>
                   <option value="PENDING">PENDING</option>
                   <option value="APPROVED">APPROVED</option>
                   <option value="REJECTED">REJECTED</option>
                 </select>
                 <select className={`${inputClass} h-9 rounded-lg md:col-span-2`} value={editClient.managerId} onChange={(event) => setEditClient({ ...editClient, managerId: event.target.value })}>
-                  <option value="">Р‘РµР· РјРµРЅРµРґР¶РµСЂР°</option>
+                  <option value="">Без менеджера</option>
                   {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
                 </select>
               </div>
@@ -1880,47 +1880,47 @@ function ClientProfileUtip({
           )}
 
           {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-            <UtipInfoPanel title="РћР±С‰Р°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ">
-              <UtipRow label="РРјСЏ" value={selectedClient.firstName || "-"} />
-              <UtipRow label="Р¤Р°РјРёР»РёСЏ" value={selectedClient.lastName || "-"} />
-              <UtipRow label="РЎС‚Р°С‚СѓСЃ" value={selectedClient.kycStatus} />
-              <UtipRow label="Р‘Р°Р»Р°РЅСЃ" value={`в‚¬${Number(selectedClient.balance || 0).toFixed(2)}`} />
-              <UtipRow label="РЎРѕР·РґР°РЅ" value={new Date(selectedClient.createdAt).toLocaleString("ru-RU")} />
-              <UtipRow label="РџРѕСЃР»РµРґРЅРёР№ РІС…РѕРґ" value={selectedClient.lastLoginAt ? new Date(selectedClient.lastLoginAt).toLocaleString("ru-RU") : "Р•С‰Рµ РЅРµ РІС…РѕРґРёР»"} />
-              <UtipRow label="РџРѕСЃР»РµРґРЅСЏСЏ Р°РєС‚РёРІРЅРѕСЃС‚СЊ" value={selectedClient.lastSeenAt ? new Date(selectedClient.lastSeenAt).toLocaleString("ru-RU") : "РќРµС‚ РґР°РЅРЅС‹С…"} />
-              <UtipRow label="IP-Р°РґСЂРµСЃ" value={selectedClient.lastIp || "РќРµС‚ РґР°РЅРЅС‹С…"} />
-              <UtipRow label="РњРµРЅРµРґР¶РµСЂ" value={selectedClient.manager ? displayName(selectedClient.manager) : "РќРµ РЅР°Р·РЅР°С‡РµРЅ"} />
+            <UtipInfoPanel title="Общая информация">
+              <UtipRow label="Имя" value={selectedClient.firstName || "-"} />
+              <UtipRow label="Фамилия" value={selectedClient.lastName || "-"} />
+              <UtipRow label="Статус" value={selectedClient.kycStatus} />
+              <UtipRow label="Баланс" value={`€${Number(selectedClient.balance || 0).toFixed(2)}`} />
+              <UtipRow label="Создан" value={new Date(selectedClient.createdAt).toLocaleString("ru-RU")} />
+              <UtipRow label="Последний вход" value={selectedClient.lastLoginAt ? new Date(selectedClient.lastLoginAt).toLocaleString("ru-RU") : "Еще не входил"} />
+              <UtipRow label="Последняя активность" value={selectedClient.lastSeenAt ? new Date(selectedClient.lastSeenAt).toLocaleString("ru-RU") : "Нет данных"} />
+              <UtipRow label="IP-адрес" value={selectedClient.lastIp || "Нет данных"} />
+              <UtipRow label="Менеджер" value={selectedClient.manager ? displayName(selectedClient.manager) : "Не назначен"} />
             </UtipInfoPanel>
 
-            <UtipInfoPanel title="РљРѕРЅС‚Р°РєС‚РЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ">
+            <UtipInfoPanel title="Контактная информация">
               <UtipRow label="Email" value={selectedClient.email} />
-              <UtipRow label="РўРµР»РµС„РѕРЅ" value={selectedClient.phone || "-"} copyValue={selectedClient.phone || undefined} />
-              <UtipRow label="РЎС‚СЂР°РЅР°" value={selectedClient.country || "-"} />
-              <UtipRow label="Р“РѕСЂРѕРґ" value={selectedClient.city || "-"} />
-              <UtipRow label="РђРґСЂРµСЃ" value={selectedClient.address || "-"} />
-              <UtipRow label="Р РѕР»СЊ" value={selectedClient.role} />
+              <UtipRow label="Телефон" value={selectedClient.phone || "-"} copyValue={selectedClient.phone || undefined} />
+              <UtipRow label="Страна" value={selectedClient.country || "-"} />
+              <UtipRow label="Город" value={selectedClient.city || "-"} />
+              <UtipRow label="Адрес" value={selectedClient.address || "-"} />
+              <UtipRow label="Роль" value={selectedClient.role} />
             </UtipInfoPanel>
 
-            <UtipInfoPanel title="РЈРїСЂР°РІР»РµРЅРёРµ">
+            <UtipInfoPanel title="Управление">
               <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-black text-slate-900">РџР°СЂРѕР»СЊ РєР»РёРµРЅС‚Р°</p>
-                    <p className="text-[11px] text-slate-500">{showClientPassword ? selectedClient.plainPassword || "Р”РѕСЃС‚СѓРїРµРЅ РїРѕСЃР»Рµ СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ" : "вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"}</p>
+                    <p className="text-xs font-black text-slate-900">Пароль клиента</p>
+                    <p className="text-[11px] text-slate-500">{showClientPassword ? selectedClient.plainPassword || "Доступен после смены пароля" : "••••••••"}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowClientPassword((value) => !value)}
                     className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"
                   >
-                    {showClientPassword ? "РЎРєСЂС‹С‚СЊ" : "РџРѕРєР°Р·Р°С‚СЊ"}
+                    {showClientPassword ? "Скрыть" : "Показать"}
                   </button>
                 </div>
               </div>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
                 <div>
-                  <p className="text-xs font-black text-slate-900">Р Р°Р·СЂРµС€РµРЅРёРµ С‚РѕСЂРіРѕРІР»Рё</p>
-                  <p className="text-[11px] text-slate-500">РќРѕРІС‹Р№ РєР»РёРµРЅС‚ РЅР°С‡РёРЅР°РµС‚ СЃ Р·Р°РїСЂРµС‚РѕРј</p>
+                  <p className="text-xs font-black text-slate-900">Разрешение торговли</p>
+                  <p className="text-[11px] text-slate-500">Новый клиент начинает с запретом</p>
                 </div>
                 <button
                   type="button"
@@ -1928,24 +1928,24 @@ function ClientProfileUtip({
                   aria-checked={selectedClient.tradingEnabled}
                   onClick={() => toggleClientTrading(selectedClient.id, selectedClient.tradingEnabled)}
                   className={`relative h-7 w-12 shrink-0 rounded-full transition ${selectedClient.tradingEnabled ? "bg-emerald-500" : "bg-slate-300"}`}
-                  title={selectedClient.tradingEnabled ? "Р—Р°РїСЂРµС‚РёС‚СЊ С‚РѕСЂРіРѕРІР»СЋ" : "Р Р°Р·СЂРµС€РёС‚СЊ С‚РѕСЂРіРѕРІР»СЋ"}
+                  title={selectedClient.tradingEnabled ? "Запретить торговлю" : "Разрешить торговлю"}
                 >
                   <span className={`absolute top-1 size-5 rounded-full bg-white shadow transition ${selectedClient.tradingEnabled ? "left-6" : "left-1"}`} />
                 </button>
               </div>
-              <label className="text-[11px] font-bold uppercase text-slate-400">РћС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Р№</label>
+              <label className="text-[11px] font-bold uppercase text-slate-400">Ответственный</label>
               <select className={`${inputClass} h-9 rounded-lg`} value={selectedClient.managerId || ""} onChange={(event) => assignManager(selectedClient.id, event.target.value)}>
-                <option value="">Р‘РµР· РјРµРЅРµРґР¶РµСЂР°</option>
+                <option value="">Без менеджера</option>
                 {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
               </select>
-              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Р”РµРїРѕР·РёС‚</label>
+              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Депозит</label>
               <div className="flex gap-2">
                 <input className={`${inputClass} h-9 rounded-lg`} type="number" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
                 <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-black text-slate-950">OK</button>
               </div>
-              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">РЎРјРµРЅР° РїР°СЂРѕР»СЏ</label>
+              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Смена пароля</label>
               <div className="flex gap-2">
-                <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ" type={showPasswords ? "text" : "password"} />
+                <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
                 <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-black text-white">OK</button>
               </div>
             </UtipInfoPanel>
@@ -1969,65 +1969,65 @@ function ClientProfileUtip({
         </div>
 
         {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
-          <Panel title="РћРїРёСЃР°РЅРёРµ">
+          <Panel title="Описание">
             <div className="space-y-2 text-sm text-slate-700">
-              <p>РЎРґРµР»РѕРє: <b>{clientTrades.length}</b></p>
-              <p>Р’С‹РІРѕРґРѕРІ: <b>{clientWithdrawals.length}</b></p>
-              <p>Р”РѕРєСѓРјРµРЅС‚РѕРІ: <b>{clientDocs.length}</b></p>
-              <p>РћС‚РєСЂС‹С‚С‹С… РґРµР№СЃС‚РІРёР№: <b>{clientActions.filter((action) => action.status !== "CLOSED").length}</b></p>
+              <p>Сделок: <b>{clientTrades.length}</b></p>
+              <p>Выводов: <b>{clientWithdrawals.length}</b></p>
+              <p>Документов: <b>{clientDocs.length}</b></p>
+              <p>Открытых действий: <b>{clientActions.filter((action) => action.status !== "CLOSED").length}</b></p>
             </div>
           </Panel>
-          <Panel title="Р—Р°РјРµС‚РєРё">
+          <Panel title="Заметки">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_auto]">
-              <textarea className={`${areaClass} min-h-20 rounded-lg`} placeholder="Р—Р°РјРµС‚РєР° РїРѕ РєР»РёРµРЅС‚Сѓ" value={noteText} onChange={(event) => setNoteText(event.target.value)} />
+              <textarea className={`${areaClass} min-h-20 rounded-lg`} placeholder="Заметка по клиенту" value={noteText} onChange={(event) => setNoteText(event.target.value)} />
               <select className={`${inputClass} h-10 rounded-lg`} value={noteStatus} onChange={(event) => setNoteStatus(event.target.value)}>
-                <option value="OPEN">РћС‚РєСЂС‹С‚Рѕ</option>
-                <option value="IMPORTANT">Р’Р°Р¶РЅРѕ</option>
-                <option value="CLOSED">Р—Р°РєСЂС‹С‚Рѕ</option>
+                <option value="OPEN">Открыто</option>
+                <option value="IMPORTANT">Важно</option>
+                <option value="CLOSED">Закрыто</option>
               </select>
-              <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Р”РѕР±Р°РІРёС‚СЊ</button>
+              <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
             </div>
             <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} />)}
-              {(selectedClient.clientNotes || []).length === 0 && <Empty text="Р—Р°РјРµС‚РѕРє РїРѕРєР° РЅРµС‚" />}
+              {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
             </div>
             {sortedNotes.length > notePageSize && (
               <div className="mt-3 flex items-center justify-end gap-2">
                 <button type="button" disabled={notePage <= 1} onClick={() => setNotePage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
-                  РќР°Р·Р°Рґ
+                  Назад
                 </button>
                 <span className="text-xs font-black text-slate-500">{notePage} / {notePageCount}</span>
                 <button type="button" disabled={notePage >= notePageCount} onClick={() => setNotePage((value) => Math.min(notePageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
-                  Р”Р°Р»РµРµ
+                  Далее
                 </button>
               </div>
             )}
           </Panel>
         </div>}
 
-        {clientSection === "overview" && <Panel title="Р”РµР№СЃС‚РІРёСЏ">
+        {clientSection === "overview" && <Panel title="Действия">
           <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_150px_150px_190px_auto]">
-            <input className={`${inputClass} h-10 rounded-lg`} placeholder="Р”РµР№СЃС‚РІРёРµ" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
+            <input className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
             <input className={`${inputClass} h-10 rounded-lg`} type="datetime-local" value={actionForm.dueAt} onChange={(event) => setActionForm({ ...actionForm, dueAt: event.target.value })} />
             <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.reminderMinutes} onChange={(event) => setActionForm({ ...actionForm, reminderMinutes: event.target.value })}>
-              <option value="">Р‘РµР· РЅР°РїРѕРјРёРЅР°РЅРёСЏ</option>
-              <option value="5">Р—Р° 5 РјРёРЅСѓС‚</option>
-              <option value="15">Р—Р° 15 РјРёРЅСѓС‚</option>
-              <option value="30">Р—Р° 30 РјРёРЅСѓС‚</option>
+              <option value="">Без напоминания</option>
+              <option value="5">За 5 минут</option>
+              <option value="15">За 15 минут</option>
+              <option value="30">За 30 минут</option>
             </select>
             <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.status} onChange={(event) => setActionForm({ ...actionForm, status: event.target.value })}>
-              <option value="OPEN">РћС‚РєСЂС‹С‚Рѕ</option>
-              <option value="IN_PROGRESS">Р’ СЂР°Р±РѕС‚Рµ</option>
-              <option value="POSTPONED">РџРµСЂРµРЅРµСЃРµРЅРѕ</option>
-              <option value="CLOSED">Р—Р°РєСЂС‹С‚Рѕ</option>
+              <option value="OPEN">Открыто</option>
+              <option value="IN_PROGRESS">В работе</option>
+              <option value="POSTPONED">Перенесено</option>
+              <option value="CLOSED">Закрыто</option>
             </select>
             <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.managerId} onChange={(event) => setActionForm({ ...actionForm, managerId: event.target.value })}>
-              <option value="">РўРµРєСѓС‰РёР№ РјРµРЅРµРґР¶РµСЂ</option>
+              <option value="">Текущий менеджер</option>
               {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
             </select>
-            <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Р”РѕР±Р°РІРёС‚СЊ</button>
+            <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
           </div>
-          <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="РћРїРёСЃР°РЅРёРµ РґРµР№СЃС‚РІРёСЏ" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
+          <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
           <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} />
         </Panel>}
 
@@ -2065,47 +2065,47 @@ function ClientUtipSection({
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const historyEvents = [
-    { id: `created-${client.id}`, date: client.createdAt, author: "РЎРёСЃС‚РµРјР°", text: `РЎРѕР·РґР°РЅ РєР»РёРµРЅС‚ ${displayName(client)}` },
+    { id: `created-${client.id}`, date: client.createdAt, author: "Система", text: `Создан клиент ${displayName(client)}` },
     ...trades.map((trade) => ({
       id: `trade-${trade.id}`,
       date: trade.createdAt,
-      author: "РўРµСЂРјРёРЅР°Р»",
-      text: `${trade.closePrice === null ? "РћС‚РєСЂС‹С‚Р° РїРѕР·РёС†РёСЏ" : "Р—Р°РєСЂС‹С‚Р° СЃРґРµР»РєР°"} ${trade.side} ${trade.symbol}, РѕР±СЉРµРј ${trade.volume}`,
+      author: "Терминал",
+      text: `${trade.closePrice === null ? "Открыта позиция" : "Закрыта сделка"} ${trade.side} ${trade.symbol}, объем ${trade.volume}`,
     })),
     ...deposits.map((deposit) => ({
       id: `deposit-${deposit.id}`,
       date: deposit.createdAt,
-      author: "Р¤РёРЅР°РЅСЃС‹",
-      text: `РџРѕРїРѕР»РЅРµРЅРёРµ СЃС‡РµС‚Р° РЅР° в‚¬${Number(deposit.amount).toFixed(2)} (${deposit.status})`,
+      author: "Финансы",
+      text: `Пополнение счета на €${Number(deposit.amount).toFixed(2)} (${deposit.status})`,
     })),
     ...withdrawals.map((withdrawal) => ({
       id: `withdrawal-${withdrawal.id}`,
       date: withdrawal.createdAt,
-      author: "Р¤РёРЅР°РЅСЃС‹",
-      text: `Р—Р°СЏРІРєР° РЅР° РІС‹РІРѕРґ в‚¬${Number(withdrawal.amount).toFixed(2)} (${withdrawal.status})`,
+      author: "Финансы",
+      text: `Заявка на вывод €${Number(withdrawal.amount).toFixed(2)} (${withdrawal.status})`,
     })),
     ...documents.map((doc) => ({
       id: `doc-${doc.id}`,
       date: doc.createdAt,
-      author: "Р’РµСЂРёС„РёРєР°С†РёСЏ",
-      text: `${doc.documentType || "Р”РѕРєСѓРјРµРЅС‚"}: ${doc.status}`,
+      author: "Верификация",
+      text: `${doc.documentType || "Документ"}: ${doc.status}`,
     })),
     ...actions.map((action) => ({
       id: `action-${action.id}`,
       date: action.createdAt,
       author: action.manager ? displayName(action.manager) : "CRM",
-      text: `Р”РµР№СЃС‚РІРёРµ: ${action.title} (${action.status})`,
+      text: `Действие: ${action.title} (${action.status})`,
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (section === "history") {
     return (
-      <UtipTable title="РСЃС‚РѕСЂРёСЏ РєР»РёРµРЅС‚Р°">
+      <UtipTable title="История клиента">
         <thead>
           <tr>
-            <UtipTh>РђРІС‚РѕСЂ</UtipTh>
-            <UtipTh>Р”Р°С‚Р°</UtipTh>
-            <UtipTh>РћРїРёСЃР°РЅРёРµ</UtipTh>
+            <UtipTh>Автор</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Описание</UtipTh>
           </tr>
         </thead>
         <tbody>
@@ -2123,31 +2123,31 @@ function ClientUtipSection({
 
   if (section === "documents") {
     return (
-      <UtipTable title="Р”РѕРєСѓРјРµРЅС‚С‹">
+      <UtipTable title="Документы">
         <thead>
           <tr>
-            <UtipTh>РўРёРї</UtipTh>
-            <UtipTh>Р¤Р°Р№Р»</UtipTh>
-            <UtipTh>РЎС‚Р°С‚СѓСЃ</UtipTh>
-            <UtipTh>Р”Р°С‚Р°</UtipTh>
-            <UtipTh>Р”РµР№СЃС‚РІРёРµ</UtipTh>
+            <UtipTh>Тип</UtipTh>
+            <UtipTh>Файл</UtipTh>
+            <UtipTh>Статус</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Действие</UtipTh>
           </tr>
         </thead>
         <tbody>
           {documents.map((doc) => (
             <tr key={doc.id} className="border-b border-slate-100">
-              <UtipTd>{doc.documentType || "Р”РѕРєСѓРјРµРЅС‚"}</UtipTd>
+              <UtipTd>{doc.documentType || "Документ"}</UtipTd>
               <UtipTd>{doc.fileName}</UtipTd>
               <UtipTd><Badge value={doc.status} /></UtipTd>
               <UtipTd>{new Date(doc.createdAt).toLocaleString("ru-RU")}</UtipTd>
               <UtipTd>
                 <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">
-                  РћС‚РєСЂС‹С‚СЊ
+                  Открыть
                 </a>
               </UtipTd>
             </tr>
           ))}
-          {documents.length === 0 && <UtipEmptyRow colSpan={5} text="Р”РѕРєСѓРјРµРЅС‚РѕРІ РїРѕРєР° РЅРµС‚" />}
+          {documents.length === 0 && <UtipEmptyRow colSpan={5} text="Документов пока нет" />}
         </tbody>
       </UtipTable>
     );
@@ -2155,23 +2155,23 @@ function ClientUtipSection({
 
   if (section === "accounts") {
     return (
-      <UtipTable title="РўРѕСЂРіРѕРІС‹Рµ СЃС‡РµС‚Р°">
+      <UtipTable title="Торговые счета">
         <thead>
           <tr>
-            <UtipTh>РќРѕРјРµСЂ СЃС‡РµС‚Р°</UtipTh>
-            <UtipTh>РўРёРї СЃС‡РµС‚Р°</UtipTh>
-            <UtipTh>РЎСЂРµРґСЃС‚РІР°</UtipTh>
-            <UtipTh>Р‘РѕРЅСѓСЃС‹</UtipTh>
-            <UtipTh>Р Р°Р·СЂРµС€РµРЅРёРµ С‚РѕСЂРіРѕРІР»Рё</UtipTh>
-            <UtipTh>РћС‚РєСЂС‹С‚С‹Рµ РїРѕР·РёС†РёРё</UtipTh>
-            <UtipTh>Р—Р°РєСЂС‹С‚С‹Рµ СЃРґРµР»РєРё</UtipTh>
+            <UtipTh>Номер счета</UtipTh>
+            <UtipTh>Тип счета</UtipTh>
+            <UtipTh>Средства</UtipTh>
+            <UtipTh>Бонусы</UtipTh>
+            <UtipTh>Разрешение торговли</UtipTh>
+            <UtipTh>Открытые позиции</UtipTh>
+            <UtipTh>Закрытые сделки</UtipTh>
           </tr>
         </thead>
         <tbody>
           <tr className="border-b border-slate-100">
             <UtipTd>{accountNumber}</UtipTd>
             <UtipTd>ASTERO EUR Live</UtipTd>
-            <UtipTd>в‚¬{Number(client.balance || 0).toFixed(2)}</UtipTd>
+            <UtipTd>€{Number(client.balance || 0).toFixed(2)}</UtipTd>
             <UtipTd>0.00</UtipTd>
             <UtipTd><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></UtipTd>
             <UtipTd>{openTrades.length}</UtipTd>
@@ -2189,7 +2189,7 @@ function ClientUtipSection({
         trades={trades}
         onClose={onCloseTrade}
         onUpdate={onUpdateTrade}
-        title={`РўРѕСЂРіРѕРІС‹Рµ РѕРїРµСЂР°С†РёРё: ${displayName(client)}`}
+        title={`Торговые операции: ${displayName(client)}`}
         compact
       />
     );
@@ -2197,15 +2197,15 @@ function ClientUtipSection({
 
   if (section === "deposits") {
     return (
-      <UtipTable title="Р”РµРїРѕР·РёС‚С‹">
+      <UtipTable title="Депозиты">
         <thead>
           <tr>
-            <UtipTh>РЎС‡РµС‚</UtipTh>
-            <UtipTh>Р”Р°С‚Р°</UtipTh>
-            <UtipTh>РЎСѓРјРјР°</UtipTh>
-            <UtipTh>РњРµС‚РѕРґ</UtipTh>
-            <UtipTh>РЎС‚Р°С‚СѓСЃ</UtipTh>
-            <UtipTh>Р”РµР№СЃС‚РІРёРµ</UtipTh>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Метод</UtipTh>
+            <UtipTh>Статус</UtipTh>
+            <UtipTh>Действие</UtipTh>
           </tr>
         </thead>
         <tbody>
@@ -2224,23 +2224,23 @@ function ClientUtipSection({
                       onClick={() => onApproveDeposit(deposit.id)}
                       className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
                     >
-                      РџРѕРґС‚РІРµСЂРґРёС‚СЊ
+                      Подтвердить
                     </button>
                     <button
                       type="button"
                       onClick={() => onRejectDeposit(deposit.id)}
                       className="rounded bg-red-500 px-3 py-1.5 text-xs font-black text-white hover:bg-red-600"
                     >
-                      РћС‚РєР»РѕРЅРёС‚СЊ
+                      Отклонить
                     </button>
                   </div>
                 ) : (
-                  <span className="text-xs font-bold text-slate-400">РћР±СЂР°Р±РѕС‚Р°РЅРѕ</span>
+                  <span className="text-xs font-bold text-slate-400">Обработано</span>
                 )}
               </UtipTd>
             </tr>
           ))}
-          {deposits.length === 0 && <UtipEmptyRow colSpan={6} text="РџРѕРїРѕР»РЅРµРЅРёР№ РїРѕРєР° РЅРµС‚" />}
+          {deposits.length === 0 && <UtipEmptyRow colSpan={6} text="Пополнений пока нет" />}
         </tbody>
       </UtipTable>
     );
@@ -2248,14 +2248,14 @@ function ClientUtipSection({
 
   if (false && section === "deposits") {
     return (
-      <UtipTable title="Р”РµРїРѕР·РёС‚С‹">
+      <UtipTable title="Депозиты">
         <thead>
           <tr>
-            <UtipTh>РЎС‡РµС‚</UtipTh>
-            <UtipTh>Р”Р°С‚Р°</UtipTh>
-            <UtipTh>РЎСѓРјРјР°</UtipTh>
-            <UtipTh>РњРµС‚РѕРґ</UtipTh>
-            <UtipTh>РЎС‚Р°С‚СѓСЃ</UtipTh>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Метод</UtipTh>
+            <UtipTh>Статус</UtipTh>
           </tr>
         </thead>
         <tbody>
@@ -2268,7 +2268,7 @@ function ClientUtipSection({
               <UtipTd><Badge value={deposit.status} /></UtipTd>
             </tr>
           ))}
-          {deposits.length === 0 && <UtipEmptyRow colSpan={5} text="РџРѕРїРѕР»РЅРµРЅРёР№ РїРѕРєР° РЅРµС‚" />}
+          {deposits.length === 0 && <UtipEmptyRow colSpan={5} text="Пополнений пока нет" />}
         </tbody>
       </UtipTable>
     );
@@ -2276,15 +2276,15 @@ function ClientUtipSection({
 
   if (section === "requests") {
     return (
-      <UtipTable title="Р—Р°СЏРІРєРё">
+      <UtipTable title="Заявки">
         <thead>
           <tr>
-            <UtipTh>РќРѕРјРµСЂ</UtipTh>
-            <UtipTh>Р”Р°С‚Р°</UtipTh>
-            <UtipTh>РўРёРї</UtipTh>
-            <UtipTh>РЎС‡РµС‚</UtipTh>
-            <UtipTh>РЎСѓРјРјР°</UtipTh>
-            <UtipTh>РЎС‚Р°С‚СѓСЃ</UtipTh>
+            <UtipTh>Номер</UtipTh>
+            <UtipTh>Дата</UtipTh>
+            <UtipTh>Тип</UtipTh>
+            <UtipTh>Счет</UtipTh>
+            <UtipTh>Сумма</UtipTh>
+            <UtipTh>Статус</UtipTh>
           </tr>
         </thead>
         <tbody>
@@ -2292,13 +2292,13 @@ function ClientUtipSection({
             <tr key={withdrawal.id} className="border-b border-slate-100">
               <UtipTd>{index + 1}</UtipTd>
               <UtipTd>{new Date(withdrawal.createdAt).toLocaleString("ru-RU")}</UtipTd>
-              <UtipTd>Р’С‹РІРѕРґ</UtipTd>
+              <UtipTd>Вывод</UtipTd>
               <UtipTd>{accountNumber}</UtipTd>
               <UtipTd>${Number(withdrawal.amount).toFixed(2)}</UtipTd>
               <UtipTd><Badge value={withdrawal.status} /></UtipTd>
             </tr>
           ))}
-          {withdrawals.length === 0 && <UtipEmptyRow colSpan={6} text="Р—Р°СЏРІРѕРє РїРѕРєР° РЅРµС‚" />}
+          {withdrawals.length === 0 && <UtipEmptyRow colSpan={6} text="Заявок пока нет" />}
         </tbody>
       </UtipTable>
     );
@@ -2307,16 +2307,16 @@ function ClientUtipSection({
   if (section === "tickets") {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        <h3 className="text-lg font-black text-slate-950">РўРёРєРµС‚С‹</h3>
-        <p className="mt-2">РўРёРєРµС‚С‹ РєР»РёРµРЅС‚Р° РїРѕРґРєР»СЋС‡РµРЅС‹ С‡РµСЂРµР· РѕР±С‰СѓСЋ РІРєР»Р°РґРєСѓ РїРѕРґРґРµСЂР¶РєРё CRM. РСЃС‚РѕСЂРёСЏ РѕР±СЂР°С‰РµРЅРёР№ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РІ СЂР°Р·РґРµР»Рµ В«РџРѕРґРґРµСЂР¶РєР°В».</p>
+        <h3 className="text-lg font-black text-slate-950">Тикеты</h3>
+        <p className="mt-2">Тикеты клиента подключены через общую вкладку поддержки CRM. История обращений сохраняется в разделе «Поддержка».</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-      <h3 className="text-lg font-black text-slate-950">Р Р°СЃСЃС‹Р»РєР°</h3>
-      <p className="mt-2">Р Р°Р·РґРµР» РїРѕРґРіРѕС‚РѕРІР»РµРЅ РґР»СЏ Р±СѓРґСѓС‰РёС… email/SMS-РєР°РјРїР°РЅРёР№ РїРѕ РєР»РёРµРЅС‚Сѓ. РўРµРєСѓС‰РёРµ РєРѕРЅС‚Р°РєС‚С‹: {client.email}</p>
+      <h3 className="text-lg font-black text-slate-950">Рассылка</h3>
+      <p className="mt-2">Раздел подготовлен для будущих email/SMS-кампаний по клиенту. Текущие контакты: {client.email}</p>
     </div>
   );
 }
@@ -2370,7 +2370,7 @@ function UtipRow({ label, value, copyValue }: { label: string; value: string; co
         {copyValue && (
           <button
             type="button"
-            title="РљРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂ С‚РµР»РµС„РѕРЅР°"
+            title="Копировать номер телефона"
             onClick={async () => {
               await navigator.clipboard.writeText(copyValue);
               setCopied(true);
@@ -2378,7 +2378,7 @@ function UtipRow({ label, value, copyValue }: { label: string; value: string; co
             }}
             className="shrink-0 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[10px] font-black text-emerald-700 hover:bg-emerald-50"
           >
-            {copied ? "РЎРєРѕРїРёСЂРѕРІР°РЅРѕ" : "в§‰ РљРѕРїРёСЂРѕРІР°С‚СЊ"}
+            {copied ? "Скопировано" : "⧉ Копировать"}
           </button>
         )}
       </span>
@@ -2400,13 +2400,13 @@ function UtipActionsTable({
       <table className="min-w-[1220px] w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
-            <th className="px-3 py-2">Р”Р°С‚Р°</th>
-            <th className="px-3 py-2">РўРёРї</th>
-            <th className="px-3 py-2">РЎРѕР·РґР°С‚РµР»СЊ</th>
-            <th className="px-3 py-2">РћРїРёСЃР°РЅРёРµ</th>
-            <th className="px-3 py-2">РћС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Р№</th>
-            <th className="px-3 py-2">РЎС‚Р°С‚СѓСЃ</th>
-            <th className="px-3 py-2">РќР°РїРѕРјРёРЅР°РЅРёРµ</th>
+            <th className="px-3 py-2">Дата</th>
+            <th className="px-3 py-2">Тип</th>
+            <th className="px-3 py-2">Создатель</th>
+            <th className="px-3 py-2">Описание</th>
+            <th className="px-3 py-2">Ответственный</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2">Напоминание</th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
@@ -2419,34 +2419,34 @@ function UtipActionsTable({
               <td className="px-3 py-2"><input className="h-10 w-64 rounded border border-slate-200 px-3" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
               <td className="px-3 py-2">
                 <select className="h-10 w-40 rounded border border-slate-200 px-3 text-sm" value={action.reminderMinutes ? String(action.reminderMinutes) : ""} onChange={(event) => onUpdate(action.id, { reminderMinutes: event.target.value ? Number(event.target.value) : null })}>
-                  <option value="">РќРµС‚</option>
-                  <option value="5">Р—Р° 5 РјРёРЅСѓС‚</option>
-                  <option value="15">Р—Р° 15 РјРёРЅСѓС‚</option>
-                  <option value="30">Р—Р° 30 РјРёРЅСѓС‚</option>
+                  <option value="">Нет</option>
+                  <option value="5">За 5 минут</option>
+                  <option value="15">За 15 минут</option>
+                  <option value="30">За 30 минут</option>
                 </select>
               </td>
               <td className="px-3 py-2">
                 <select className="h-10 w-48 rounded border border-slate-200 px-3 text-sm" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}>
-                  <option value="">Р‘РµР· РјРµРЅРµРґР¶РµСЂР°</option>
+                  <option value="">Без менеджера</option>
                   {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
                 </select>
               </td>
               <td className="px-3 py-2">
                 <select className="h-10 rounded border border-slate-200 px-3 text-sm" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}>
-                  <option value="OPEN">РћС‚РєСЂС‹С‚Рѕ</option>
-                  <option value="IN_PROGRESS">Р’ СЂР°Р±РѕС‚Рµ</option>
-                  <option value="POSTPONED">РџРµСЂРµРЅРµСЃРµРЅРѕ</option>
-                  <option value="CLOSED">Р—Р°РєСЂС‹С‚Рѕ</option>
+                  <option value="OPEN">Открыто</option>
+                  <option value="IN_PROGRESS">В работе</option>
+                  <option value="POSTPONED">Перенесено</option>
+                  <option value="CLOSED">Закрыто</option>
                 </select>
               </td>
               <td className="px-3 py-2 text-right">
-                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-4 py-2 font-black text-white">Р—Р°РєСЂС‹С‚СЊ</button>
+                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-4 py-2 font-black text-white">Закрыть</button>
               </td>
             </tr>
           ))}
           {actions.length === 0 && (
             <tr>
-              <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>Р”РµР№СЃС‚РІРёР№ РЅРµС‚</td>
+              <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>Действий нет</td>
             </tr>
           )}
         </tbody>
@@ -2476,21 +2476,21 @@ function ClientsTable({
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
             <th className="px-3 py-2">ID</th>
-            <th className="px-3 py-2">РљР»РёРµРЅС‚</th>
+            <th className="px-3 py-2">Клиент</th>
             <th className="px-3 py-2">Email</th>
-            <th className="px-3 py-2">РўРµР»РµС„РѕРЅ</th>
-            <th className="px-3 py-2">РЎС‚СЂР°РЅР°</th>
-            <th className="px-3 py-2">Р‘Р°Р»Р°РЅСЃ</th>
-            <th className="px-3 py-2">Р”Р°С‚Р° СЃРѕР·РґР°РЅРёСЏ</th>
-            <th className="px-3 py-2">РЎС‚Р°С‚СѓСЃ</th>
-            <th className="px-3 py-2">РњРµРЅРµРґР¶РµСЂ</th>
-            <th className="px-3 py-2 text-right">Р”РµР№СЃС‚РІРёСЏ</th>
+            <th className="px-3 py-2">Телефон</th>
+            <th className="px-3 py-2">Страна</th>
+            <th className="px-3 py-2">Баланс</th>
+            <th className="px-3 py-2">Дата создания</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2">Менеджер</th>
+            <th className="px-3 py-2 text-right">Действия</th>
           </tr>
         </thead>
         <tbody>
           {clients.map((client, index) => (
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
-              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{client.id.slice(-6).toUpperCase()}<button type="button" title="РљРѕРїРёСЂРѕРІР°С‚СЊ РЅРѕРјРµСЂ" onClick={() => navigator.clipboard.writeText(client.id)} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">в§‰</button></span></td>
+              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{client.id.slice(-6).toUpperCase()}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(client.id)} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
               <td className="px-3 py-2">
                 <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="text-left font-black text-slate-950 hover:text-emerald-700">
                   {displayName(client)}
@@ -2500,7 +2500,7 @@ function ClientsTable({
               <td className="px-3 py-2">{client.email}</td>
               <td className="px-3 py-2">{client.phone || "-"}</td>
               <td className="px-3 py-2">{client.country || "-"}</td>
-              <td className="px-3 py-2 font-black text-emerald-700">в‚¬{Number(client.balance || 0).toFixed(2)}</td>
+              <td className="px-3 py-2 font-black text-emerald-700">€{Number(client.balance || 0).toFixed(2)}</td>
               <td className="px-3 py-2">{new Date(client.createdAt).toLocaleDateString("ru-RU")}</td>
               <td className="px-3 py-2"><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></td>
               <td className="px-3 py-2">
@@ -2509,7 +2509,7 @@ function ClientsTable({
                   value={client.managerId || ""}
                   onChange={(event) => onAssign(client.id, event.target.value)}
                 >
-                  <option value="">РќРµ РЅР°Р·РЅР°С‡РµРЅ</option>
+                  <option value="">Не назначен</option>
                   {managers.map((manager) => (
                     <option key={manager.id} value={manager.id}>{displayName(manager)}</option>
                   ))}
@@ -2517,7 +2517,7 @@ function ClientsTable({
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-2">
-                  <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">РћС‚РєСЂС‹С‚СЊ</a>
+                  <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">Открыть</a>
                 </div>
               </td>
             </tr>
@@ -2525,7 +2525,7 @@ function ClientsTable({
           {clients.length === 0 && (
             <tr>
               <td className="px-3 py-8 text-center text-slate-500" colSpan={10}>
-                РљР»РёРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹
+                Клиенты не найдены
               </td>
             </tr>
           )}
@@ -2536,7 +2536,7 @@ function ClientsTable({
 }
 
 function ClientListCard({ client, managers, onAssign, onOpen, onBlock, onDelete }: { client: User; managers: User[]; onAssign: (userId: string, managerId: string) => void; onOpen: () => void; onBlock: () => void; onDelete: () => void }) {
-  return <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-black text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} В· {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">РќРµ РЅР°Р·РЅР°С‡РµРЅ</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={onOpen} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">РћС‚РєСЂС‹С‚СЊ РєР°СЂС‚РѕС‡РєСѓ</button><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-white">{client.isBlocked ? "Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ" : "Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">РЈРґР°Р»РёС‚СЊ</button></div></div>;
+  return <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-black text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} · {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">Не назначен</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={onOpen} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">Открыть карточку</button><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-white">{client.isBlocked ? "Разблокировать" : "Заблокировать"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">Удалить</button></div></div>;
 }
 
 function Info({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -2546,11 +2546,11 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
 function NoteCard({ note, onUpdate }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void }) {
   const [text, setText] = useState(note.text);
   const isImportant = note.status === "IMPORTANT";
-  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">РћС‚РєСЂС‹С‚Рѕ</option><option value="IMPORTANT">Р’Р°Р¶РЅРѕ</option><option value="CLOSED">Р—Р°РєСЂС‹С‚Рѕ</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">РЎРѕС…СЂР°РЅРёС‚СЊ</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Р’Р°Р¶РЅРѕ В· " : "РР·РјРµРЅРµРЅРѕ: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
 function ActionList({ actions, onUpdate, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1050px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">РљР»РёРµРЅС‚</th><th className="px-2 py-2">Р”РµР№СЃС‚РІРёРµ</th><th className="px-2 py-2">РћРїРёСЃР°РЅРёРµ</th><th className="px-2 py-2">РЎСЂРѕРє</th><th className="px-2 py-2">РћС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Р№</th><th className="px-2 py-2">РЎС‚Р°С‚СѓСЃ</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Р‘РµР· РјРµРЅРµРґР¶РµСЂР°</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">РћС‚РєСЂС‹С‚Рѕ</option><option value="IN_PROGRESS">Р’ СЂР°Р±РѕС‚Рµ</option><option value="POSTPONED">РџРµСЂРµРЅРµСЃРµРЅРѕ</option><option value="CLOSED">Р—Р°РєСЂС‹С‚Рѕ</option></select></td><td className="px-2 py-1.5"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Р—Р°РєСЂС‹С‚СЊ</button></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Р”РµР№СЃС‚РІРёР№ РЅРµС‚</td></tr>}</tbody></table></div>;
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1050px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
 }
 
 function TradingOperationsDesk({
@@ -2558,7 +2558,7 @@ function TradingOperationsDesk({
   trades,
   onClose,
   onUpdate,
-  title = "РўРѕСЂРіРѕРІС‹Рµ РѕРїРµСЂР°С†РёРё",
+  title = "Торговые операции",
   compact = false,
 }: {
   clients: User[];
@@ -2706,24 +2706,24 @@ function TradingOperationsDesk({
       <div className="rounded-xl border border-emerald-100 bg-white p-4 text-slate-950 shadow-sm">
         <h2 className="text-lg font-black">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {clients.length === 1 ? "РћРїРµСЂР°С†РёРё РІС‹Р±СЂР°РЅРЅРѕРіРѕ РєР»РёРµРЅС‚Р°" : "РћРїРµСЂР°С†РёРё РїРѕ РІСЃРµРј РєР»РёРµРЅС‚Р°Рј CRM"}
+          {clients.length === 1 ? "Операции выбранного клиента" : "Операции по всем клиентам CRM"}
         </p>
       </div>
 
       <div className={`grid grid-cols-2 gap-3 ${compact ? "xl:grid-cols-4" : "xl:grid-cols-4"}`}>
-        <Metric title="РћС‚РєСЂС‹С‚С‹Рµ РїРѕР·РёС†РёРё" value={openCount} />
-        <Metric title="Р—Р°РєСЂС‹С‚С‹Рµ СЃРґРµР»РєРё" value={closedCount} />
-        <Metric title="Р’ РІС‹Р±РѕСЂРєРµ" value={filteredTrades.length} />
-        <Metric title="РС‚РѕРі РїРѕ РІС‹Р±РѕСЂРєРµ" value={`в‚¬${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
+        <Metric title="Открытые позиции" value={openCount} />
+        <Metric title="Закрытые сделки" value={closedCount} />
+        <Metric title="В выборке" value={filteredTrades.length} />
+        <Metric title="Итог по выборке" value={`€${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
       </div>
 
       <section className="rounded-xl border border-emerald-100 bg-white text-slate-950 shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
             {[
-              ["open", "РћС‚РєСЂС‹С‚С‹Рµ РїРѕР·РёС†РёРё Рё РѕСЂРґРµСЂР°"],
-              ["closed", "Р—Р°РєСЂС‹С‚С‹Рµ СЃРґРµР»РєРё"],
-              ["all", "Р’СЃРµ РѕРїРµСЂР°С†РёРё"],
+              ["open", "Открытые позиции и ордера"],
+              ["closed", "Закрытые сделки"],
+              ["all", "Все операции"],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -2740,21 +2740,21 @@ function TradingOperationsDesk({
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_180px_1fr_auto_auto]">
             <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" value={account} onChange={(event) => setAccount(event.target.value)}>
-              <option value="all">Р’СЃРµ СЃС‡РµС‚Р°</option>
+              <option value="all">Все счета</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
-                  {client.id.slice(-6).toUpperCase()} В· {displayName(client)}
+                  {client.id.slice(-6).toUpperCase()} · {displayName(client)}
                 </option>
               ))}
             </select>
             <select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" value={side} onChange={(event) => setSide(event.target.value)}>
-              <option value="all">Р’СЃРµ С‚РёРїС‹</option>
+              <option value="all">Все типы</option>
               <option value="BUY">BUY</option>
               <option value="SELL">SELL</option>
             </select>
-            <input name="crm-trade-search" autoComplete="off" autoCorrect="off" spellCheck={false} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="РџРѕРёСЃРє: СЃРёРјРІРѕР», РєР»РёРµРЅС‚, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
-            <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-black text-white">РџРѕРєР°Р·Р°С‚СЊ</button>
-            <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-600">РЎР±СЂРѕСЃРёС‚СЊ</button>
+            <input name="crm-trade-search" autoComplete="off" autoCorrect="off" spellCheck={false} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Поиск: символ, клиент, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+            <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-black text-white">Показать</button>
+            <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-600">Сбросить</button>
           </div>
         </div>
 
@@ -2762,21 +2762,21 @@ function TradingOperationsDesk({
           <table className={`${compact ? "min-w-[1320px]" : "min-w-[1540px]"} w-full text-xs`}>
             <thead>
               <tr className="border-b border-slate-200 bg-white text-left text-[11px] uppercase text-slate-500">
-                <th className="px-3 py-2">РЎС‡РµС‚</th>
-                <th className="px-3 py-2">РљР»РёРµРЅС‚</th>
-                <th className="px-3 py-2">РЎРёРјРІРѕР»</th>
-                <th className="px-3 py-2">РўРёРї</th>
-                <th className="px-3 py-2">РћР±СЉРµРј</th>
-                <th className="px-3 py-2">Р”Р°С‚Р° РѕС‚РєСЂС‹С‚РёСЏ</th>
-                <th className="px-3 py-2">Р”Р°С‚Р° Р·Р°РєСЂС‹С‚РёСЏ</th>
-                <th className="px-3 py-2">Р¦РµРЅР° РѕС‚РєСЂС‹С‚РёСЏ</th>
-                <th className="px-3 py-2">РўРµРєСѓС‰Р°СЏ/Р·Р°РєСЂС‹С‚РёСЏ</th>
+                <th className="px-3 py-2">Счет</th>
+                <th className="px-3 py-2">Клиент</th>
+                <th className="px-3 py-2">Символ</th>
+                <th className="px-3 py-2">Тип</th>
+                <th className="px-3 py-2">Объем</th>
+                <th className="px-3 py-2">Дата открытия</th>
+                <th className="px-3 py-2">Дата закрытия</th>
+                <th className="px-3 py-2">Цена открытия</th>
+                <th className="px-3 py-2">Текущая/закрытия</th>
                 <th className="px-3 py-2">Take Profit</th>
                 <th className="px-3 py-2">Stop Loss</th>
                 <th className="px-3 py-2">Swap</th>
-                <th className="px-3 py-2">РџСЂРёР±С‹Р»СЊ</th>
-                <th className="px-3 py-2">РЎС‚Р°С‚СѓСЃ</th>
-                <th className="px-3 py-2 text-right">Р”РµР№СЃС‚РІРёРµ</th>
+                <th className="px-3 py-2">Прибыль</th>
+                <th className="px-3 py-2">Статус</th>
+                <th className="px-3 py-2 text-right">Действие</th>
               </tr>
             </thead>
             <tbody>
@@ -2798,12 +2798,12 @@ function TradingOperationsDesk({
                     <td className="px-3 py-2 font-black">{trade.symbol}</td>
                     <td className={`px-3 py-2 font-black ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
                     <td className="px-3 py-2">
-                      {isOpen ? <TradeEditInput label="РћР±СЉРµРј" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} /> : trade.volume}
+                      {isOpen ? <TradeEditInput label="Объем" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} /> : trade.volume}
                     </td>
                     <td className="px-3 py-2">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
                     <td className="px-3 py-2">{trade.closedAt ? new Date(trade.closedAt).toLocaleString("ru-RU") : "-"}</td>
                     <td className="px-3 py-2">
-                      {isOpen ? <TradeEditInput label="Р¦РµРЅР° РѕС‚РєСЂС‹С‚РёСЏ" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} /> : formatPrice(trade.symbol, trade.openPrice)}
+                      {isOpen ? <TradeEditInput label="Цена открытия" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} /> : formatPrice(trade.symbol, trade.openPrice)}
                     </td>
                     <td className="px-3 py-2">{formatPrice(trade.symbol, getTradeClosePrice(trade))}</td>
                     <td className="px-3 py-2">
@@ -2817,7 +2817,7 @@ function TradingOperationsDesk({
                     </td>
                     <td className={`px-3 py-2 font-black ${getTradeProfit(trade) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                       {isOpen ? (
-                        `в‚¬${getTradeProfit(trade).toFixed(2)}`
+                        `€${getTradeProfit(trade).toFixed(2)}`
                       ) : (
                         <TradeEditInput
                           label="Profit"
@@ -2831,9 +2831,9 @@ function TradingOperationsDesk({
                     <td className="px-3 py-2"><Badge value={isOpen ? "OPEN" : "CLOSED"} /></td>
                     <td className="px-3 py-2 text-right">
                       {isOpen ? (
-                        <button onClick={(event) => { event.stopPropagation(); onClose(trade); }} className="rounded bg-red-600 px-3 py-1.5 font-black text-white">Р—Р°РєСЂС‹С‚СЊ</button>
+                        <button onClick={(event) => { event.stopPropagation(); onClose(trade); }} className="rounded bg-red-600 px-3 py-1.5 font-black text-white">Закрыть</button>
                       ) : (
-                        <span className="text-slate-400">Р—Р°РєСЂС‹С‚Р°</span>
+                        <span className="text-slate-400">Закрыта</span>
                       )}
                     </td>
                   </tr>
@@ -2841,7 +2841,7 @@ function TradingOperationsDesk({
               })}
               {filteredTrades.length === 0 && (
                 <tr>
-                  <td className="px-3 py-10 text-center text-slate-500" colSpan={15}>РџРѕ РІС‹Р±СЂР°РЅРЅС‹Рј С„РёР»СЊС‚СЂР°Рј РЅРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ</td>
+                  <td className="px-3 py-10 text-center text-slate-500" colSpan={15}>По выбранным фильтрам ничего не найдено</td>
                 </tr>
               )}
             </tbody>
@@ -2851,25 +2851,25 @@ function TradingOperationsDesk({
         <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 p-3 xl:flex-row xl:items-center xl:justify-between">
           {selectedTrade ? (
             <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-6">
-              <MiniCell label="РЎРёРјРІРѕР»" value={selectedTrade.symbol} />
-              <MiniCell label="РќРѕРјРµСЂ" value={selectedTrade.id.slice(-8).toUpperCase()} />
-              <MiniCell label="РўРёРї" value={selectedTrade.side} />
-              <MiniCell label="РћР±СЉРµРј" value={String(selectedTrade.volume)} />
+              <MiniCell label="Символ" value={selectedTrade.symbol} />
+              <MiniCell label="Номер" value={selectedTrade.id.slice(-8).toUpperCase()} />
+              <MiniCell label="Тип" value={selectedTrade.side} />
+              <MiniCell label="Объем" value={String(selectedTrade.volume)} />
               <MiniCell label="Open price" value={formatPrice(selectedTrade.symbol, selectedTrade.openPrice)} />
-              <MiniCell label="Profit" value={`в‚¬${getTradeProfit(selectedTrade).toFixed(2)}`} />
+              <MiniCell label="Profit" value={`€${getTradeProfit(selectedTrade).toFixed(2)}`} />
             </div>
           ) : (
-            <p className="text-sm text-slate-500">Р’С‹Р±РµСЂРёС‚Рµ РѕРїРµСЂР°С†РёСЋ РІ С‚Р°Р±Р»РёС†Рµ</p>
+            <p className="text-sm text-slate-500">Выберите операцию в таблице</p>
           )}
           <div className="flex items-center gap-2">
             <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
-              РќР°Р·Р°Рґ
+              Назад
             </button>
             <span className="text-xs font-black text-slate-500">
               {page} / {pageCount}
             </span>
             <button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
-              Р”Р°Р»РµРµ
+              Далее
             </button>
           </div>
         </div>
@@ -2935,7 +2935,7 @@ function SupportPanel({
         </div>
       )}
 
-      <Panel title="Р”РёР°Р»РѕРіРё РїРѕРґРґРµСЂР¶РєРё">
+      <Panel title="Диалоги поддержки">
         <div className="max-h-[650px] divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
           {clientsWithMessages.map(({ client, count, last }) => (
             <button
@@ -2960,18 +2960,18 @@ function SupportPanel({
                 </span>
               </div>
               <p className="mt-2 truncate text-xs text-slate-500">
-                {last?.message || "РЎРѕРѕР±С‰РµРЅРёР№ РїРѕРєР° РЅРµС‚"}
+                {last?.message || "Сообщений пока нет"}
               </p>
             </button>
           ))}
 
-          {clientsWithMessages.length === 0 && <Empty text="РљР»РёРµРЅС‚РѕРІ РїРѕРєР° РЅРµС‚" />}
+          {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
         </div>
       </Panel>
 
-      <Panel title={selectedClient ? `Р§Р°С‚: ${displayName(selectedClient)}` : "Р§Р°С‚ РїРѕРґРґРµСЂР¶РєРё"}>
+      <Panel title={selectedClient ? `Чат: ${displayName(selectedClient)}` : "Чат поддержки"}>
         {!selectedClient ? (
-          <Empty text="Р’С‹Р±РµСЂРёС‚Рµ РєР»РёРµРЅС‚Р° СЃР»РµРІР°" />
+          <Empty text="Выберите клиента слева" />
         ) : (
           <div className="flex min-h-[560px] flex-col">
             <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-emerald-100 bg-slate-50 p-3">
@@ -2992,20 +2992,20 @@ function SupportPanel({
                     >
                       <p>{message.message}</p>
                       <p className={`mt-2 text-[11px] ${isAdmin ? "text-emerald-50/70" : "text-slate-400"}`}>
-                        {isAdmin ? "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" : "РљР»РёРµРЅС‚"} В· {new Date(message.createdAt).toLocaleString()}
+                        {isAdmin ? "Администратор" : "Клиент"} · {new Date(message.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
                 );
               })}
 
-              {dialog.length === 0 && <Empty text="РСЃС‚РѕСЂРёСЏ С‡Р°С‚Р° РїСѓСЃС‚Р°" />}
+              {dialog.length === 0 && <Empty text="История чата пуста" />}
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
               <textarea
                 className={areaClass}
-                placeholder="РћС‚РІРµС‚ РєР»РёРµРЅС‚Сѓ..."
+                placeholder="Ответ клиенту..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
@@ -3013,7 +3013,7 @@ function SupportPanel({
                 onClick={onSend}
                 className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
               >
-                РћС‚РїСЂР°РІРёС‚СЊ
+                Отправить
               </button>
             </div>
           </div>
@@ -3100,13 +3100,13 @@ function SupportPanelV2({
         </div>
       )}
 
-      <Panel title="Р”РёР°Р»РѕРіРё РїРѕРґРґРµСЂР¶РєРё">
+      <Panel title="Диалоги поддержки">
         <button
           type="button"
           onClick={() => setSearchOpen((current) => !current)}
           className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-emerald-700"
         >
-          <span aria-hidden="true">вЊ•</span> РџРѕРёСЃРє РєР»РёРµРЅС‚Р°
+          <span aria-hidden="true">⌕</span> Поиск клиента
         </button>
         {searchOpen && (
           <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
@@ -3119,7 +3119,7 @@ function SupportPanelV2({
               className="h-10 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-emerald-500"
               value={supportSearch}
               onChange={(event) => setSupportSearch(event.target.value)}
-              placeholder="ID, РёРјСЏ, С„Р°РјРёР»РёСЏ, email РёР»Рё С‚РµР»РµС„РѕРЅ"
+              placeholder="ID, имя, фамилия, email или телефон"
             />
             <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white">
               {supportSearchResults.map((client) => (
@@ -3134,10 +3134,10 @@ function SupportPanelV2({
                   className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
                 >
                   <span className="block text-sm font-black text-slate-900">{displayName(client)}</span>
-                  <span className="block text-xs text-slate-500">{client.email} В· {client.phone || "Р±РµР· С‚РµР»РµС„РѕРЅР°"}</span>
+                  <span className="block text-xs text-slate-500">{client.email} · {client.phone || "без телефона"}</span>
                 </button>
               ))}
-              {supportSearchResults.length === 0 && <p className="p-3 text-sm text-slate-500">РљР»РёРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ</p>}
+              {supportSearchResults.length === 0 && <p className="p-3 text-sm text-slate-500">Клиент не найден</p>}
             </div>
           </div>
         )}
@@ -3167,22 +3167,22 @@ function SupportPanelV2({
                   {count}
                 </span>
               </div>
-              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Р¤Р°Р№Р»" : "РЎРѕРѕР±С‰РµРЅРёР№ РїРѕРєР° РЅРµС‚")}</p><Badge value={conversation?.status || "OPEN"} /></div>
+              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
             </button>
           ))}
 
-          {clientsWithMessages.length === 0 && <Empty text="РљР»РёРµРЅС‚РѕРІ РїРѕРєР° РЅРµС‚" />}
+          {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
         </div>
       </Panel>
 
-      <Panel title={selectedClient ? `Р§Р°С‚: ${displayName(selectedClient)}` : "Р§Р°С‚ РїРѕРґРґРµСЂР¶РєРё"}>
+      <Panel title={selectedClient ? `Чат: ${displayName(selectedClient)}` : "Чат поддержки"}>
         {!selectedClient ? (
-          <Empty text="Р’С‹Р±РµСЂРёС‚Рµ РєР»РёРµРЅС‚Р° СЃР»РµРІР°" />
+          <Empty text="Выберите клиента слева" />
         ) : (
           <div className="flex h-[650px] min-h-0 flex-col">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-100 bg-white p-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-slate-900">РЎС‚Р°С‚СѓСЃ РѕР±СЂР°С‰РµРЅРёСЏ</span>
+                <span className="text-sm font-black text-slate-900">Статус обращения</span>
                 <Badge value={selectedConversation?.status || "OPEN"} />
               </div>
               <button
@@ -3191,7 +3191,7 @@ function SupportPanelV2({
                 disabled={selectedConversation?.status === "CLOSED"}
                 className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Р—Р°РєСЂС‹С‚СЊ РѕР±СЂР°С‰РµРЅРёРµ
+                Закрыть обращение
               </button>
             </div>
 
@@ -3201,7 +3201,7 @@ function SupportPanelV2({
                 const isManager = message.sender === "MANAGER" || message.fromRole === "MANAGER";
                 const isAdmin = message.sender === "ADMIN" || message.fromRole === "ADMIN";
                 const isStaff = isAdmin || isManager;
-                const authorLabel = isBot ? "Р‘РѕС‚" : isManager ? "РњРµРЅРµРґР¶РµСЂ" : isAdmin ? "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" : "РљР»РёРµРЅС‚";
+                const authorLabel = isBot ? "Бот" : isManager ? "Менеджер" : isAdmin ? "Администратор" : "Клиент";
                 const attachmentUrl = message.attachmentBase64 && message.attachmentMimeType
                   ? `data:${message.attachmentMimeType};base64,${message.attachmentBase64}`
                   : "";
@@ -3249,7 +3249,7 @@ function SupportPanelV2({
                               }}
                               className="rounded-lg bg-white/15 px-3 py-1 text-xs font-black text-white"
                             >
-                              РћС‚РјРµРЅР°
+                              Отмена
                             </button>
                           </div>
                         </div>
@@ -3268,12 +3268,12 @@ function SupportPanelV2({
                               isStaff ? "bg-white/15 text-white" : isBot ? "bg-sky-100 text-sky-800" : "bg-emerald-50 text-emerald-700"
                             }`}
                           >
-                            РЎРєР°С‡Р°С‚СЊ С„Р°Р№Р»
+                            Скачать файл
                           </a>
                         </div>
                       )}
                       <p className={`mt-2 text-[11px] ${isStaff ? "text-white/65" : isBot ? "text-sky-600" : "text-slate-400"}`}>
-                        {authorLabel} В· {new Date(message.createdAt).toLocaleString()}
+                        {authorLabel} · {new Date(message.createdAt).toLocaleString()}
                       </p>
                       {isStaff && editingMessageId !== message.id && (
                         <button
@@ -3284,7 +3284,7 @@ function SupportPanelV2({
                           }}
                           className={`mt-2 text-[11px] font-black ${isStaff ? "text-white/75 hover:text-white" : "text-emerald-700"}`}
                         >
-                          Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ
+                          Редактировать
                         </button>
                       )}
                     </div>
@@ -3292,12 +3292,12 @@ function SupportPanelV2({
                 );
               })}
 
-              {dialog.length === 0 && <Empty text="РСЃС‚РѕСЂРёСЏ С‡Р°С‚Р° РїСѓСЃС‚Р°" />}
+              {dialog.length === 0 && <Empty text="История чата пуста" />}
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[auto_1fr_auto]">
               <label className="flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50">
-                РџСЂРёРєСЂРµРїРёС‚СЊ С„Р°Р№Р»
+                Прикрепить файл
                 <input
                   type="file"
                   className="hidden"
@@ -3307,7 +3307,7 @@ function SupportPanelV2({
               <div className="min-w-0">
                 <textarea
                   className={areaClass}
-                  placeholder="РћС‚РІРµС‚ РєР»РёРµРЅС‚Сѓ..."
+                  placeholder="Ответ клиенту..."
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(event) => {
@@ -3322,9 +3322,9 @@ function SupportPanelV2({
                     type="button"
                     onClick={() => setAttachment(null)}
                     className="mt-2 max-w-full truncate rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
-                    title="РЈР±СЂР°С‚СЊ С„Р°Р№Р»"
+                    title="Убрать файл"
                   >
-                    {attachment.name} Г—
+                    {attachment.name} ×
                   </button>
                 )}
               </div>
@@ -3332,7 +3332,7 @@ function SupportPanelV2({
                 onClick={onSend}
                 className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
               >
-                РћС‚РїСЂР°РІРёС‚СЊ
+                Отправить
               </button>
             </div>
           </div>
@@ -3357,7 +3357,7 @@ function ClientTimeline({
     {
       id: `created-${client.id}`,
       date: client.createdAt,
-      title: "Р РµРіРёСЃС‚СЂР°С†РёСЏ РєР»РёРµРЅС‚Р°",
+      title: "Регистрация клиента",
       text: client.email,
       tone: "bg-emerald-50 text-emerald-700",
     },
@@ -3366,8 +3366,8 @@ function ClientTimeline({
       .map((item) => ({
         id: `withdrawal-${item.id}`,
         date: item.createdAt,
-        title: `Р’С‹РІРѕРґ СЃСЂРµРґСЃС‚РІ: $${Number(item.amount).toFixed(2)}`,
-        text: `${withdrawalMethodLabel(item.method)} В· ${item.status}`,
+        title: `Вывод средств: $${Number(item.amount).toFixed(2)}`,
+        text: `${withdrawalMethodLabel(item.method)} · ${item.status}`,
         tone: "bg-yellow-50 text-yellow-700",
       })),
     ...trades
@@ -3376,21 +3376,21 @@ function ClientTimeline({
         id: `trade-${item.id}`,
         date: item.createdAt,
         title: `${item.side} ${item.symbol}`,
-        text: `РћР±СЉС‘Рј ${item.volume} В· Open ${item.openPrice} В· TP ${item.takeProfit ?? "-"} В· SL ${item.stopLoss ?? "-"}`,
+        text: `Объём ${item.volume} · Open ${item.openPrice} · TP ${item.takeProfit ?? "-"} · SL ${item.stopLoss ?? "-"}`,
         tone: item.side === "BUY" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700",
       })),
     ...(client.clientNotes || []).map((note) => ({
       id: `note-${note.id}`,
       date: note.createdAt,
-      title: `РљРѕРјРјРµРЅС‚Р°СЂРёР№: ${note.status}`,
+      title: `Комментарий: ${note.status}`,
       text: note.text,
       tone: "bg-blue-50 text-blue-700",
     })),
     ...(client.clientActions || []).map((action) => ({
       id: `action-${action.id}`,
       date: action.createdAt,
-      title: `Р”РµР№СЃС‚РІРёРµ: ${action.title}`,
-      text: `${action.status} В· СЃСЂРѕРє ${action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "-"}`,
+      title: `Действие: ${action.title}`,
+      text: `${action.status} · срок ${action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "-"}`,
       tone: "bg-slate-100 text-slate-700",
     })),
     ...documents
@@ -3398,14 +3398,14 @@ function ClientTimeline({
       .map((doc) => ({
         id: `doc-${doc.id}`,
         date: doc.createdAt,
-        title: `Р”РѕРєСѓРјРµРЅС‚: ${doc.documentType || "DOCUMENT"}`,
-        text: `${doc.fileName} В· ${doc.status}`,
+        title: `Документ: ${doc.documentType || "DOCUMENT"}`,
+        text: `${doc.fileName} · ${doc.status}`,
         tone: "bg-purple-50 text-purple-700",
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
-    <Panel title="Timeline РєР»РёРµРЅС‚Р°">
+    <Panel title="Timeline клиента">
       <div className="space-y-3">
         {events.slice(0, 12).map((event) => (
           <div key={event.id} className="flex gap-3 rounded-2xl border border-emerald-100 bg-white p-3">
@@ -3420,7 +3420,7 @@ function ClientTimeline({
           </div>
         ))}
 
-        {events.length === 0 && <Empty text="РЎРѕР±С‹С‚РёР№ РїРѕРєР° РЅРµС‚" />}
+        {events.length === 0 && <Empty text="Событий пока нет" />}
       </div>
     </Panel>
   );
@@ -3436,22 +3436,22 @@ function TradeTable({
   onUpdate: (tradeId: string, payload: TradeUpdatePayload) => void;
 }) {
   return (
-    <Panel title="РЎРґРµР»РєРё РєР»РёРµРЅС‚РѕРІ">
+    <Panel title="Сделки клиентов">
       <div className="overflow-x-auto">
         <table className="min-w-[1420px] w-full text-sm">
           <thead>
             <tr className="border-b border-emerald-100 text-left text-slate-500">
-              <th className="p-3">РљР»РёРµРЅС‚</th>
-              <th className="p-3">РЎРёРјРІРѕР»</th>
-              <th className="p-3">РЎС‚РѕСЂРѕРЅР°</th>
-              <th className="p-3">РћР±СЉС‘Рј</th>
+              <th className="p-3">Клиент</th>
+              <th className="p-3">Символ</th>
+              <th className="p-3">Сторона</th>
+              <th className="p-3">Объём</th>
               <th className="p-3">Open</th>
               <th className="p-3">TP</th>
               <th className="p-3">SL</th>
               <th className="p-3">Swap</th>
               <th className="p-3">Profit</th>
-              <th className="p-3">РљРѕРјРјРµРЅС‚Р°СЂРёР№</th>
-              <th className="p-3">Р”РµР№СЃС‚РІРёРµ</th>
+              <th className="p-3">Комментарий</th>
+              <th className="p-3">Действие</th>
             </tr>
           </thead>
           <tbody>
@@ -3464,14 +3464,14 @@ function TradeTable({
                   <td className={`p-3 font-bold ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="РћР±СЉС‘Рј" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} />
+                      <TradeEditInput label="Объём" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} />
                     ) : (
                       trade.volume
                     )}
                   </td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="Р¦РµРЅР° РѕС‚РєСЂС‹С‚РёСЏ" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} />
+                      <TradeEditInput label="Цена открытия" value={trade.openPrice} onCommit={(value) => onUpdate(trade.id, { openPrice: value ?? trade.openPrice })} />
                     ) : (
                       formatPrice(trade.symbol, trade.openPrice)
                     )}
@@ -3496,18 +3496,18 @@ function TradeTable({
                   </td>
                   <td className="p-3">
                     {isOpen ? (
-                      <TradeEditInput label="РЎРІРѕРї" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} />
+                      <TradeEditInput label="Своп" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} />
                     ) : (
                       trade.swap ?? 0
                     )}
                   </td>
-                  <td className="p-3">{trade.profit === null ? "-" : `в‚¬${Number(trade.profit).toFixed(2)}`}</td>
+                  <td className="p-3">{trade.profit === null ? "-" : `€${Number(trade.profit).toFixed(2)}`}</td>
                   <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
                   <td className="p-3">
                     {isOpen ? (
-                      <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Р—Р°РєСЂС‹С‚СЊ</button>
+                      <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Закрыть</button>
                     ) : (
-                      <span className="text-xs text-slate-400">Р—Р°РєСЂС‹С‚Р°</span>
+                      <span className="text-xs text-slate-400">Закрыта</span>
                     )}
                   </td>
                 </tr>
@@ -3598,18 +3598,18 @@ function WithdrawalsTable({
   onReject: (id: string) => void;
 }) {
   return (
-    <Panel title="Р—Р°СЏРІРєРё РЅР° РІС‹РІРѕРґ">
+    <Panel title="Заявки на вывод">
       <div className="overflow-x-auto">
         <table className="min-w-[980px] w-full text-sm">
           <thead>
             <tr className="border-b border-emerald-100 text-left text-slate-500">
-              <th className="p-3">РљР»РёРµРЅС‚</th>
-              <th className="p-3">РЎСѓРјРјР°</th>
-              <th className="p-3">РњРµС‚РѕРґ</th>
-              <th className="p-3">Р РµРєРІРёР·РёС‚С‹</th>
-              <th className="p-3">РЎС‚Р°С‚СѓСЃ</th>
-              <th className="p-3">Р”Р°С‚Р°</th>
-              <th className="p-3">Р”РµР№СЃС‚РІРёРµ</th>
+              <th className="p-3">Клиент</th>
+              <th className="p-3">Сумма</th>
+              <th className="p-3">Метод</th>
+              <th className="p-3">Реквизиты</th>
+              <th className="p-3">Статус</th>
+              <th className="p-3">Дата</th>
+              <th className="p-3">Действие</th>
             </tr>
           </thead>
 
@@ -3637,7 +3637,7 @@ function WithdrawalsTable({
 
                 <td className="p-3 min-w-[420px]">
   <WithdrawalDetails item={item} />
-  {item.adminComment && <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800">РљРѕРјРјРµРЅС‚Р°СЂРёР№: {item.adminComment}</p>}
+  {item.adminComment && <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800">Комментарий: {item.adminComment}</p>}
 </td>
 
                 <td className="p-3">
@@ -3675,7 +3675,7 @@ function WithdrawalsTable({
             {withdrawals.length === 0 && (
               <tr>
                 <td className="p-5 text-slate-500" colSpan={7}>
-                  Р—Р°СЏРІРѕРє РЅР° РІС‹РІРѕРґ РїРѕРєР° РЅРµС‚
+                  Заявок на вывод пока нет
                 </td>
               </tr>
             )}
@@ -3695,11 +3695,11 @@ function WithdrawalDetails({ item }: { item: Withdrawal }) {
           {details.cardHolder || "-"}
         </p>
         <p className="text-xs text-slate-500">
-  РќРѕРјРµСЂ РєР°СЂС‚С‹: {details.cardNumber || "-"}
+  Номер карты: {details.cardNumber || "-"}
 </p>
 
 <p className="text-xs text-slate-500">
-  РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ: {details.expiry || "-"}
+  Срок действия: {details.expiry || "-"}
 </p>
       </div>
     );
@@ -3727,11 +3727,11 @@ function WithdrawalDetails({ item }: { item: Withdrawal }) {
     </p>
 
     <p className="text-xs text-slate-500">
-      Р‘Р°РЅРє: {details.bankName || "-"}
+      Банк: {details.bankName || "-"}
     </p>
 
     <p className="text-xs text-slate-500">
-      РЎС‡С‘С‚: {details.accountNumber || "-"}
+      Счёт: {details.accountNumber || "-"}
     </p>
 
     <p className="text-xs text-slate-500">
@@ -3761,9 +3761,9 @@ function parseWithdrawalDetails(item: Withdrawal) {
 }
 
 function withdrawalMethodLabel(value: string) {
-  if (value === "CARD" || value === "Bank Card") return "РљР°СЂС‚Р°";
-  if (value === "CRYPTO" || value === "Crypto Wallet") return "РљСЂРёРїС‚Рѕ";
-  if (value === "BANK" || value === "Bank Account") return "Р‘Р°РЅРє";
+  if (value === "CARD" || value === "Bank Card") return "Карта";
+  if (value === "CRYPTO" || value === "Crypto Wallet") return "Крипто";
+  if (value === "BANK" || value === "Bank Account") return "Банк";
   return value;
 }
 
@@ -3771,13 +3771,13 @@ function maskCard(value: string) {
   const clean = value.replace(/\D/g, "");
 
   if (clean.length < 4) {
-    return "вЂўвЂўвЂўвЂў";
+    return "••••";
   }
 
-  return `вЂўвЂўвЂўвЂў ${clean.slice(-4)}`;
+  return `•••• ${clean.slice(-4)}`;
 }
 function KycTable({ documents, onReview }: { documents: VerificationDocument[]; onReview: (id: string, status: "APPROVED" | "REJECTED") => void }) {
-  return <Panel title="Р’РµСЂРёС„РёРєР°С†РёСЏ РєР»РёРµРЅС‚РѕРІ"><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead><tr className="border-b border-emerald-100 text-left text-slate-500"><th className="p-3">РљР»РёРµРЅС‚</th><th className="p-3">Р”РѕРєСѓРјРµРЅС‚</th><th className="p-3">Р¤Р°Р№Р»</th><th className="p-3">РЎС‚Р°С‚СѓСЃ</th><th className="p-3">Р”РµР№СЃС‚РІРёРµ</th></tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className="border-b border-emerald-50"><td className="p-3">{doc.user?.email}</td><td className="p-3">{doc.documentType || "DOCUMENT"}</td><td className="p-3"><div className="flex flex-col gap-2"><span className="break-all">{doc.fileName}</span><a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">РћС‚РєСЂС‹С‚СЊ</a></div></td><td className="p-3"><Badge value={doc.status} /></td><td className="p-3">{doc.status === "PENDING" ? <div className="flex gap-2"><button onClick={() => onReview(doc.id, "APPROVED")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button><button onClick={() => onReview(doc.id, "REJECTED")} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Reject</button></div> : <span className="text-xs text-slate-400">Reviewed</span>}</td></tr>)}</tbody></table></div></Panel>;
+  return <Panel title="Верификация клиентов"><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead><tr className="border-b border-emerald-100 text-left text-slate-500"><th className="p-3">Клиент</th><th className="p-3">Документ</th><th className="p-3">Файл</th><th className="p-3">Статус</th><th className="p-3">Действие</th></tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className="border-b border-emerald-50"><td className="p-3">{doc.user?.email}</td><td className="p-3">{doc.documentType || "DOCUMENT"}</td><td className="p-3"><div className="flex flex-col gap-2"><span className="break-all">{doc.fileName}</span><a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">Открыть</a></div></td><td className="p-3"><Badge value={doc.status} /></td><td className="p-3">{doc.status === "PENDING" ? <div className="flex gap-2"><button onClick={() => onReview(doc.id, "APPROVED")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button><button onClick={() => onReview(doc.id, "REJECTED")} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Reject</button></div> : <span className="text-xs text-slate-400">Reviewed</span>}</td></tr>)}</tbody></table></div></Panel>;
 }
 
 function toLocalDateTime(value: string) {
@@ -3785,4 +3785,6 @@ function toLocalDateTime(value: string) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+
 
