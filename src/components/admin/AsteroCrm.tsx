@@ -765,6 +765,54 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
+  async function updateWithdrawalRequisites(withdrawal: Withdrawal) {
+    const currentDetails = parseWithdrawalDetails(withdrawal) || {};
+    const currentMethod = String(currentDetails.type || withdrawal.method || "CARD").toUpperCase();
+    const method = prompt("Метод вывода: CARD, CRYPTO или BANK", currentMethod);
+    if (!method) return;
+
+    const normalizedMethod = method.trim().toUpperCase();
+    let details: Record<string, string> = { type: normalizedMethod };
+    let destination = withdrawal.destination || "";
+
+    if (normalizedMethod === "CARD") {
+      const cardHolder = prompt("Имя держателя карты", String(currentDetails.cardHolder || "")) ?? "";
+      const cardNumber = prompt("Номер карты", String(currentDetails.cardNumber || withdrawal.destination || "")) ?? "";
+      const expiry = prompt("Срок действия карты", String(currentDetails.expiry || "")) ?? "";
+      details = { type: "CARD", cardHolder, cardNumber, expiry };
+      destination = cardNumber;
+    } else if (normalizedMethod === "CRYPTO") {
+      const currency = prompt("Валюта/сеть", String(currentDetails.currency || "")) ?? "";
+      const wallet = prompt("Адрес кошелька", String(currentDetails.wallet || withdrawal.destination || "")) ?? "";
+      details = { type: "CRYPTO", currency, wallet };
+      destination = wallet;
+    } else if (normalizedMethod === "BANK") {
+      const beneficiary = prompt("Получатель", String(currentDetails.beneficiary || "")) ?? "";
+      const bankName = prompt("Банк", String(currentDetails.bankName || "")) ?? "";
+      const accountNumber = prompt("Номер счета / IBAN", String(currentDetails.accountNumber || withdrawal.destination || "")) ?? "";
+      const swift = prompt("SWIFT", String(currentDetails.swift || "")) ?? "";
+      details = { type: "BANK", beneficiary, bankName, accountNumber, swift };
+      destination = accountNumber;
+    } else {
+      destination = prompt("Реквизиты", withdrawal.destination || withdrawal.details || "") ?? "";
+      details = { type: normalizedMethod, text: destination };
+    }
+
+    const res = await fetch("/api/admin/withdrawals/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        withdrawalId: withdrawal.id,
+        method: normalizedMethod,
+        destination,
+        details,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Ошибка сохранения реквизитов");
+    await loadAdminData();
+  }
+
   async function approveDeposit(depositId: string) {
     const res = await fetch("/api/admin/deposits/approve", {
       method: "PATCH",
@@ -1344,7 +1392,7 @@ export default function AsteroCrm() {
           <TradingOperationsDesk clients={filteredClients} trades={trades.filter((trade) => !clientSearch.trim() || (trade.user.id && searchedClientIds.has(trade.user.id)))} onClose={closeClientTrade} onUpdate={updateClientTrade} />
         )}
         {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />}
-        {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals.filter((item) => !clientSearch.trim() || (item.user.id && searchedClientIds.has(item.user.id)))} onApprove={approveWithdrawal} onReject={rejectWithdrawal} />}
+        {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals.filter((item) => !clientSearch.trim() || (item.user.id && searchedClientIds.has(item.user.id)))} onApprove={approveWithdrawal} onReject={rejectWithdrawal} onEditRequisites={updateWithdrawalRequisites} />}
         {activeTab === "verification" && <KycTable documents={verificationDocuments.filter((doc) => !clientSearch.trim() || (doc.user?.id && searchedClientIds.has(doc.user.id)))} onReview={reviewDocument} />}
         {activeTab === "support" && (
           <SupportPanelV2
@@ -3681,10 +3729,12 @@ function WithdrawalsTable({
   withdrawals,
   onApprove,
   onReject,
+  onEditRequisites,
 }: {
   withdrawals: Withdrawal[];
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onEditRequisites: (withdrawal: Withdrawal) => void;
 }) {
   return (
     <Panel title="Заявки на вывод">
@@ -3738,8 +3788,16 @@ function WithdrawalsTable({
                 </td>
 
                 <td className="p-3">
-                  {item.status === "PENDING" ? (
-                    <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => onEditRequisites(item)}
+                      className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Реквизиты
+                    </button>
+
+                    {item.status === "PENDING" ? (
+                      <>
                       <button
                         onClick={() => onApprove(item.id)}
                         className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
@@ -3753,10 +3811,11 @@ function WithdrawalsTable({
                       >
                         Reject
                       </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400">Processed</span>
-                  )}
+                      </>
+                    ) : (
+                      <span className="self-center text-xs text-slate-400">Processed</span>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
