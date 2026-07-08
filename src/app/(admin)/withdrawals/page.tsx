@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -375,7 +375,60 @@ export default function WithdrawalsPage() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-3 md:hidden">
+            {loading && (
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/[0.03]">
+                {isRu ? "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430..." : "Loading..."}
+              </div>
+            )}
+
+            {!loading && withdrawals.length === 0 && (
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-10 text-center text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/[0.03]">
+                {isRu ? "\u0417\u0430\u044f\u0432\u043e\u043a \u043d\u0430 \u0432\u044b\u0432\u043e\u0434 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442" : "No withdrawal requests yet"}
+              </div>
+            )}
+
+            {!loading &&
+              withdrawals.map((item) => (
+                <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{isRu ? "\u0421\u0443\u043c\u043c\u0430" : "Amount"}</p>
+                      <p className="break-words text-lg font-black text-slate-950 dark:text-white">&euro;{Number(item.amount).toFixed(2)}</p>
+                    </div>
+                    <StatusBadge status={item.status} isRu={isRu} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <MobileHistoryRow
+                      label={isRu ? "\u0421\u043f\u043e\u0441\u043e\u0431" : "Method"}
+                      value={
+                        <span className="inline-flex items-center gap-2">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            {methodSmallIcon(item.method)}
+                          </span>
+                          {methodLabel(item.method, isRu)}
+                        </span>
+                      }
+                    />
+                    <MobileHistoryRow label={isRu ? "\u0414\u0430\u0442\u0430" : "Date"} value={new Date(item.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")} />
+                    <div className="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+                      <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-slate-400">{isRu ? "\u0420\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b" : "Details"}</p>
+                      <div className="break-words text-xs leading-relaxed text-slate-700 dark:text-slate-200">
+                        <WithdrawalRequisites item={item} isRu={isRu} />
+                      </div>
+                    </div>
+                    {item.adminComment && (
+                      <div className="rounded-lg bg-emerald-50 p-3 text-xs font-bold leading-relaxed text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        {isRu ? "\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439" : "Comment"}: {item.adminComment}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[920px] text-xs sm:text-[13px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
@@ -438,6 +491,21 @@ export default function WithdrawalsPage() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function MobileHistoryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+      <span className="shrink-0 text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</span>
+      <span className="min-w-0 break-words text-right text-xs font-bold leading-relaxed text-slate-700 dark:text-slate-200">{value}</span>
     </div>
   );
 }
