@@ -951,6 +951,20 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
+  async function deleteAction(actionId: string) {
+    if (!window.confirm("Удалить действие?")) return;
+
+    const res = await fetch("/api/admin/client-actions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actionId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) return alert(data.error || "Ошибка удаления действия");
+    await loadAdminData();
+  }
+
   async function sendSupportMessage() {
     if (!supportClientId || (!supportText.trim() && !supportAttachment)) {
       return alert("Выберите клиента и введите сообщение");
@@ -1213,7 +1227,7 @@ export default function AsteroCrm() {
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <Panel title="Ближайшие действия">
-                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onOpenClient={openClientCard} showClient />
+                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onDelete={deleteAction} onOpenClient={openClientCard} showClient />
               </Panel>
               <Panel title="Финансы и верификация">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1319,6 +1333,7 @@ export default function AsteroCrm() {
             setActionForm={setActionForm}
             addAction={addAction}
             updateAction={updateAction}
+            deleteAction={deleteAction}
             noteText={noteText}
             setNoteText={setNoteText}
             noteStatus={noteStatus}
@@ -1350,7 +1365,7 @@ export default function AsteroCrm() {
                 </button>
               ))}
             </div>
-            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onOpenClient={openClientCard} showClient />
+            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} onOpenClient={openClientCard} showClient />
           </Panel>
         )}
 
@@ -1757,6 +1772,7 @@ function ClientProfileUtip({
   setActionForm,
   addAction,
   updateAction,
+  deleteAction,
   noteText,
   setNoteText,
   noteStatus,
@@ -1794,6 +1810,7 @@ function ClientProfileUtip({
   setActionForm: (value: { title: string; description: string; dueAt: string; reminderMinutes: string; status: string; managerId: string }) => void;
   addAction: () => void;
   updateAction: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string; reminderMinutes: number | null }>) => void;
+  deleteAction: (id: string) => void;
   noteText: string;
   setNoteText: (value: string) => void;
   noteStatus: string;
@@ -2133,7 +2150,7 @@ function ClientProfileUtip({
             <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
           </div>
           <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
-          <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} />
+          <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} />
         </Panel>}
 
         {clientSection === "overview" && <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />}
@@ -2511,10 +2528,12 @@ function UtipActionsTable({
   actions,
   managers,
   onUpdate,
+  onDelete,
 }: {
   actions: (ClientAction & { client?: User })[];
   managers: User[];
   onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string; reminderMinutes: number | null }>) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -2561,7 +2580,10 @@ function UtipActionsTable({
                 </select>
               </td>
               <td className="px-3 py-2 text-right">
-                <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-4 py-2 font-black text-white">Закрыть</button>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-3 py-2 font-black text-white">Закрыть</button>
+                  <button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-3 py-2 font-black text-red-700 hover:bg-red-100">Удалить</button>
+                </div>
               </td>
             </tr>
           ))}
@@ -2670,8 +2692,8 @@ function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (i
   return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
-function ActionList({ actions, onUpdate, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1050px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
+function ActionList({ actions, onUpdate, onDelete, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
 }
 
 function TradingOperationsDesk({

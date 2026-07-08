@@ -91,3 +91,48 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    await ensureCrmSchema();
+    const { actionId } = await req.json();
+
+    if (!actionId) {
+      return Response.json(
+        { error: "Missing actionId" },
+        { status: 400 }
+      );
+    }
+
+    const action = await prisma.clientAction.findUnique({
+      where: {
+        id: actionId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!action) {
+      return Response.json(
+        { error: "Action not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.clientAction.delete({
+      where: {
+        id: actionId,
+      },
+    });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("Client action delete error:", error);
+
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
+}
