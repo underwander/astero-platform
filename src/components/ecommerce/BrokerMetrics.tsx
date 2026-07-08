@@ -99,23 +99,22 @@ function TerminalCard({ openLabel, terminalLabel }: { openLabel: string; termina
   return (
     <Link
       href="/terminal"
-      className="group relative flex min-h-28 items-center justify-center overflow-hidden rounded-lg border border-emerald-300/20 bg-[#0b1d16]/80 p-4 text-center text-white shadow-[0_18px_55px_rgba(3,44,28,0.18)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-[#0c251b]/88 hover:shadow-[0_24px_70px_rgba(16,185,129,0.22)] focus:outline-none focus:ring-4 focus:ring-emerald-300/25 sm:min-h-32"
+      className="group relative flex min-h-32 items-center justify-center overflow-hidden rounded-xl border border-emerald-200/50 bg-gradient-to-br from-[#0f5132] via-[#159447] to-[#47d77f] p-5 text-center text-white shadow-lg shadow-emerald-950/15 transition hover:-translate-y-0.5 hover:border-white/70 hover:shadow-xl hover:shadow-emerald-950/25 focus:outline-none focus:ring-4 focus:ring-emerald-300/40"
     >
-      <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(255,255,255,0.08),rgba(255,255,255,0.015)_42%,rgba(45,212,156,0.12))]" />
-      <div className="absolute -right-7 top-0 h-full w-24 bg-emerald-300/18 blur-2xl transition group-hover:bg-emerald-300/28" />
-      <div className="absolute inset-y-0 right-12 w-20 opacity-45 [background:repeating-linear-gradient(90deg,transparent_0_13px,rgba(52,211,153,0.2)_13px_16px)]" />
-      <div className="absolute right-3 top-3 rounded-full border border-emerald-200/20 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100 shadow-sm backdrop-blur transition group-hover:bg-white/10">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_45%,rgba(0,0,0,0.12))]" />
+      <div className="absolute right-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-sm transition group-hover:bg-white/30">
         {openLabel}
       </div>
+      <div className="absolute bottom-3 left-4 right-4 h-px bg-white/25" />
       <div className="relative z-10 flex flex-col items-center gap-2">
-        <span className="flex size-10 items-center justify-center rounded-full border border-emerald-200/20 bg-emerald-300/10 text-emerald-200 shadow-inner shadow-white/5 transition group-hover:scale-105 group-hover:bg-emerald-300/18 sm:size-11">
+        <span className="flex size-11 items-center justify-center rounded-full bg-white/18 shadow-inner shadow-white/10 transition group-hover:scale-105 group-hover:bg-white/25">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 18H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             <path d="M7 15V9M12 15V5M17 15V11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             <path d="M6 11H8M11 8H13M16 13H18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </span>
-        <p className="text-sm font-black uppercase tracking-[0.14em] text-emerald-200 drop-shadow-sm sm:text-base">{terminalLabel}</p>
+        <p className="text-lg font-black tracking-wide text-white drop-shadow-sm">{terminalLabel}</p>
       </div>
     </Link>
   );
@@ -123,13 +122,11 @@ function TerminalCard({ openLabel, terminalLabel }: { openLabel: string; termina
 
 function AccountCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
   return (
-    <div className="relative min-h-28 overflow-hidden rounded-lg border border-emerald-300/20 bg-[#0b1d16]/80 p-4 text-white shadow-[0_18px_55px_rgba(3,44,28,0.18)] backdrop-blur-xl sm:min-h-32">
-      <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(255,255,255,0.08),rgba(255,255,255,0.015)_42%,rgba(45,212,156,0.12))]" />
-      <div className="absolute -right-7 top-0 h-full w-24 bg-emerald-300/18 blur-2xl" />
-      <div className="absolute inset-y-0 right-12 w-20 opacity-45 [background:repeating-linear-gradient(90deg,transparent_0_13px,rgba(52,211,153,0.2)_13px_16px)]" />
-      <div className="relative flex h-full flex-col justify-center">
-        <p className="break-words text-lg font-black leading-tight text-emerald-300 drop-shadow-[0_0_14px_rgba(52,211,153,0.25)] sm:text-xl">{loading ? "..." : value}</p>
-        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-50/55">{label}</p>
+    <div className="relative min-h-32 overflow-hidden rounded-xl border border-emerald-200/30 bg-gradient-to-br from-[#0f5132] via-[#15803d] to-[#37c871] p-4 text-white shadow-lg shadow-emerald-950/15">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_42%,rgba(0,0,0,0.18))]" />
+      <div className="relative flex h-full flex-col justify-between">
+        <p className="text-xs font-black uppercase tracking-[0.08em] text-white/90 drop-shadow-sm">{label}</p>
+        <p className="mt-5 break-words text-xl font-black leading-tight text-white drop-shadow-sm sm:text-2xl">{loading ? "..." : value}</p>
       </div>
     </div>
   );
