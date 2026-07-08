@@ -1335,6 +1335,7 @@ export default function AsteroCrm() {
             onApproveDeposit={approveDeposit}
             onRejectDeposit={rejectDeposit}
             onUpdateDepositDate={updateDepositDate}
+            onEditWithdrawalRequisites={updateWithdrawalRequisites}
             onUpdateUser={updateUser}
             onDeleteClient={(client) => deleteUser(client.id, client.email)}
           />
@@ -1772,6 +1773,7 @@ function ClientProfileUtip({
   onApproveDeposit,
   onRejectDeposit,
   onUpdateDepositDate,
+  onEditWithdrawalRequisites,
   onUpdateUser,
   onDeleteClient,
 }: {
@@ -1808,6 +1810,7 @@ function ClientProfileUtip({
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
   onUpdateDepositDate: (depositId: string, createdAt: string) => void;
+  onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
   onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
   onDeleteClient: (client: User) => void;
 }) {
@@ -2065,6 +2068,7 @@ function ClientProfileUtip({
               onApproveDeposit={onApproveDeposit}
               onRejectDeposit={onRejectDeposit}
               onUpdateDepositDate={onUpdateDepositDate}
+              onEditWithdrawalRequisites={onEditWithdrawalRequisites}
             />
           )}
         </div>
@@ -2150,6 +2154,7 @@ function ClientUtipSection({
   onApproveDeposit,
   onRejectDeposit,
   onUpdateDepositDate,
+  onEditWithdrawalRequisites,
 }: {
   section: "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing";
   client: User;
@@ -2163,6 +2168,7 @@ function ClientUtipSection({
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
   onUpdateDepositDate: (depositId: string, createdAt: string) => void;
+  onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
 }) {
   const accountNumber = clientDisplayNumber(client);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
@@ -2387,7 +2393,9 @@ function ClientUtipSection({
             <UtipTh>Тип</UtipTh>
             <UtipTh>Счет</UtipTh>
             <UtipTh>Сумма</UtipTh>
+            <UtipTh>Реквизиты</UtipTh>
             <UtipTh>Статус</UtipTh>
+            <UtipTh>Действие</UtipTh>
           </tr>
         </thead>
         <tbody>
@@ -2398,10 +2406,20 @@ function ClientUtipSection({
               <UtipTd>Вывод</UtipTd>
               <UtipTd>{accountNumber}</UtipTd>
               <UtipTd>${Number(withdrawal.amount).toFixed(2)}</UtipTd>
+              <UtipTd><WithdrawalDetails item={withdrawal} /></UtipTd>
               <UtipTd><Badge value={withdrawal.status} /></UtipTd>
+              <UtipTd>
+                <button
+                  type="button"
+                  onClick={() => onEditWithdrawalRequisites(withdrawal)}
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                >
+                  Реквизиты
+                </button>
+              </UtipTd>
             </tr>
           ))}
-          {withdrawals.length === 0 && <UtipEmptyRow colSpan={6} text="Заявок пока нет" />}
+          {withdrawals.length === 0 && <UtipEmptyRow colSpan={8} text="Заявок пока нет" />}
         </tbody>
       </UtipTable>
     );
