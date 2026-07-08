@@ -376,7 +376,7 @@ export default function WithdrawalsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[620px] w-full text-sm">
+            <table className="w-full min-w-[920px] text-xs sm:text-[13px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
                   <th className="px-4 py-3">{isRu ? "Сумма" : "Amount"}</th>
@@ -406,18 +406,18 @@ export default function WithdrawalsPage() {
                 {!loading &&
                   withdrawals.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 last:border-0 dark:border-white/10">
-                      <td className="px-4 py-4 font-black text-slate-950 dark:text-white">
+                      <td className="whitespace-nowrap px-3 py-3 font-black text-slate-950 dark:text-white sm:px-4">
                         €{Number(item.amount).toFixed(2)}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="whitespace-nowrap px-3 py-3 sm:px-4">
                         <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
-                          <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                             {methodSmallIcon(item.method)}
                           </span>
                           {methodLabel(item.method, isRu)}
                         </div>
                       </td>
-                      <td className="max-w-[360px] px-4 py-4">
+                      <td className="w-[50%] min-w-[430px] px-3 py-3 sm:px-4">
                         <WithdrawalRequisites item={item} isRu={isRu} />
                         {item.adminComment && (
                           <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
@@ -425,10 +425,10 @@ export default function WithdrawalsPage() {
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="whitespace-nowrap px-3 py-3 sm:px-4">
                         <StatusBadge status={item.status} isRu={isRu} />
                       </td>
-                      <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-500 dark:text-slate-400 sm:px-4">
                         {new Date(item.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")}
                       </td>
                     </tr>
@@ -575,9 +575,9 @@ function parseWithdrawalDetails(item: Withdrawal) {
 
 function DetailLine({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="grid gap-1 text-xs sm:grid-cols-[92px_minmax(0,1fr)]">
-      <span className="font-black uppercase text-slate-400">{label}</span>
-      <span className="break-all font-semibold text-slate-700 dark:text-slate-300">{value || "-"}</span>
+    <div className="flex min-w-0 items-start gap-2 leading-snug">
+      <span className="w-20 shrink-0 text-[10px] font-black uppercase text-slate-400 sm:w-24">{label}</span>
+      <span className="min-w-0 flex-1 break-words text-[11px] font-semibold text-slate-700 dark:text-slate-300 sm:text-xs">{value || "-"}</span>
     </div>
   );
 }
@@ -587,7 +587,7 @@ function WithdrawalRequisites({ item, isRu }: { item: Withdrawal; isRu: boolean 
 
   if (details?.type === "CARD") {
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/60 p-2 dark:border-white/10 dark:bg-white/[0.03]">
         <DetailLine label={isRu ? "Держатель" : "Holder"} value={details.cardHolder} />
         <DetailLine label={isRu ? "Карта" : "Card"} value={details.cardNumber || item.destination} />
         <DetailLine label={isRu ? "Срок" : "Expiry"} value={details.expiry} />
@@ -597,7 +597,7 @@ function WithdrawalRequisites({ item, isRu }: { item: Withdrawal; isRu: boolean 
 
   if (details?.type === "CRYPTO") {
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/60 p-2 dark:border-white/10 dark:bg-white/[0.03]">
         <DetailLine label={isRu ? "Валюта" : "Currency"} value={details.currency} />
         <DetailLine label={isRu ? "Кошелек" : "Wallet"} value={details.wallet || item.destination} />
       </div>
@@ -606,7 +606,7 @@ function WithdrawalRequisites({ item, isRu }: { item: Withdrawal; isRu: boolean 
 
   if (details?.type === "BANK") {
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/60 p-2 dark:border-white/10 dark:bg-white/[0.03]">
         <DetailLine label={isRu ? "Получатель" : "Beneficiary"} value={details.beneficiary} />
         <DetailLine label={isRu ? "Банк" : "Bank"} value={details.bankName} />
         <DetailLine label="IBAN" value={details.accountNumber || item.destination} />
@@ -616,7 +616,7 @@ function WithdrawalRequisites({ item, isRu }: { item: Withdrawal; isRu: boolean 
   }
 
   return (
-    <p className="break-all font-semibold text-slate-700 dark:text-slate-300">
+    <p className="rounded-lg border border-slate-100 bg-slate-50/60 p-2 text-[11px] font-semibold leading-snug text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 sm:text-xs">
       {item.destination || item.details || "-"}
     </p>
   );
