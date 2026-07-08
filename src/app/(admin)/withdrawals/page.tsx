@@ -418,7 +418,7 @@ export default function WithdrawalsPage() {
                         </div>
                       </td>
                       <td className="max-w-[360px] px-4 py-4">
-                        <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{formatDestination(item)}</p>
+                        <WithdrawalRequisites item={item} isRu={isRu} />
                         {item.adminComment && (
                           <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
                             {isRu ? "Комментарий" : "Comment"}: {item.adminComment}
@@ -561,34 +561,65 @@ function statusLabel(value: string, isRu: boolean) {
   return value;
 }
 
-function formatDestination(item: Withdrawal) {
-  if (item.destination) {
-    return item.destination;
-  }
-
+function parseWithdrawalDetails(item: Withdrawal) {
   if (!item.details) {
-    return "-";
+    return null;
   }
 
   try {
-    const details = JSON.parse(item.details);
-
-    if (details.type === "CARD") {
-      return `${details.cardHolder || "-"} - ${maskCard(details.cardNumber || "")}`;
-    }
-
-    if (details.type === "CRYPTO") {
-      return `${details.currency || "-"} - ${shorten(details.wallet || "")}`;
-    }
-
-    if (details.type === "BANK") {
-      return `${details.beneficiary || "-"} - ${details.bankName || "-"} - ${details.accountNumber || "-"}`;
-    }
-
-    return "-";
+    return JSON.parse(item.details);
   } catch {
-    return item.details;
+    return null;
   }
+}
+
+function DetailLine({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="grid gap-1 text-xs sm:grid-cols-[92px_minmax(0,1fr)]">
+      <span className="font-black uppercase text-slate-400">{label}</span>
+      <span className="break-all font-semibold text-slate-700 dark:text-slate-300">{value || "-"}</span>
+    </div>
+  );
+}
+
+function WithdrawalRequisites({ item, isRu }: { item: Withdrawal; isRu: boolean }) {
+  const details = parseWithdrawalDetails(item);
+
+  if (details?.type === "CARD") {
+    return (
+      <div className="space-y-1.5">
+        <DetailLine label={isRu ? "Держатель" : "Holder"} value={details.cardHolder} />
+        <DetailLine label={isRu ? "Карта" : "Card"} value={details.cardNumber || item.destination} />
+        <DetailLine label={isRu ? "Срок" : "Expiry"} value={details.expiry} />
+      </div>
+    );
+  }
+
+  if (details?.type === "CRYPTO") {
+    return (
+      <div className="space-y-1.5">
+        <DetailLine label={isRu ? "Валюта" : "Currency"} value={details.currency} />
+        <DetailLine label={isRu ? "Кошелек" : "Wallet"} value={details.wallet || item.destination} />
+      </div>
+    );
+  }
+
+  if (details?.type === "BANK") {
+    return (
+      <div className="space-y-1.5">
+        <DetailLine label={isRu ? "Получатель" : "Beneficiary"} value={details.beneficiary} />
+        <DetailLine label={isRu ? "Банк" : "Bank"} value={details.bankName} />
+        <DetailLine label="IBAN" value={details.accountNumber || item.destination} />
+        <DetailLine label="SWIFT" value={details.swift} />
+      </div>
+    );
+  }
+
+  return (
+    <p className="break-all font-semibold text-slate-700 dark:text-slate-300">
+      {item.destination || item.details || "-"}
+    </p>
+  );
 }
 
 function CardIcon() {
