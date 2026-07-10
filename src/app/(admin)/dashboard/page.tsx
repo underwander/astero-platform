@@ -7,7 +7,7 @@ import ProfitCalculator from "@/components/broker/ProfitCalculator";
 import TraderNews from "@/components/broker/TraderNews";
 import TransferHistory from "@/components/broker/TransferHistory";
 import AnnouncementsBoard from "@/components/broker/AnnouncementsBoard";
-import LegalDocumentsLinks from "@/components/broker/LegalDocumentsLinks";
+import LegalDocumentsPanel from "@/components/broker/LegalDocumentsPanel";
 import DashboardTitle from "@/components/broker/DashboardTitle";
 import ProtectedPage from "@/components/auth/ProtectedPage";
 
@@ -30,7 +30,7 @@ export default function DashboardPage() {
         <AnnouncementsBoard />
         <MarketWatch compact />
         <TraderNews />
-        <LegalDocumentsLinks />
+        <LegalDocumentsPanel />
       </div>
     </ProtectedPage>
   );

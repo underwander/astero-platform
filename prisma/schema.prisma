@@ -84,6 +84,7 @@ model Deposit {
   method    String?
   status    String   @default("PENDING")
   details   String?
+  adminComment String?
   createdAt DateTime @default(now())
 
   userId String

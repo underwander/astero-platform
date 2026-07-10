@@ -160,6 +160,7 @@ type Deposit = {
   method?: string | null;
   status: string;
   details?: string | null;
+  adminComment?: string | null;
   createdAt: string;
   user: {
     id?: string;
@@ -1016,14 +1017,17 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
-  async function updateDepositDate(depositId: string, createdAt: string) {
+  async function updateDeposit(depositId: string, payload: Partial<{ createdAt: string; adminComment: string }>) {
+    const nextPayload = payload.createdAt
+      ? { ...payload, createdAt: new Date(payload.createdAt).toISOString() }
+      : payload;
     const res = await fetch("/api/admin/deposits/update", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ depositId, createdAt: new Date(createdAt).toISOString() }),
+      body: JSON.stringify({ depositId, ...nextPayload }),
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok) return alert(data?.error || "Ошибка изменения даты депозита");
+    if (!res.ok) return alert(data?.error || "Ошибка изменения депозита");
     await loadAdminData();
   }
 
@@ -1349,7 +1353,7 @@ export default function AsteroCrm() {
             onUpdateTrade={updateClientTrade}
             onApproveDeposit={approveDeposit}
             onRejectDeposit={rejectDeposit}
-            onUpdateDepositDate={updateDepositDate}
+            onUpdateDeposit={updateDeposit}
             onEditWithdrawalRequisites={updateWithdrawalRequisites}
             onUpdateUser={updateUser}
             onDeleteClient={(client) => deleteUser(client.id, client.email)}
@@ -1788,7 +1792,7 @@ function ClientProfileUtip({
   onUpdateTrade,
   onApproveDeposit,
   onRejectDeposit,
-  onUpdateDepositDate,
+  onUpdateDeposit,
   onEditWithdrawalRequisites,
   onUpdateUser,
   onDeleteClient,
@@ -1826,7 +1830,7 @@ function ClientProfileUtip({
   onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
-  onUpdateDepositDate: (depositId: string, createdAt: string) => void;
+  onUpdateDeposit: (depositId: string, payload: Partial<{ createdAt: string; adminComment: string }>) => void;
   onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
   onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
   onDeleteClient: (client: User) => void;
@@ -2084,7 +2088,7 @@ function ClientProfileUtip({
               onUpdateTrade={onUpdateTrade}
               onApproveDeposit={onApproveDeposit}
               onRejectDeposit={onRejectDeposit}
-              onUpdateDepositDate={onUpdateDepositDate}
+              onUpdateDeposit={onUpdateDeposit}
               onEditWithdrawalRequisites={onEditWithdrawalRequisites}
             />
           )}
@@ -2170,7 +2174,7 @@ function ClientUtipSection({
   onUpdateTrade,
   onApproveDeposit,
   onRejectDeposit,
-  onUpdateDepositDate,
+  onUpdateDeposit,
   onEditWithdrawalRequisites,
 }: {
   section: "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing";
@@ -2184,7 +2188,7 @@ function ClientUtipSection({
   onUpdateTrade: (tradeId: string, payload: TradeUpdatePayload) => void;
   onApproveDeposit: (depositId: string) => void;
   onRejectDeposit: (depositId: string) => void;
-  onUpdateDepositDate: (depositId: string, createdAt: string) => void;
+  onUpdateDeposit: (depositId: string, payload: Partial<{ createdAt: string; adminComment: string }>) => void;
   onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
 }) {
   const accountNumber = clientDisplayNumber(client);
@@ -2330,6 +2334,7 @@ function ClientUtipSection({
             <UtipTh>Дата</UtipTh>
             <UtipTh>Сумма</UtipTh>
             <UtipTh>Метод</UtipTh>
+            <UtipTh>Комментарий</UtipTh>
             <UtipTh>Статус</UtipTh>
             <UtipTh>Действие</UtipTh>
           </tr>
@@ -2338,9 +2343,17 @@ function ClientUtipSection({
           {deposits.map((deposit) => (
             <tr key={deposit.id} className="border-b border-slate-100">
               <UtipTd>{accountNumber}</UtipTd>
-              <UtipTd><input type="datetime-local" className="h-9 rounded border border-slate-200 px-2 text-xs" defaultValue={toLocalDateTime(deposit.createdAt)} onBlur={(event) => event.target.value && onUpdateDepositDate(deposit.id, event.target.value)} /></UtipTd>
+              <UtipTd><input type="datetime-local" className="h-9 rounded border border-slate-200 px-2 text-xs" defaultValue={toLocalDateTime(deposit.createdAt)} onBlur={(event) => event.target.value && onUpdateDeposit(deposit.id, { createdAt: event.target.value })} /></UtipTd>
               <UtipTd>${Number(deposit.amount).toFixed(2)}</UtipTd>
               <UtipTd>{deposit.method || "-"}</UtipTd>
+              <UtipTd>
+                <textarea
+                  className="min-h-16 w-56 rounded border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-emerald-400"
+                  defaultValue={deposit.adminComment || ""}
+                  placeholder="Комментарий к депозиту"
+                  onBlur={(event) => event.target.value !== (deposit.adminComment || "") && onUpdateDeposit(deposit.id, { adminComment: event.target.value })}
+                />
+              </UtipTd>
               <UtipTd><Badge value={deposit.status} /></UtipTd>
               <UtipTd>
                 {deposit.status === "PENDING" ? (
@@ -2366,7 +2379,7 @@ function ClientUtipSection({
               </UtipTd>
             </tr>
           ))}
-          {deposits.length === 0 && <UtipEmptyRow colSpan={6} text="Пополнений пока нет" />}
+          {deposits.length === 0 && <UtipEmptyRow colSpan={7} text="Пополнений пока нет" />}
         </tbody>
       </UtipTable>
     );
@@ -2554,9 +2567,9 @@ function UtipActionsTable({
           {actions.map((action) => (
             <tr key={action.id} className="border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50">
               <td className="px-3 py-2"><input type="datetime-local" className="h-10 rounded border border-slate-200 px-3" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
-              <td className="px-3 py-2"><input className="h-10 w-44 rounded border border-slate-200 px-3 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
+              <td className="px-3 py-2"><input title={action.title} className="h-10 w-44 rounded border border-slate-200 px-3 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
               <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
-              <td className="px-3 py-2"><input className="h-10 w-64 rounded border border-slate-200 px-3" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
+              <td className="px-3 py-2"><input title={action.description || ""} className="h-10 w-64 rounded border border-slate-200 px-3" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
               <td className="px-3 py-2">
                 <select className="h-10 w-40 rounded border border-slate-200 px-3 text-sm" value={action.reminderMinutes ? String(action.reminderMinutes) : ""} onChange={(event) => onUpdate(action.id, { reminderMinutes: event.target.value ? Number(event.target.value) : null })}>
                   <option value="">Нет</option>
@@ -2693,7 +2706,7 @@ function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (i
 }
 
 function ActionList({ actions, onUpdate, onDelete, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
 }
 
 function TradingOperationsDesk({
