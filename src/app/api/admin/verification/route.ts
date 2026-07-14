@@ -48,3 +48,55 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { documentId } = await req.json();
+
+    if (!documentId) {
+      return Response.json(
+        { error: "Missing documentId" },
+        { status: 400 }
+      );
+    }
+
+    const deletedDocument = await prisma.verificationDocument.delete({
+      where: {
+        id: documentId,
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    const latestDocument = await prisma.verificationDocument.findFirst({
+      where: {
+        userId: deletedDocument.userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        status: true,
+      },
+    });
+
+    await prisma.user.update({
+      where: {
+        id: deletedDocument.userId,
+      },
+      data: {
+        kycStatus: latestDocument?.status || "PENDING",
+      },
+    });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("Verification delete error:", error);
+
+    return Response.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
+}

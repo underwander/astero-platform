@@ -268,6 +268,8 @@ export default function AsteroCrm() {
   const [now, setNow] = useState(() => Date.now());
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientSearch, setClientSearch] = useState(() => readSessionValue("astero.crm.clientSearch"));
+  const [managerFilterId, setManagerFilterId] = useState(() => readSessionValue("astero.crm.managerFilter", "all"));
+  const [currentAdminEmail, setCurrentAdminEmail] = useState("");
   const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
   const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("0");
@@ -285,7 +287,7 @@ export default function AsteroCrm() {
   });
   const [newClient, setNewClient] = useState({
     email: "",
-    password: "123456",
+    password: "Ww123456",
     firstName: "",
     lastName: "",
     phone: "",
@@ -358,7 +360,12 @@ export default function AsteroCrm() {
     if (!options.silent) setLoading(true);
     const role = localStorage.getItem("role") || "";
     const currentUserId = localStorage.getItem("userId") || "";
-    const res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}`, { cache: "no-store" });
+    const currentEmail = localStorage.getItem("email") || "";
+    const isMainAdmin = role === "ADMIN" && currentEmail === "test6@test.com";
+    const activeManagerFilter = isMainAdmin ? managerFilterId : "all";
+    const managerQuery = activeManagerFilter !== "all" ? `&managerId=${encodeURIComponent(activeManagerFilter)}` : "";
+    setCurrentAdminEmail(currentEmail);
+    const res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}${managerQuery}`, { cache: "no-store" });
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
     const supportPayload = await supportRes.json().catch(() => null);
@@ -386,6 +393,8 @@ export default function AsteroCrm() {
     const visibleClients =
       role === "MANAGER" && currentUserId
         ? allClients.filter((client) => client.managerId === currentUserId)
+        : isMainAdmin && activeManagerFilter !== "all"
+          ? allClients.filter((client) => client.managerId === activeManagerFilter)
         : allClients;
 
     setUsers(allUsers);
@@ -424,6 +433,8 @@ export default function AsteroCrm() {
     setVerificationDocuments(
       role === "MANAGER" && currentUserId
         ? allVerificationDocs.filter((doc) => doc.user?.managerId === currentUserId)
+        : isMainAdmin && activeManagerFilter !== "all"
+          ? allVerificationDocs.filter((doc) => doc.user?.managerId === activeManagerFilter)
         : allVerificationDocs
     );
 
@@ -440,6 +451,11 @@ export default function AsteroCrm() {
             const client = allClients.find((client) => client.id === item.userId);
             return client?.managerId === currentUserId;
           })
+        : isMainAdmin && activeManagerFilter !== "all"
+          ? allSupportMessages.filter((item: SupportMessage) => {
+              const client = allClients.find((client) => client.id === item.userId);
+              return client?.managerId === activeManagerFilter;
+            })
         : allSupportMessages;
 
     const visibleSupportConversations: SupportConversation[] =
@@ -448,6 +464,11 @@ export default function AsteroCrm() {
             const client = allClients.find((client) => client.id === item.userId);
             return client?.managerId === currentUserId;
           })
+        : isMainAdmin && activeManagerFilter !== "all"
+          ? allSupportConversations.filter((item) => {
+              const client = allClients.find((client) => client.id === item.userId);
+              return client?.managerId === activeManagerFilter;
+            })
         : allSupportConversations;
 
     const newClientMessages = visibleSupportMessages
@@ -510,11 +531,15 @@ export default function AsteroCrm() {
         clearTimeout(supportToastTimerRef.current);
       }
     };
-  }, [router]);
+  }, [router, managerFilterId]);
 
   useEffect(() => {
     sessionStorage.setItem("astero.crm.clientSearch", clientSearch);
   }, [clientSearch]);
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.managerFilter", managerFilterId);
+  }, [managerFilterId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 60000);
@@ -622,7 +647,7 @@ export default function AsteroCrm() {
       return;
     }
     setMessage(role === "MANAGER" ? `Менеджер создан: ${data.email}` : `Клиент создан: ${data.email}`);
-    setNewClient({ email: "", password: "123456", firstName: "", lastName: "", phone: "", country: "", city: "", address: "", balance: "0", managerId: "" });
+    setNewClient({ email: "", password: "Ww123456", firstName: "", lastName: "", phone: "", country: "", city: "", address: "", balance: "0", managerId: "" });
     setNewManager({ email: "", password: "123456", firstName: "", lastName: "", phone: "" });
     await loadAdminData();
   }
@@ -693,6 +718,7 @@ export default function AsteroCrm() {
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка смены пароля");
     setPasswords((prev) => ({ ...prev, [userId]: "" }));
+    await loadAdminData();
     alert("Пароль изменён");
   }
 
@@ -880,6 +906,19 @@ export default function AsteroCrm() {
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка верификации");
+    await loadAdminData();
+  }
+
+  async function deleteDocument(documentId: string) {
+    if (!confirm("Удалить загруженный документ клиента?")) return;
+
+    const res = await fetch("/api/admin/verification", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Не удалось удалить документ");
     await loadAdminData();
   }
 
@@ -1304,7 +1343,25 @@ export default function AsteroCrm() {
                     </button>
                   ))}
                 </div>
-                <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[520px] lg:flex-row">
+                  {currentAdminEmail === "test6@test.com" && (
+                    <select
+                      className={`${inputClass} lg:max-w-[220px]`}
+                      value={managerFilterId}
+                      onChange={(e) => setManagerFilterId(e.target.value)}
+                    >
+                      <option value="all">Все менеджеры</option>
+                      {managers
+                        .filter((manager) => manager.role === "MANAGER")
+                        .map((manager) => (
+                          <option key={manager.id} value={manager.id}>
+                            {displayName(manager)}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                  <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                </div>
               </div>
               <ClientsTable
                 clients={filteredClients}
@@ -1357,6 +1414,7 @@ export default function AsteroCrm() {
             onEditWithdrawalRequisites={updateWithdrawalRequisites}
             onUpdateUser={updateUser}
             onDeleteClient={(client) => deleteUser(client.id, client.email)}
+            onDeleteDocument={deleteDocument}
           />
         )}
 
@@ -1413,7 +1471,7 @@ export default function AsteroCrm() {
         )}
         {activeTab === "trades" && <TradeTable trades={trades} onClose={closeClientTrade} onUpdate={updateClientTrade} />}
         {activeTab === "withdrawals" && <WithdrawalsTable withdrawals={withdrawals.filter((item) => !clientSearch.trim() || (item.user.id && searchedClientIds.has(item.user.id)))} onApprove={approveWithdrawal} onReject={rejectWithdrawal} onEditRequisites={updateWithdrawalRequisites} />}
-        {activeTab === "verification" && <KycTable documents={verificationDocuments.filter((doc) => !clientSearch.trim() || (doc.user?.id && searchedClientIds.has(doc.user.id)))} onReview={reviewDocument} />}
+        {activeTab === "verification" && <KycTable documents={verificationDocuments.filter((doc) => !clientSearch.trim() || (doc.user?.id && searchedClientIds.has(doc.user.id)))} onReview={reviewDocument} onDelete={deleteDocument} />}
         {activeTab === "support" && (
           <SupportPanelV2
             clients={filteredClients}
@@ -1796,6 +1854,7 @@ function ClientProfileUtip({
   onEditWithdrawalRequisites,
   onUpdateUser,
   onDeleteClient,
+  onDeleteDocument,
 }: {
   selectedClient: User;
   managers: User[];
@@ -1834,6 +1893,7 @@ function ClientProfileUtip({
   onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
   onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
   onDeleteClient: (client: User) => void;
+  onDeleteDocument: (documentId: string) => void;
 }) {
   const [clientSection, setClientSection] = useState<
     "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
@@ -2090,6 +2150,7 @@ function ClientProfileUtip({
               onRejectDeposit={onRejectDeposit}
               onUpdateDeposit={onUpdateDeposit}
               onEditWithdrawalRequisites={onEditWithdrawalRequisites}
+              onDeleteDocument={onDeleteDocument}
             />
           )}
         </div>
@@ -2176,6 +2237,7 @@ function ClientUtipSection({
   onRejectDeposit,
   onUpdateDeposit,
   onEditWithdrawalRequisites,
+  onDeleteDocument,
 }: {
   section: "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing";
   client: User;
@@ -2190,6 +2252,7 @@ function ClientUtipSection({
   onRejectDeposit: (depositId: string) => void;
   onUpdateDeposit: (depositId: string, payload: Partial<{ createdAt: string; adminComment: string }>) => void;
   onEditWithdrawalRequisites: (withdrawal: Withdrawal) => void;
+  onDeleteDocument: (documentId: string) => void;
 }) {
   const accountNumber = clientDisplayNumber(client);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
@@ -2271,9 +2334,14 @@ function ClientUtipSection({
               <UtipTd><Badge value={doc.status} /></UtipTd>
               <UtipTd>{new Date(doc.createdAt).toLocaleString("ru-RU")}</UtipTd>
               <UtipTd>
-                <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">
-                  Открыть
-                </a>
+                <div className="flex flex-wrap gap-2">
+                  <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">
+                    Открыть
+                  </a>
+                  <button type="button" onClick={() => onDeleteDocument(doc.id)} className="rounded bg-red-600 px-3 py-1.5 text-xs font-black text-white">
+                    Удалить
+                  </button>
+                </div>
               </UtipTd>
             </tr>
           ))}
@@ -3977,8 +4045,65 @@ function maskCard(value: string) {
 
   return `•••• ${clean.slice(-4)}`;
 }
-function KycTable({ documents, onReview }: { documents: VerificationDocument[]; onReview: (id: string, status: "APPROVED" | "REJECTED") => void }) {
-  return <Panel title="Верификация клиентов"><div className="overflow-x-auto"><table className="min-w-[860px] w-full text-sm"><thead><tr className="border-b border-emerald-100 text-left text-slate-500"><th className="p-3">Клиент</th><th className="p-3">Документ</th><th className="p-3">Файл</th><th className="p-3">Статус</th><th className="p-3">Действие</th></tr></thead><tbody>{documents.map((doc) => <tr key={doc.id} className="border-b border-emerald-50"><td className="p-3">{doc.user?.email}</td><td className="p-3">{doc.documentType || "DOCUMENT"}</td><td className="p-3"><div className="flex flex-col gap-2"><span className="break-all">{doc.fileName}</span><a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">Открыть</a></div></td><td className="p-3"><Badge value={doc.status} /></td><td className="p-3">{doc.status === "PENDING" ? <div className="flex gap-2"><button onClick={() => onReview(doc.id, "APPROVED")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button><button onClick={() => onReview(doc.id, "REJECTED")} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Reject</button></div> : <span className="text-xs text-slate-400">Reviewed</span>}</td></tr>)}</tbody></table></div></Panel>;
+function KycTable({
+  documents,
+  onReview,
+  onDelete,
+}: {
+  documents: VerificationDocument[];
+  onReview: (id: string, status: "APPROVED" | "REJECTED") => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <Panel title="Верификация клиентов">
+      <div className="overflow-x-auto">
+        <table className="min-w-[860px] w-full text-sm">
+          <thead>
+            <tr className="border-b border-emerald-100 text-left text-slate-500">
+              <th className="p-3">Клиент</th>
+              <th className="p-3">Документ</th>
+              <th className="p-3">Файл</th>
+              <th className="p-3">Статус</th>
+              <th className="p-3">Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documents.map((doc) => (
+              <tr key={doc.id} className="border-b border-emerald-50">
+                <td className="p-3">{doc.user?.email}</td>
+                <td className="p-3">{doc.documentType || "DOCUMENT"}</td>
+                <td className="p-3">
+                  <div className="flex flex-col gap-2">
+                    <span className="break-all">{doc.fileName}</span>
+                    <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">
+                      Открыть
+                    </a>
+                  </div>
+                </td>
+                <td className="p-3"><Badge value={doc.status} /></td>
+                <td className="p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {doc.status === "PENDING" && (
+                      <>
+                        <button type="button" onClick={() => onReview(doc.id, "APPROVED")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Одобрить</button>
+                        <button type="button" onClick={() => onReview(doc.id, "REJECTED")} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Отклонить</button>
+                      </>
+                    )}
+                    <button type="button" onClick={() => onDelete(doc.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50">Удалить</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {documents.length === 0 && (
+              <tr>
+                <td className="p-6 text-center text-sm text-slate-400" colSpan={5}>Документов пока нет</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
 }
 
 function toLocalDateTime(value: string) {

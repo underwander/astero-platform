@@ -7,11 +7,16 @@ export async function POST(req: Request) {
     await ensureCrmSchema();
     const { email, password, firstName, lastName, phone, country, city, address, balance, role, managerId } = await req.json();
 
-    if (!email || !password) {
-      return Response.json({ error: "Email and password are required" }, { status: 400 });
+    if (!email) {
+      return Response.json({ error: "Email is required" }, { status: 400 });
     }
 
     const selectedRole = role === "MANAGER" ? "MANAGER" : "CLIENT";
+    const rawPassword = selectedRole === "CLIENT" ? String(password || "Ww123456") : String(password || "");
+
+    if (!rawPassword) {
+      return Response.json({ error: "Password is required" }, { status: 400 });
+    }
 
     if (selectedRole === "CLIENT" && (!firstName || !lastName || !phone || !country)) {
       return Response.json({ error: "First name, last name, phone and country are required for client" }, { status: 400 });
@@ -20,7 +25,7 @@ export async function POST(req: Request) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return Response.json({ error: "User already exists" }, { status: 400 });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
     const initialBalance = balance === undefined || balance === null || balance === "" ? 0 : Number(balance);
 
     if (Number.isNaN(initialBalance) || initialBalance < 0) {
@@ -44,7 +49,7 @@ export async function POST(req: Request) {
         clientNumber,
         email,
         password: hashedPassword,
-        plainPassword: password,
+        plainPassword: rawPassword,
         firstName: firstName || null,
         lastName: lastName || null,
         phone: phone || null,

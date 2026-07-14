@@ -7,10 +7,25 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const requesterId = searchParams.get("requesterId");
     const requesterRole = searchParams.get("role");
-    const managerScope = requesterRole === "MANAGER" && requesterId ? requesterId : null;
+    const requestedManagerId = searchParams.get("managerId");
+    const requester = requesterId
+      ? await prisma.user.findUnique({
+          where: { id: requesterId },
+          select: { email: true },
+        })
+      : null;
+    const mainAdminManagerScope =
+      requesterRole === "ADMIN" &&
+      requester?.email === "test6@test.com" &&
+      requestedManagerId &&
+      requestedManagerId !== "all"
+        ? requestedManagerId
+        : null;
+    const managerScope = requesterRole === "MANAGER" && requesterId ? requesterId : mainAdminManagerScope;
+    const restrictUsers = requesterRole === "MANAGER" && requesterId ? requesterId : null;
     const users = await prisma.user.findMany({
-      where: managerScope
-        ? { OR: [{ managerId: managerScope }, { id: managerScope }, { role: "ADMIN" }] }
+      where: restrictUsers
+        ? { OR: [{ managerId: restrictUsers }, { id: restrictUsers }, { role: "ADMIN" }] }
         : undefined,
       select: {
         id: true,
