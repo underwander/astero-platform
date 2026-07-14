@@ -88,6 +88,20 @@ type Announcement = {
   updatedAt: string;
 };
 
+type LandingContentEntry = {
+  id?: string;
+  key: string;
+  titleRu: string;
+  titleEn: string;
+  bodyRu: string;
+  bodyEn: string;
+  kind: string;
+  dataJson: string;
+  isVisible: boolean;
+  sortOrder: number;
+  updatedAt?: string;
+};
+
 type SecurityEvent = {
   id: string;
   type: string;
@@ -245,6 +259,7 @@ type Tab =
   | "verification"
   | "support"
   | "announcements"
+  | "landing"
   | "security"
   | "quotes";
 
@@ -258,6 +273,7 @@ const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
   { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
   { id: "announcements", label: "Доска объявлений", hint: "Новости", icon: "!" },
+  { id: "landing", label: "Лендинг", hint: "Сайт", icon: "LP" },
   { id: "security", label: "Безопасность", hint: "Журнал", icon: "!" },
   { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
@@ -1592,6 +1608,7 @@ export default function AsteroCrm() {
           />
         )}
         {activeTab === "announcements" && <AnnouncementsAdminPanel />}
+        {activeTab === "landing" && <LandingContentAdminPanel />}
         {activeTab === "security" && currentAdminRole === "ADMIN" && <SecurityPanel />}
         {activeTab === "quotes" && <ManualQuotesPanel />}
       </main>
@@ -2092,6 +2109,180 @@ function AnnouncementsAdminPanel() {
           })}
           {items.length === 0 && <Empty text="Объявлений пока нет" />}
         </div>
+      </Panel>
+    </div>
+  );
+}
+
+function LandingContentAdminPanel() {
+  const [items, setItems] = useState<LandingContentEntry[]>([]);
+  const [selectedKey, setSelectedKey] = useState("");
+  const [draft, setDraft] = useState<LandingContentEntry | null>(null);
+  const [message, setMessage] = useState("");
+  const [jsonError, setJsonError] = useState("");
+
+  async function loadLandingContent() {
+    const res = await fetch("/api/admin/landing-content", { cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(data)) {
+      setMessage(data?.error || "Не удалось загрузить контент лендинга");
+      return;
+    }
+    setItems(data);
+    if (!draft && data[0]) {
+      setSelectedKey(data[0].key);
+      setDraft(data[0]);
+    }
+  }
+
+  useEffect(() => {
+    loadLandingContent();
+  }, []);
+
+  function selectEntry(entry: LandingContentEntry) {
+    setSelectedKey(entry.key);
+    setDraft({ ...entry });
+    setJsonError("");
+    setMessage("");
+  }
+
+  function updateDraft(payload: Partial<LandingContentEntry>) {
+    setDraft((current) => (current ? { ...current, ...payload } : current));
+  }
+
+  async function saveLandingContent() {
+    if (!draft) return;
+    try {
+      JSON.parse(draft.dataJson || "{}");
+      setJsonError("");
+    } catch {
+      setJsonError("JSON настроек заполнен с ошибкой. Проверьте кавычки, запятые и скобки.");
+      return;
+    }
+
+    const res = await fetch("/api/admin/landing-content", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setMessage(data?.error || "Не удалось сохранить блок");
+      return;
+    }
+    setMessage("Блок лендинга сохранён");
+    await loadLandingContent();
+    if (data?.key) {
+      setSelectedKey(data.key);
+      setDraft(data);
+    }
+  }
+
+  const selected = draft || items.find((item) => item.key === selectedKey) || null;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
+      <Panel title="Блоки лендинга">
+        <div className="space-y-2">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => selectEntry(item)}
+              className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                selectedKey === item.key
+                  ? "border-emerald-400 bg-emerald-50 text-emerald-950"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-black">{item.titleRu || item.key}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500">{item.kind}</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">#{item.key} · порядок {item.sortOrder}</p>
+            </button>
+          ))}
+          {items.length === 0 && <Empty text="Контент лендинга загружается" />}
+        </div>
+      </Panel>
+
+      <Panel title="Редактор лендинга">
+        {selected ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_130px]">
+              <label className="text-xs font-black text-slate-500">
+                Ключ блока
+                <input className={`${inputClass} mt-1`} value={selected.key} disabled />
+              </label>
+              <label className="text-xs font-black text-slate-500">
+                Тип
+                <select className={`${inputClass} mt-1`} value={selected.kind} onChange={(event) => updateDraft({ kind: event.target.value })}>
+                  <option value="hero">Hero</option>
+                  <option value="stats">Статистика</option>
+                  <option value="cards">Карточки</option>
+                  <option value="accounts">Счета</option>
+                  <option value="banner">Баннер</option>
+                  <option value="news">Новости</option>
+                  <option value="articles">Статьи</option>
+                  <option value="calculator">Калькулятор</option>
+                  <option value="calendar">Календарь</option>
+                  <option value="faq">FAQ</option>
+                  <option value="reviews">Отзывы</option>
+                  <option value="cta">CTA</option>
+                  <option value="footer">Footer</option>
+                  <option value="seo">SEO</option>
+                </select>
+              </label>
+              <label className="text-xs font-black text-slate-500">
+                Порядок
+                <input className={`${inputClass} mt-1`} type="number" value={selected.sortOrder} onChange={(event) => updateDraft({ sortOrder: Number(event.target.value) })} />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <label className="text-xs font-black text-slate-500">
+                Заголовок RU
+                <input className={`${inputClass} mt-1`} value={selected.titleRu} onChange={(event) => updateDraft({ titleRu: event.target.value })} />
+              </label>
+              <label className="text-xs font-black text-slate-500">
+                Заголовок EN
+                <input className={`${inputClass} mt-1`} value={selected.titleEn} onChange={(event) => updateDraft({ titleEn: event.target.value })} />
+              </label>
+              <label className="text-xs font-black text-slate-500">
+                Описание RU
+                <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyRu} onChange={(event) => updateDraft({ bodyRu: event.target.value })} />
+              </label>
+              <label className="text-xs font-black text-slate-500">
+                Описание EN
+                <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyEn} onChange={(event) => updateDraft({ bodyEn: event.target.value })} />
+              </label>
+            </div>
+
+            <label className="text-xs font-black text-slate-500">
+              JSON-настройки блока
+              <textarea
+                className={`${areaClass} mt-1 min-h-64 font-mono text-xs`}
+                value={selected.dataJson}
+                onChange={(event) => updateDraft({ dataJson: event.target.value })}
+                spellCheck={false}
+              />
+            </label>
+            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">
+              Через JSON меняются карточки, FAQ, отзывы, счета, статистика, CTA и параметры калькулятора. Это даёт полное управление лендингом без правки кода.
+            </p>
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <input type="checkbox" checked={selected.isVisible} onChange={(event) => updateDraft({ isVisible: event.target.checked })} />
+              Показывать блок на сайте
+            </label>
+            {jsonError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{jsonError}</p>}
+            {message && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{message}</p>}
+            <button type="button" onClick={saveLandingContent} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700">
+              Сохранить блок лендинга
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm font-bold text-slate-500">Контент загружается.</p>
+        )}
       </Panel>
     </div>
   );

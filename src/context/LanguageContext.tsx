@@ -105,11 +105,17 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window === "undefined") return "ru";
+  const [language, setLanguageState] = useState<Language>("ru");
+
+  useEffect(() => {
     const stored = window.localStorage.getItem("language");
-    return stored === "ru" || stored === "en" ? stored : "ru";
-  });
+    if (stored === "ru" || stored === "en") {
+      setLanguageState(stored);
+      document.documentElement.lang = stored;
+      return;
+    }
+    document.documentElement.lang = "ru";
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
