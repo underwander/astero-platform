@@ -714,11 +714,19 @@ function MobileTerminal({
 }) {
   const [marketsOpen, setMarketsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+  const [mobilePage, setMobilePage] = useState(1);
   const [pendingSide, setPendingSide] = useState<"BUY" | "SELL" | null>(null);
   const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const openTrades = trades.filter((trade) => trade.closePrice === null);
   const closedTrades = trades.filter((trade) => trade.closePrice !== null);
   const visibleTrades = activeTab === "open" ? openTrades : closedTrades;
+  const mobilePageSize = 10;
+  const mobilePageCount = Math.max(1, Math.ceil(visibleTrades.length / mobilePageSize));
+  const pagedTrades = visibleTrades.slice((mobilePage - 1) * mobilePageSize, mobilePage * mobilePageSize);
+
+  useEffect(() => {
+    setMobilePage((current) => Math.min(current, mobilePageCount));
+  }, [mobilePageCount]);
 
   return (
     <div className="space-y-2 xl:hidden">
@@ -871,8 +879,8 @@ function MobileTerminal({
 
       <div className="border border-[#1f332f] bg-[#101a18]">
         <div className="flex border-b border-[#1f332f] p-2">
-          <button onClick={() => setActiveTab("open")} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "open" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Открытые сделки</button>
-          <button onClick={() => setActiveTab("history")} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "history" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Отчет</button>
+          <button onClick={() => { setActiveTab("open"); setMobilePage(1); }} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "open" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Открытые сделки</button>
+          <button onClick={() => { setActiveTab("history"); setMobilePage(1); }} className={`flex-1 rounded py-2 text-xs font-black ${activeTab === "history" ? "bg-[#16a34a] text-white" : "text-[#b8d4c7]"}`}>Отчет</button>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-[560px] w-full text-xs">
@@ -886,7 +894,7 @@ function MobileTerminal({
               </tr>
             </thead>
             <tbody>
-              {visibleTrades.map((trade) => {
+              {pagedTrades.map((trade) => {
                 const isClosed = trade.closePrice !== null;
                 const marketPrice = getTradeMarketPrice(trade, quotes[trade.symbol]);
                 const profit = trade.closePrice === null
@@ -924,6 +932,29 @@ function MobileTerminal({
             </tbody>
           </table>
         </div>
+        {visibleTrades.length > mobilePageSize && (
+          <div className="flex items-center justify-between gap-2 border-t border-[#1f332f] px-3 py-2 text-xs text-[#b8d4c7]">
+            <button
+              type="button"
+              disabled={mobilePage <= 1}
+              onClick={() => setMobilePage((value) => Math.max(1, value - 1))}
+              className="rounded bg-[#17332b] px-3 py-2 font-black disabled:opacity-40"
+            >
+              Назад
+            </button>
+            <span className="font-black">
+              {mobilePage} / {mobilePageCount}
+            </span>
+            <button
+              type="button"
+              disabled={mobilePage >= mobilePageCount}
+              onClick={() => setMobilePage((value) => Math.min(mobilePageCount, value + 1))}
+              className="rounded bg-[#17332b] px-3 py-2 font-black disabled:opacity-40"
+            >
+              Далее
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
