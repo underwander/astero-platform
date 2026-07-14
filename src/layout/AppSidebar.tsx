@@ -26,6 +26,10 @@ const clientNavItems: NavItem[] = [
   { key: "profile", name: "Profile", path: "/profile", icon: <UserCircleIcon /> },
 ];
 
+function isPlainLeftClick(event: React.MouseEvent<HTMLAnchorElement>) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
@@ -68,8 +72,8 @@ export default function AppSidebar() {
               <li key={item.path}>
                 <Link
                   href={item.path}
-                  onClick={() => {
-                    if (isMobileOpen) toggleMobileSidebar();
+                  onClick={(event) => {
+                    if (isMobileOpen && isPlainLeftClick(event)) toggleMobileSidebar();
                   }}
                   className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
                     active
