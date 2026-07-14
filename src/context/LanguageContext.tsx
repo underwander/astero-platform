@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type Language = "en" | "ru";
 type Dictionary = Record<string, string>;
@@ -8,7 +8,7 @@ type Dictionary = Record<string, string>;
 const dictionaries: Record<Language, Dictionary> = {
   en: {
     dashboard: "Dashboard",
-    trading: "Trading",
+    trading: "Terminal",
     positions: "Positions",
     history: "History",
     deposits: "Deposits",
@@ -62,7 +62,7 @@ const dictionaries: Record<Language, Dictionary> = {
     clientCabinet: "Кабинет клиента",
     liveDesk: "Astero",
     liveDeskText: "Торговый кабинет",
-    traderRoom: "Кабинет Astero",
+    traderRoom: "Astero Trader Room",
     realTimeDashboard: "Портфель, финансы и торговые данные",
     secureLogin: "Безопасный вход",
     welcomeBack: "Добро пожаловать",
@@ -110,6 +110,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const stored = window.localStorage.getItem("language");
     return stored === "ru" || stored === "en" ? stored : "ru";
   });
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   function setLanguage(next: Language) {
     setLanguageState(next);

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatPrice, marketGroups, marketInstruments } from "@/lib/market-instruments";
+import { marketInstruments } from "@/lib/market-instruments";
 import { useEffect, useMemo, useState } from "react";
 
 type ManualQuote = {
@@ -89,6 +89,9 @@ type SymbolForm = {
   tradingHours: string;
 };
 
+const groupOptions = ["Валюты", "Металлы", "Криптовалюты", "Индексы", "Акции", "Энергия"];
+const quoteSources = ["TradingView", "Demo Provider", "Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"];
+
 function defaultDescription(symbol: string) {
   const map: Record<string, string> = {
     "EUR/USD": "Евро / Доллар США",
@@ -120,28 +123,15 @@ function groupLabel(group: string) {
   return labels[group] || group;
 }
 
-function calculationLabel(value: string) {
-  const labels: Record<string, string> = {
-    forex: "forex",
-    cfd: "cfd",
-    crypto: "crypto",
-    stocks: "stocks",
-    indices: "indices",
-  };
-
-  return labels[value] || value;
-}
-
 function buildForm(symbol: string, quote?: ManualQuote): SymbolForm {
   const instrument = marketInstruments.find((item) => item.symbol === symbol) || marketInstruments[0];
-  const group = instrument.group === "Forex" ? "Валюты" : groupLabel(instrument.group);
 
   return {
     symbol,
     description: quote?.description || defaultDescription(symbol),
     price: String(quote?.price ?? instrument.defaultPrice),
     quotesFeed: quote?.quotesFeed || "Основной поток котировок",
-    symbolGroup: quote?.symbolGroup || group,
+    symbolGroup: quote?.symbolGroup || groupLabel(instrument.group),
     calculationType: quote?.calculationType || instrument.group.toLowerCase(),
     swapShort: String(quote?.swapShort ?? 0),
     swapLong: String(quote?.swapLong ?? 0),
@@ -206,11 +196,7 @@ export default function ManualQuotesPanel() {
           enabled: !(quote?.tradeForbidden ?? false) && (quote?.symbolEnabled ?? true),
         };
       })
-      .filter((row) =>
-        `${row.instrument.symbol} ${row.description} ${row.group} ${row.feed}`
-          .toLowerCase()
-          .includes(query)
-      );
+      .filter((row) => `${row.instrument.symbol} ${row.description} ${row.group} ${row.feed}`.toLowerCase().includes(query));
   }, [quoteMap, search]);
 
   async function loadQuotes() {
@@ -284,7 +270,7 @@ export default function ManualQuotesPanel() {
 
   async function saveSymbol() {
     setSaving(true);
-    setMessage("Сохранение настроек инструмента...");
+    setMessage("Сохраняем настройки инструмента...");
 
     const res = await fetch("/api/admin/quotes", {
       method: "PATCH",
@@ -331,6 +317,7 @@ export default function ManualQuotesPanel() {
         <div className="mr-2 rounded-xl bg-emerald-400 px-4 py-2 text-lg font-black text-slate-950">
           Astero CRM
         </div>
+        <span className="text-sm font-semibold text-emerald-50/70">Настройки торговых инструментов</span>
       </div>
 
       <div className="border-b border-emerald-100 bg-emerald-50/60 p-4">
@@ -341,7 +328,7 @@ export default function ManualQuotesPanel() {
             </p>
             <h2 className="mt-1 text-2xl font-black">Котировки и параметры торговых инструментов</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Настройки сохраняются в CRM и используются в терминале: ручная цена, запрет торговли, часы торговли, spread ask, свопы и комиссия.
+              Настройки сохраняются в CRM и используются в терминале: источник цены, ручная котировка, запрет торговли, часы торговли, спред, свопы, маржа, плечо, комиссия и стоимость пункта.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -365,21 +352,7 @@ export default function ManualQuotesPanel() {
         <table className="w-full min-w-[1280px] border-collapse text-sm">
           <thead>
             <tr className="bg-slate-50 text-left text-xs uppercase tracking-[0.08em] text-slate-500">
-              {[
-                "Символ",
-                "Описание",
-                "Тип расчета",
-                "Группа",
-                "Источник",
-                "Bid spread",
-                "Ask spread",
-                "Stop level",
-                "Gap level",
-                "Swap long",
-                "Swap short",
-                "Статус",
-                "Действие",
-              ].map((head) => (
+              {["Символ", "Описание", "Тип расчета", "Группа", "Источник", "Bid spread", "Ask spread", "Stop level", "Gap level", "Swap long", "Swap short", "Статус", "Действие"].map((head) => (
                 <th key={head} className="border-b border-emerald-100 px-3 py-3 font-black">
                   {head}
                 </th>
@@ -399,7 +372,7 @@ export default function ManualQuotesPanel() {
                 >
                   <td className="border-b border-emerald-50 px-3 py-2 font-black">{row.instrument.symbol}</td>
                   <td className="border-b border-emerald-50 px-3 py-2">{row.description}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">{calculationLabel(row.calculation)}</td>
+                  <td className="border-b border-emerald-50 px-3 py-2">{row.calculation}</td>
                   <td className="border-b border-emerald-50 px-3 py-2">{row.group}</td>
                   <td className="border-b border-emerald-50 px-3 py-2">{quote?.quoteSource || row.feed}</td>
                   <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.spreadBid ?? 0}</td>
@@ -491,7 +464,7 @@ function ModifySymbolModal({
         <div className="max-h-[calc(92vh-124px)] overflow-y-auto p-5">
           <div className="grid gap-5 lg:grid-cols-2">
             <Field label="Поток котировок" value={form.quotesFeed} onChange={(value) => onChange("quotesFeed", value)} />
-            <SelectField label="Группа символов" value={form.symbolGroup} options={["Валюты", "Металлы", "Криптовалюты", "Индексы", "Акции", "Энергия"]} onChange={(value) => onChange("symbolGroup", value)} />
+            <SelectField label="Группа символов" value={form.symbolGroup} options={groupOptions} onChange={(value) => onChange("symbolGroup", value)} />
             <Field label="Символ" value={form.symbol} onChange={(value) => onChange("symbol", value)} disabled />
             <Field label="Описание" value={form.description} onChange={(value) => onChange("description", value)} />
             <Field label="Swap Short" value={form.swapShort} onChange={(value) => onChange("swapShort", value)} />
@@ -511,7 +484,7 @@ function ModifySymbolModal({
             <Field label="Комиссия" value={form.commission} onChange={(value) => onChange("commission", value)} />
             <Field label="Ручная цена" value={form.price} onChange={(value) => onChange("price", value)} />
             <Field label="Часы торговли" value={form.tradingHours} onChange={(value) => onChange("tradingHours", value)} />
-            <SelectField label="Источник" value={form.quoteSource} options={["TradingView", "Demo Provider", "Manual", "TwelveData", "Binance", "Bitfinex", "HitBTC", "MT4 DDE"]} onChange={(value) => onChange("quoteSource", value)} />
+            <SelectField label="Источник" value={form.quoteSource} options={quoteSources} onChange={(value) => onChange("quoteSource", value)} />
             <SelectField label="Риск-режим" value={form.riskMode} options={["B-Book", "A-Book", "Hybrid"]} onChange={(value) => onChange("riskMode", value)} />
             <Field label="Плечо" value={form.leverage} onChange={(value) => onChange("leverage", value)} />
             <Field label="Маржа" value={form.margin} onChange={(value) => onChange("margin", value)} />

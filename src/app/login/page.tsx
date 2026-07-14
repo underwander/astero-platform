@@ -21,10 +21,13 @@ export default function LoginPage() {
   function translateError(error?: string) {
     if (!isRu) return error || "Sign in error";
 
+    if (error === "Invalid credentials") return "Неверная почта или пароль";
     if (error === "User not found") return "Пользователь не найден";
     if (error === "Wrong password") return "Неверный пароль";
     if (error === "Your account is blocked") return "Аккаунт заблокирован";
     if (error === "Email and password required") return "Введите почту и пароль";
+    if (error === "Access temporarily restricted") return "Доступ временно ограничен";
+    if (error === "Too many attempts. Try again later") return "Слишком много попыток. Попробуйте позже";
 
     return error || "Ошибка входа";
   }
@@ -145,7 +148,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           {isRu ? "Нет аккаунта?" : "No account yet?"}{" "}
           <Link href="/signup" className="font-black text-emerald-700 hover:text-emerald-600 dark:text-emerald-300">
-            {isRu ? "Зарегистрироваться" : "Create account"}
+            {isRu ? "Регистрация" : "Create account"}
           </Link>
         </p>
       </div>
