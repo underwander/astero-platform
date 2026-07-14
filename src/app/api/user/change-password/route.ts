@@ -24,7 +24,7 @@ export async function PATCH(req: Request) {
       where: { id: scoped.userId },
       data: {
         password: hashedPassword,
-        plainPassword: null,
+        plainPassword: String(newPassword),
       },
     });
 

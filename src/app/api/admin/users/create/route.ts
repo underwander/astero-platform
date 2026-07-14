@@ -62,6 +62,7 @@ export async function POST(req: Request) {
         clientNumber,
         email,
         password: hashedPassword,
+        plainPassword: rawPassword,
         firstName: firstName || null,
         lastName: lastName || null,
         phone: phone || null,

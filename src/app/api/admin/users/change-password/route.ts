@@ -11,8 +11,9 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "UserId and password with at least 6 characters required" }, { status: 400 });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, plainPassword: null } });
+    const rawPassword = String(password);
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, plainPassword: rawPassword } });
 
     return Response.json({ success: true });
   } catch (error) {

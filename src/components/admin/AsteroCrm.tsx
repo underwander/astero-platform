@@ -2624,7 +2624,9 @@ function ClientProfileUtip({
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-black text-slate-900">Пароль клиента</p>
-                    <p className="text-[11px] text-slate-500">{showClientPassword ? "Пароль хранится только в виде защищенного хеша" : "••••••••"}</p>
+                    <p className="text-[11px] font-black text-slate-600">
+                      {showClientPassword ? selectedClient.plainPassword || "Пароль недоступен: был создан до сохранения текущего значения" : "••••••••"}
+                    </p>
                   </div>
                   <button
                     type="button"
