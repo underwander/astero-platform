@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -54,49 +54,45 @@ Funds are generally withdrawn to the same payment method used for funding unless
     heading: { ru: "Политика «Знай своего клиента» (KYC)", en: "Know Your Customer Policy (KYC)" },
     text: {
       ru: `Политика «Знай своего клиента» (KYC)
-В соответствии с глобальными регуляторными нормами, Astero внедрил процедуру «Знай своего клиента» (KYC). Эта процедура необходима для подтверждения личности клиентов, предотвращения кражи личных данных и защиты финансовой системы.
+В соответствии с глобальными регуляторными нормами Astero использует процедуру KYC. Она необходима для подтверждения личности клиентов, предотвращения кражи данных и защиты финансовой системы.
 
-1. Подтверждение личности (Proof of Identity)
-Для завершения процесса верификации клиент обязан предоставить копию действительного документа, удостоверяющего личность, выданного государством. Приемлемые документы включают:
+1. Подтверждение личности
+Клиент может предоставить один из документов:
+• международный паспорт;
+• водительское удостоверение;
+• национальное удостоверение личности или ID-карту.
 
-Международный паспорт (разворот с фото)
-Внутреннее водительское удостоверение (обе стороны)
-Национальное удостоверение личности (ID-карта)
+2. Подтверждение адреса
+Клиент может предоставить документ, выданный не позднее 6 месяцев назад:
+• счет за коммунальные услуги;
+• банковскую выписку;
+• налоговую справку или официальный документ с адресом.
 
-2. Подтверждение места жительства (Proof of Residence)
-Клиент должен предоставить официальный документ, подтверждающий его постоянный адрес проживания, выданный не позднее 6 месяцев назад. Приемлемыми документами являются:
+3. Проверка платежных методов
+При пополнении картой компания может запросить копию лицевой стороны карты с закрытыми средними цифрами.
 
-Счет за коммунальные услуги (вода, газ, электричество)
-Выписка из банковского счета
-Справка о налоговых платежах
-
-3. Верификация платежных методов
-Если клиент пополняет счет с помощью кредитной/дебетовой карты, компания может запросить скан-копию лицевой стороны карты с закрытыми средними цифрами.
-
-4. Защита конфиденциальности
-Документы обрабатываются через безопасное зашифрованное соединение и хранятся на защищенных серверах Astero. Мы обязуемся не разглашать эти данные третьим лицам без юридического предписания.`,
+4. Защита данных
+Документы передаются по защищенному соединению и хранятся на защищенных серверах Astero.`,
       en: `Know Your Customer Policy (KYC)
 In line with global regulatory standards, Astero uses KYC procedures to verify client identity, prevent identity theft and protect the financial system.
 
 1. Proof of identity
-To complete verification, a client must provide a valid government-issued identity document. Acceptable documents include:
-
-International passport
-Driving licence
-National identity card
+A client may provide one of the following documents:
+• international passport;
+• driving licence;
+• national identity card or ID document.
 
 2. Proof of residence
-A client must provide an official document confirming their residential address, issued within the last 6 months. Acceptable documents include:
-
-Utility bill
-Bank statement
-Tax certificate
+A client may provide a document issued within the last 6 months:
+• utility bill;
+• bank statement;
+• tax certificate or official document showing the address.
 
 3. Payment method verification
 When a card is used for funding, the company may request a masked copy of the front side of the card.
 
 4. Data protection
-Documents are processed through a secure encrypted connection and stored on protected Astero servers. We do not disclose this data to third parties without a legal requirement.`,
+Documents are transmitted through a secure connection and stored on protected Astero servers.`,
     },
   },
   {
@@ -147,7 +143,7 @@ Astero does not sell personal data to third parties. Data may be shared only whe
     heading: { ru: "Правовая информация и регулирование", en: "Legal Information and Regulation" },
     text: {
       ru: `Правовая информация и регулирование
-Astero стремится обеспечить максимальную прозрачность своей деятельности. Мы строго соблюдаем международные финансовые стандарты и требования регуляторов в юрисдикциях нашего присутствия.
+Astero стремится обеспечить максимальную прозрачность своей деятельности. Мы соблюдаем международные финансовые стандарты и требования регуляторов в юрисдикциях нашего присутствия.
 
 Лицензирование
 Astero действует как поставщик аналитических данных (FinTech Data Provider). В настоящее время Astero не выступает в роли брокера-дилера и не осуществляет клиринг клиентских средств. Мы предоставляем программные решения, инструменты аналитики и рыночные агрегации.
@@ -191,14 +187,14 @@ export default function LegalDocumentsPanel() {
   const lang: Lang = language === "en" ? "en" : "ru";
 
   return (
-    <section className="rounded-[28px] border border-emerald-200/45 bg-white/70 p-4 shadow-xl shadow-emerald-950/[0.05] ring-1 ring-white/70 backdrop-blur-2xl dark:border-emerald-300/12 dark:bg-white/[0.055] dark:ring-white/8">
+    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
       <div className="flex flex-wrap gap-2 text-xs">
         {documents.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setActive(item)}
-            className="rounded-full border border-emerald-200/75 bg-emerald-50/80 px-3 py-2 font-black text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-100 dark:border-emerald-300/15 dark:bg-emerald-400/10 dark:text-emerald-100"
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 font-black text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200"
           >
             {item.title[lang]}
           </button>
@@ -206,22 +202,20 @@ export default function LegalDocumentsPanel() {
       </div>
 
       {active && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/72 px-4 backdrop-blur-md">
-          <div className="max-h-[84vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-emerald-200 bg-white text-slate-900 shadow-2xl dark:border-emerald-300/16 dark:bg-[#07130d] dark:text-white">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-emerald-100 bg-white/92 p-5 backdrop-blur-xl dark:border-white/10 dark:bg-[#07130d]/92">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="max-h-[82vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-emerald-200 bg-white text-slate-900 shadow-2xl dark:border-emerald-400/20 dark:bg-slate-950 dark:text-white">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-950">
               <h2 className="text-lg font-black">{active.heading[lang]}</h2>
               <button
                 type="button"
                 onClick={() => setActive(null)}
-                className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-100 text-xl font-black leading-none text-slate-700 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xl font-black leading-none text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white"
                 aria-label={lang === "ru" ? "Закрыть" : "Close"}
               >
                 ×
               </button>
             </div>
-            <div className="whitespace-pre-line p-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {active.text[lang]}
-            </div>
+            <div className="whitespace-pre-line p-5 text-sm leading-7 text-slate-600 dark:text-slate-300">{active.text[lang]}</div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import AsteroLogo from "@/components/brand/AsteroLogo";
 import { useSidebar } from "@/context/SidebarContext";
@@ -33,7 +33,7 @@ function isPlainLeftClick(event: React.MouseEvent<HTMLAnchorElement>) {
 export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   const showText = isExpanded || isHovered || isMobileOpen;
   const sidebarWidth = showText ? "w-[min(82vw,290px)] xl:w-[290px]" : "w-[90px]";
@@ -45,7 +45,7 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-emerald-300/10 bg-[#06110c]/95 px-4 text-white shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl transition-all duration-300 ease-in-out xl:translate-x-0 ${sidebarWidth} ${
+      className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-emerald-400/10 bg-[#07130d] px-4 text-white transition-all duration-300 ease-in-out xl:translate-x-0 ${sidebarWidth} ${
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       }`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
@@ -59,12 +59,9 @@ export default function AppSidebar() {
 
       <nav className="flex-1 overflow-y-auto pb-6">
         {showText && (
-          <div className="mb-4 rounded-3xl border border-white/8 bg-white/[0.04] p-4 shadow-inner shadow-white/5">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-300/70">
-              Astero
-            </p>
-            <p className="mt-1 text-sm font-black text-white">{t("clientCabinet")}</p>
-          </div>
+          <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-200/45">
+            {t("clientCabinet")}
+          </p>
         )}
 
         <ul className="space-y-2">
@@ -80,8 +77,8 @@ export default function AppSidebar() {
                   }}
                   className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
                     active
-                      ? "bg-gradient-to-r from-emerald-400 to-lime-300 text-slate-950 shadow-lg shadow-emerald-900/25"
-                      : "text-emerald-50/68 hover:bg-white/[0.08] hover:text-white"
+                      ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-900/25"
+                      : "text-emerald-50/70 hover:bg-white/10 hover:text-white"
                   } ${!showText ? "justify-center px-3" : ""}`}
                 >
                   <span className={`flex size-5 shrink-0 items-center justify-center [&_svg]:size-5 [&_svg]:shrink-0 ${active ? "text-slate-950" : "text-emerald-200/70 group-hover:text-white"}`}>
@@ -104,16 +101,7 @@ export default function AppSidebar() {
           })}
         </ul>
       </nav>
-      {showText && (
-        <div className="mb-3 rounded-3xl border border-white/8 bg-white/[0.035] p-4 text-xs text-emerald-50/56">
-          <p className="font-black text-emerald-200">
-            {language === "ru" ? "Защищенный кабинет" : "Secure workspace"}
-          </p>
-          <p className="mt-1 leading-5">
-            {language === "ru" ? "Портфель, финансы и поддержка в одном месте." : "Portfolio, finance and support tools."}
-          </p>
-        </div>
-      )}
+
     </aside>
   );
 }
