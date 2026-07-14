@@ -9,7 +9,6 @@ type ManagerRef = {
   id: string;
   email: string;
   plainPassword?: string | null;
-  plainPasswordSynced?: boolean;
   firstName?: string | null;
   lastName?: string | null;
 };
@@ -155,7 +154,6 @@ type User = {
   clientNumber?: string | null;
   email: string;
   plainPassword?: string | null;
-  plainPasswordSynced?: boolean;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -2653,9 +2651,7 @@ function ClientProfileUtip({
                     <p className="text-xs font-black text-slate-900">Пароль клиента</p>
                     <p className="text-[11px] font-black text-slate-600">
                       {showClientPassword
-                        ? selectedClient.plainPasswordSynced && selectedClient.plainPassword
-                          ? selectedClient.plainPassword
-                          : "Текущий пароль неизвестен. Задайте новый пароль ниже."
+                        ? selectedClient.plainPassword || "Пароль недоступен. Задайте новый пароль ниже."
                         : "••••••••"}
                     </p>
                   </div>

@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { ensureCrmSchema } from "@/lib/crm-schema";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
-import bcrypt from "bcryptjs";
 
 export async function GET(req: Request) {
   try {
@@ -35,7 +34,6 @@ export async function GET(req: Request) {
         id: true,
         clientNumber: true,
         email: true,
-        password: true,
         plainPassword: true,
         firstName: true,
         lastName: true,
@@ -104,22 +102,6 @@ export async function GET(req: Request) {
       },
     });
 
-    const usersWithSafePasswords = await Promise.all(
-      users.map(async (user) => {
-        const { password, ...safeUser } = user;
-        const plainPasswordSynced =
-          typeof safeUser.plainPassword === "string" &&
-          safeUser.plainPassword.length > 0 &&
-          (await bcrypt.compare(safeUser.plainPassword, password));
-
-        return {
-          ...safeUser,
-          plainPassword: plainPasswordSynced ? safeUser.plainPassword : null,
-          plainPasswordSynced,
-        };
-      })
-    );
-
     const withdrawals = await prisma.withdrawal.findMany({
       where: managerScope ? { user: { managerId: managerScope } } : undefined,
       include: {
@@ -175,7 +157,7 @@ export async function GET(req: Request) {
     });
 
     return Response.json({
-      users: usersWithSafePasswords,
+      users,
       deposits,
       withdrawals,
       trades,
