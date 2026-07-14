@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import { EyeCloseIcon, EyeIcon } from "@/icons";
 
 type VerificationDocument = {
   id: string;
@@ -46,6 +47,8 @@ export default function ProfilePage() {
   const [file, setFile] = useState<File | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   async function loadProfile() {
     const userId = localStorage.getItem("userId");
@@ -318,23 +321,51 @@ export default function ProfilePage() {
         <h2 className="text-base font-black text-slate-900 dark:text-white">{isRu ? "Безопасность" : "Security"}</h2>
         <div className="mt-4 max-w-xl space-y-4">
           <Field label={isRu ? "Текущий пароль" : "Current password"}>
-            <input
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              type="password"
-              className={inputClass}
-              placeholder={isRu ? "Введите текущий пароль" : "Enter current password"}
-            />
+            <div className="relative">
+              <input
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                type={showCurrentPassword ? "text" : "password"}
+                className={`${inputClass} pr-12`}
+                placeholder={isRu ? "Введите текущий пароль" : "Enter current password"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword((value) => !value)}
+                className="absolute right-4 top-1/2 z-10 -translate-y-1/2 text-slate-500 transition hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-300"
+                aria-label={showCurrentPassword ? (isRu ? "Скрыть пароль" : "Hide password") : (isRu ? "Показать пароль" : "Show password")}
+              >
+                {showCurrentPassword ? (
+                  <EyeIcon className="size-5 fill-current" />
+                ) : (
+                  <EyeCloseIcon className="size-5 fill-current" />
+                )}
+              </button>
+            </div>
           </Field>
 
           <Field label={isRu ? "Новый пароль" : "New password"}>
-            <input
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              type="password"
-              className={inputClass}
-              placeholder={isRu ? "Введите новый пароль" : "Enter new password"}
-            />
+            <div className="relative">
+              <input
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                type={showNewPassword ? "text" : "password"}
+                className={`${inputClass} pr-12`}
+                placeholder={isRu ? "Введите новый пароль" : "Enter new password"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((value) => !value)}
+                className="absolute right-4 top-1/2 z-10 -translate-y-1/2 text-slate-500 transition hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-300"
+                aria-label={showNewPassword ? (isRu ? "Скрыть пароль" : "Hide password") : (isRu ? "Показать пароль" : "Show password")}
+              >
+                {showNewPassword ? (
+                  <EyeIcon className="size-5 fill-current" />
+                ) : (
+                  <EyeCloseIcon className="size-5 fill-current" />
+                )}
+              </button>
+            </div>
           </Field>
 
           <button
