@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { clientAgreementEn, clientAgreementRu } from "@/components/broker/legalDocumentContent";
 
 type Lang = "ru" | "en";
 
@@ -100,18 +101,8 @@ Documents are transmitted through a secure connection and stored on protected As
     title: { ru: "Соглашение", en: "Agreement" },
     heading: { ru: "Клиентское соглашение", en: "Client Agreement" },
     text: {
-      ru: `Клиентское соглашение
-Настоящее соглашение регулирует порядок использования личного кабинета, торгового терминала, аналитических материалов и финансовых сервисов Astero.
-
-Клиент обязуется предоставлять достоверные данные, соблюдать правила платформы и самостоятельно оценивать риски финансовых операций.
-
-Astero предоставляет программные решения, аналитические инструменты, рыночные данные и клиентский сервис. Все действия, выполненные через личный кабинет, считаются совершенными владельцем аккаунта.`,
-      en: `Client Agreement
-This agreement governs the use of the Astero client cabinet, trading terminal, analytical materials and financial services.
-
-The client agrees to provide accurate information, follow platform rules and independently assess the risks of financial operations.
-
-Astero provides software solutions, analytical tools, market data and client support. All actions performed through the client cabinet are considered to be performed by the account holder.`,
+      ru: clientAgreementRu,
+      en: clientAgreementEn,
     },
   },
   {
