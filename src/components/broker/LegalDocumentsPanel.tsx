@@ -111,21 +111,65 @@ Documents are transmitted through a secure connection and stored on protected As
     heading: { ru: "Политика конфиденциальности", en: "Privacy Policy" },
     text: {
       ru: `Политика конфиденциальности
-Astero уважает конфиденциальность клиентов и принимает меры для защиты персональных данных.
+Astero («мы», «нас» или «наш») уважает вашу конфиденциальность и стремится защищать ваши персональные данные. Настоящая Политика конфиденциальности описывает, как мы собираем, используем и защищаем вашу информацию, когда вы пользуетесь нашим веб-сайтом и услугами.
 
-Мы можем обрабатывать контактные данные, идентификационные документы, технические данные, историю операций и обращения в поддержку.
+1. Информация, которую мы собираем
+Мы можем собирать следующие типы персональных данных:
 
-Данные используются для работы личного кабинета, обработки заявок, соблюдения KYC/AML процедур, улучшения сервиса и защиты аккаунта.
+Идентификационные данные: имя, фамилия, дата рождения.
+Контактные данные: адрес электронной почты, номер телефона, физический адрес.
+Финансовые данные: детали банковского счета, история транзакций (если применимо).
+Технические данные: IP-адрес, тип браузера, данные о местоположении.
 
-Astero не продает персональные данные третьим лицам. Передача данных возможна только при наличии законных оснований.`,
+2. Как мы используем ваши данные
+Мы используем ваши персональные данные для следующих целей:
+
+Для предоставления и управления нашими финансовыми услугами и аналитикой.
+Для соблюдения юридических и регуляторных обязательств (KYC/AML).
+Для улучшения работы нашего веб-сайта и клиентского сервиса.
+Для отправки вам уведомлений, рыночных сигналов и маркетинговой информации (с вашего согласия).
+
+3. Защита данных
+Мы применяем строгие меры безопасности, включая шифрование SSL, брандмауэры и системы контроля доступа, чтобы предотвратить несанкционированный доступ, потерю или изменение ваших персональных данных. Данные хранятся на защищенных серверах.
+
+4. Передача данных третьим лицам
+Мы не продаем ваши персональные данные. Мы можем делиться вашей информацией только с:
+
+Надежными поставщиками услуг (IT, аналитика, платежные шлюзы).
+Регуляторами и правоохранительными органами, если это требуется по закону.
+
+5. Ваши права
+Вы имеете право на доступ, исправление, удаление ваших данных, а также право на отзыв согласия на их обработку. Чтобы воспользоваться этими правами, свяжитесь с нами через страницу "Контакты".`,
       en: `Privacy Policy
-Astero respects client privacy and applies measures to protect personal data.
+Astero ("we", "us" or "our") respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use and protect your information when you use our website and services.
 
-We may process contact details, identity documents, technical data, operation history and support requests.
+1. Information we collect
+We may collect the following types of personal data:
 
-Data is used to operate the client cabinet, process requests, comply with KYC/AML procedures, improve service quality and protect accounts.
+Identification data: first name, last name, date of birth.
+Contact data: email address, phone number, physical address.
+Financial data: bank account details and transaction history, where applicable.
+Technical data: IP address, browser type and location data.
 
-Astero does not sell personal data to third parties. Data may be shared only where there is a lawful basis.`,
+2. How we use your data
+We use your personal data for the following purposes:
+
+To provide and manage our financial services and analytics.
+To comply with legal and regulatory obligations, including KYC/AML.
+To improve the performance of our website and client service.
+To send you notifications, market signals and marketing information with your consent.
+
+3. Data protection
+We apply strict security measures, including SSL encryption, firewalls and access-control systems, to prevent unauthorised access, loss or alteration of your personal data. Data is stored on secure servers.
+
+4. Sharing data with third parties
+We do not sell your personal data. We may share your information only with:
+
+Trusted service providers, including IT, analytics and payment-gateway providers.
+Regulators and law-enforcement authorities, where required by law.
+
+5. Your rights
+You have the right to access, correct and delete your data, as well as the right to withdraw consent to its processing. To exercise these rights, contact us through the "Contacts" page.`,
     },
   },
   {
