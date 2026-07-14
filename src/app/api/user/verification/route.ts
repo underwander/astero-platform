@@ -1,16 +1,20 @@
 import { prisma } from "@/lib/prisma";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
     const userId = String(formData.get("userId") || "");
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
     const documentType = String(formData.get("documentType") || "DOCUMENT");
     const file = formData.get("file") as File | null;
 
-    if (!userId || !file) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!file) {
       return Response.json(
-        { error: "Missing userId or file" },
+        { error: "Missing file" },
         { status: 400 }
       );
     }
@@ -21,7 +25,7 @@ export async function POST(req: Request) {
 
     const document = await prisma.verificationDocument.create({
       data: {
-        userId,
+        userId: scoped.userId,
         type: documentType,
         documentType,
         fileName: file.name,
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
     });
 
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: scoped.userId },
       data: { kycStatus: "PENDING" },
     });
 

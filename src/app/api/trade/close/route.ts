@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { calculateTradeProfit } from "@/lib/market-instruments";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { getRequestSession } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
@@ -26,12 +27,21 @@ export async function POST(req: Request) {
     const trade = await prisma.trade.findUnique({
       where: { id: tradeId },
     });
+    const session = await getRequestSession();
+
+    if (!session) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (!trade) {
       return Response.json(
         { error: "Trade not found" },
         { status: 404 }
       );
+    }
+
+    if (!["ADMIN", "MANAGER"].includes(session.role) && trade.userId !== session.sub) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (trade.closePrice !== null) {

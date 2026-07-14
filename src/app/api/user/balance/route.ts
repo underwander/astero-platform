@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const scoped = await resolveScopedUserId(searchParams.get("userId"), { allowStaffAccess: true });
 
-    if (!userId) return Response.json({ error: "UserId required" }, { status: 400 });
+    if (isAuthResponse(scoped)) return scoped;
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: scoped.userId },
       select: {
         id: true,
         email: true,

@@ -1,15 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function PATCH(req: Request) {
   try {
     const { userId, currentPassword, newPassword } = await req.json();
+    const scoped = await resolveScopedUserId(userId);
 
-    if (!userId || !currentPassword || !newPassword || String(newPassword).length < 6) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!currentPassword || !newPassword || String(newPassword).length < 6) {
       return Response.json({ error: "Current password and new password with at least 6 characters required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ where: { id: scoped.userId } });
     if (!user) return Response.json({ error: "User not found" }, { status: 404 });
 
     const valid = await bcrypt.compare(currentPassword, user.password);
@@ -17,7 +21,7 @@ export async function PATCH(req: Request) {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: scoped.userId },
       data: {
         password: hashedPassword,
         plainPassword: null,

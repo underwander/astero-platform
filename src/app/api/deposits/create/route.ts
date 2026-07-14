@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
     const { userId, amount, method, sourceDetails, details } = await req.json();
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
 
-    if (!userId || !amount || !method) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!amount || !method) {
       return Response.json(
         { error: "Missing fields" },
         { status: 400 }
@@ -22,7 +26,7 @@ export async function POST(req: Request) {
 
     const deposit = await prisma.deposit.create({
       data: {
-        userId,
+        userId: scoped.userId,
         amount: numericAmount,
         method,
         details:

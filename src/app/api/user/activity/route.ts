@@ -1,17 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { ensureCrmSchema, getRequestIp } from "@/lib/crm-schema";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
     await ensureCrmSchema();
     const { userId } = await req.json();
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
 
-    if (!userId || typeof userId !== "string") {
-      return Response.json({ error: "Missing userId" }, { status: 400 });
-    }
+    if (isAuthResponse(scoped)) return scoped;
 
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: scoped.userId },
       data: { lastSeenAt: new Date(), lastIp: getRequestIp(req) },
     });
 

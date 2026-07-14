@@ -1,21 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
   try {
     await ensureCrmSchema();
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const scoped = await resolveScopedUserId(searchParams.get("userId"), { allowStaffAccess: true });
 
-    if (!userId) {
-      return Response.json(
-        { error: "Missing userId" },
-        { status: 400 }
-      );
-    }
+    if (isAuthResponse(scoped)) return scoped;
 
     const trades = await prisma.trade.findMany({
-      where: { userId },
+      where: { userId: scoped.userId },
       orderBy: { createdAt: "desc" },
     });
 

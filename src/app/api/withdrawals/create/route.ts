@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
@@ -8,8 +9,11 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const { userId, amount, method, destination, details } = body;
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
 
-    if (!userId || !amount || !method) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!amount || !method) {
       return Response.json(
         { error: "Missing fields" },
         { status: 400 }
@@ -27,7 +31,7 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: {
-        id: userId,
+        id: scoped.userId,
       },
     });
 
@@ -40,7 +44,7 @@ export async function POST(req: Request) {
 
     const pendingWithdrawals = await prisma.withdrawal.findMany({
       where: {
-        userId,
+        userId: scoped.userId,
         status: "PENDING",
       },
       select: {
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
 
     const withdrawal = await prisma.withdrawal.create({
       data: {
-        userId,
+        userId: scoped.userId,
         amount: numericAmount,
         method,
         destination: destination || null,

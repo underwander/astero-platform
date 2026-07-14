@@ -3,6 +3,7 @@ import { ensureManualQuotesTable } from "@/lib/manual-quotes";
 import { getInstrument } from "@/lib/market-instruments";
 import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
   try {
@@ -16,8 +17,11 @@ export async function POST(req: Request) {
       stopLoss,
       takeProfit,
     } = await req.json();
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
 
-    if (!userId || !symbol || !side || !openPrice || !volume) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!symbol || !side || !openPrice || !volume) {
       return Response.json(
         { error: "Missing fields" },
         { status: 400 }
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: scoped.userId },
       include: {
         trades: {
           where: { closePrice: null },
@@ -118,7 +122,7 @@ export async function POST(req: Request) {
 
     const trade = await prisma.trade.create({
       data: {
-        userId,
+        userId: scoped.userId,
         symbol,
         side,
         openPrice: numericOpenPrice,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 function normalizeProfileField(value: unknown) {
   if (typeof value !== "string") return null;
@@ -9,18 +10,13 @@ function normalizeProfileField(value: unknown) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const scoped = await resolveScopedUserId(searchParams.get("userId"), { allowStaffAccess: true });
 
-    if (!userId) {
-      return Response.json(
-        { error: "Missing userId" },
-        { status: 400 }
-      );
-    }
+    if (isAuthResponse(scoped)) return scoped;
 
     const user = await prisma.user.findUnique({
       where: {
-        id: userId,
+        id: scoped.userId,
       },
       select: {
         id: true,
@@ -86,17 +82,13 @@ export async function PATCH(req: Request) {
       city,
       address,
     } = await req.json();
+    const scoped = await resolveScopedUserId(userId, { allowStaffAccess: true });
 
-    if (!userId || typeof userId !== "string") {
-      return Response.json(
-        { error: "Missing userId" },
-        { status: 400 }
-      );
-    }
+    if (isAuthResponse(scoped)) return scoped;
 
     const user = await prisma.user.update({
       where: {
-        id: userId,
+        id: scoped.userId,
       },
       data: {
         firstName: normalizeProfileField(firstName),

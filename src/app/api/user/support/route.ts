@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureSupportMessagesTable } from "@/lib/support-messages";
 import { supportErrorMessage } from "@/lib/support-errors";
 import { randomUUID } from "crypto";
+import { isAuthResponse, resolveScopedUserId } from "@/lib/api-auth";
 
 type SupportMessageRow = {
   id: string;
@@ -25,15 +26,14 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
+    const scoped = await resolveScopedUserId(userId);
 
-    if (!userId) {
-      return Response.json({ error: "UserId required" }, { status: 400 });
-    }
+    if (isAuthResponse(scoped)) return scoped;
 
     const conversation = await prisma.$queryRaw<SupportConversationRow[]>`
       SELECT "status", "closedAt"
       FROM "SupportConversation"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${scoped.userId}
       LIMIT 1
     `;
 
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     const messages = await prisma.$queryRaw<SupportMessageRow[]>`
       SELECT "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
       FROM "SupportMessage"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${scoped.userId}
       AND (${currentConversation.closedAt}::timestamptz IS NULL OR "createdAt" > ${currentConversation.closedAt})
       ORDER BY "createdAt" ASC
     `;
@@ -71,12 +71,15 @@ export async function POST(req: Request) {
     await ensureSupportMessagesTable();
 
     const { userId, message, attachment } = await req.json();
+    const scoped = await resolveScopedUserId(userId);
     const text = String(message || "").trim();
     const attachmentName = attachment?.name ? String(attachment.name).slice(0, 180) : null;
     const attachmentMimeType = attachment?.mimeType ? String(attachment.mimeType).slice(0, 120) : null;
     const attachmentBase64 = attachment?.base64 ? String(attachment.base64) : null;
 
-    if (!userId || (!text && !attachmentBase64)) {
+    if (isAuthResponse(scoped)) return scoped;
+
+    if (!text && !attachmentBase64) {
       return Response.json({ error: "UserId and message or file required" }, { status: 400 });
     }
 
@@ -85,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: scoped.userId },
       select: { id: true, role: true },
     });
 
@@ -103,28 +106,28 @@ export async function POST(req: Request) {
     const id = randomUUID();
     await prisma.$executeRaw`
       INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt")
-      VALUES (${userId}, 'OPEN', NOW(), NOW(), NULL)
+      VALUES (${scoped.userId}, 'OPEN', NOW(), NOW(), NULL)
       ON CONFLICT ("userId")
       DO UPDATE SET "status" = 'OPEN', "updatedAt" = NOW()
     `;
 
     const created = await prisma.$queryRaw<SupportMessageRow[]>`
       INSERT INTO "SupportMessage" ("id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64")
-      VALUES (${id}, ${userId}, ${text}, 'CLIENT', 'CLIENT', ${attachmentName}, ${attachmentMimeType}, ${attachmentBase64})
+      VALUES (${id}, ${scoped.userId}, ${text}, 'CLIENT', 'CLIENT', ${attachmentName}, ${attachmentMimeType}, ${attachmentBase64})
       RETURNING "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
     `;
 
     const conversation = await prisma.$queryRaw<SupportConversationRow[]>`
       SELECT "status", "closedAt"
       FROM "SupportConversation"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${scoped.userId}
       LIMIT 1
     `;
     const currentConversation = conversation[0] || { status: "OPEN", closedAt: null };
     const managerMessages = await prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*)::bigint as count
       FROM "SupportMessage"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${scoped.userId}
       AND "sender" = 'ADMIN'
       AND (${currentConversation.closedAt}::timestamptz IS NULL OR "createdAt" > ${currentConversation.closedAt})
     `;
@@ -134,7 +137,7 @@ export async function POST(req: Request) {
       const botText = buildBotReply(text, Boolean(attachmentBase64));
       await prisma.$executeRaw`
         INSERT INTO "SupportMessage" ("id", "userId", "message", "sender", "fromRole")
-        VALUES (${botId}, ${userId}, ${botText}, 'BOT', 'BOT')
+        VALUES (${botId}, ${scoped.userId}, ${botText}, 'BOT', 'BOT')
       `;
     }
 
