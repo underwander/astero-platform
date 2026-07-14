@@ -307,6 +307,15 @@ function supportDialogHref(clientId: string) {
   return `/crm?tab=support&supportClientId=${encodeURIComponent(clientId)}`;
 }
 
+function generateClientPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let password = "Ww";
+  for (let index = 0; index < 8; index += 1) {
+    password += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return `${password}7`;
+}
+
 export default function AsteroCrm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -833,8 +842,8 @@ export default function AsteroCrm() {
     await loadAdminData();
   }
 
-  async function changeClientPassword(userId: string) {
-    const password = passwords[userId];
+  async function changeClientPassword(userId: string, nextPassword?: string) {
+    const password = nextPassword || passwords[userId];
     if (!password || password.length < 6) return alert("Пароль минимум 6 символов");
     const res = await fetch("/api/admin/users/change-password", {
       method: "PATCH",
@@ -845,7 +854,7 @@ export default function AsteroCrm() {
     if (!res.ok) return alert(data.error || "Ошибка смены пароля");
     setPasswords((prev) => ({ ...prev, [userId]: "" }));
     await loadAdminData();
-    alert("Пароль изменён");
+    alert(nextPassword ? `Новый пароль клиента: ${nextPassword}` : "Пароль изменён");
   }
 
   async function updateUser(userId: string, payload: Partial<User> & { password?: string }) {
@@ -2406,7 +2415,7 @@ function ClientProfileUtip({
   passwords: Record<string, string>;
   setPasswords: (value: Record<string, string>) => void;
   showPasswords: boolean;
-  changeClientPassword: (userId: string) => void;
+  changeClientPassword: (userId: string, nextPassword?: string) => void;
   actionForm: { title: string; description: string; dueAt: string; reminderMinutes: string; status: string; managerId: string };
   setActionForm: (value: { title: string; description: string; dueAt: string; reminderMinutes: string; status: string; managerId: string }) => void;
   addAction: () => void;
@@ -2646,7 +2655,7 @@ function ClientProfileUtip({
 
             <UtipInfoPanel title="Управление">
               <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-black text-slate-900">Пароль клиента</p>
                     <p className="text-[11px] font-black text-slate-600">
@@ -2655,13 +2664,27 @@ function ClientProfileUtip({
                         : "••••••••"}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowClientPassword((value) => !value)}
-                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"
-                  >
-                    {showClientPassword ? "Скрыть" : "Показать"}
-                  </button>
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowClientPassword((value) => !value)}
+                      className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"
+                    >
+                      {showClientPassword ? "Скрыть" : "Показать"}
+                    </button>
+                    {!selectedClient.plainPassword && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const generatedPassword = generateClientPassword();
+                          void changeClientPassword(selectedClient.id, generatedPassword);
+                        }}
+                        className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-emerald-400"
+                      >
+                        Создать
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
