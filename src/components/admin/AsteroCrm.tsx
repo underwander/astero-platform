@@ -278,6 +278,8 @@ const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
 
+const routeTabs: Tab[] = [...tabs.map((tab) => tab.id), "clientCard", "trades"];
+
 const inputClass =
   "h-10 w-full rounded-xl border border-emerald-100 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
 const areaClass =
@@ -565,7 +567,7 @@ export default function AsteroCrm() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get("tab") as Tab | null;
-    if (tabFromUrl && tabs.some((tab) => tab.id === tabFromUrl)) {
+    if (tabFromUrl && routeTabs.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
     const clientIdFromUrl = searchParams.get("clientId");
