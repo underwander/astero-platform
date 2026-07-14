@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "npx prisma generate && next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "sync:client-password-hashes": "node scripts/sync-client-password-hashes.cjs --apply",
+    "sync:client-password-hashes:dry": "node scripts/sync-client-password-hashes.cjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.19",
