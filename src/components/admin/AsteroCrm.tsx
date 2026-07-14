@@ -277,6 +277,18 @@ function csvCell(value: unknown) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function crmTabHref(tabId: Tab) {
+  return tabId === "desktop" ? "/crm" : `/crm?tab=${tabId}`;
+}
+
+function clientCardHref(clientId: string) {
+  return `/crm?tab=clientCard&clientId=${encodeURIComponent(clientId)}`;
+}
+
+function supportDialogHref(clientId: string) {
+  return `/crm?tab=support&supportClientId=${encodeURIComponent(clientId)}`;
+}
+
 export default function AsteroCrm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -350,12 +362,6 @@ export default function AsteroCrm() {
   const actionReminderKeysRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
   const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function openTab(tabId: Tab) {
-    setActiveTab(tabId);
-    const nextUrl = tabId === "desktop" ? "/crm" : `/crm?tab=${tabId}`;
-    window.history.replaceState(null, "", nextUrl);
-  }
 
   function playSupportSound() {
     try {
@@ -550,6 +556,10 @@ export default function AsteroCrm() {
     if (clientIdFromUrl) {
       setSelectedClientId(clientIdFromUrl);
     }
+    const supportClientIdFromUrl = searchParams.get("supportClientId");
+    if (supportClientIdFromUrl) {
+      setSupportClientId(supportClientIdFromUrl);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -668,17 +678,6 @@ export default function AsteroCrm() {
       break;
     }
   }, [now, openActions]);
-
-  function openClientCard(client: User) {
-    setSelectedClientId(client.id);
-    setDepositAmount("0");
-    setBalanceAmount("0");
-    setNoteText("");
-    setNoteStatus("OPEN");
-    setActionForm({ title: "", description: "", dueAt: "", reminderMinutes: "", status: "OPEN", managerId: "" });
-    openTab("clientCard");
-    window.history.replaceState(null, "", `/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`);
-  }
 
   function resetClientFilters() {
     setClientSearch("");
@@ -1222,9 +1221,9 @@ export default function AsteroCrm() {
         </div>
         <nav className="space-y-2">
           {visibleTabs.map((tab) => (
-            <button
+            <a
               key={tab.id}
-              onClick={() => openTab(tab.id)}
+              href={crmTabHref(tab.id)}
               className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
                 activeTab === tab.id
                   ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
@@ -1241,7 +1240,7 @@ export default function AsteroCrm() {
                 <span className="block text-sm font-black">{tab.label}</span>
                 <span className={`block text-xs ${activeTab === tab.id ? "text-slate-800" : "text-emerald-50/50"}`}>{tab.hint}</span>
               </span>
-            </button>
+            </a>
           ))}
         </nav>
       </aside>
@@ -1259,12 +1258,9 @@ export default function AsteroCrm() {
           {mobileMenuOpen && (
             <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl border border-emerald-400/10 bg-[#07170f] p-2">
               {visibleTabs.map((tab) => (
-                <button
+                <a
                   key={tab.id}
-                  onClick={() => {
-                    openTab(tab.id);
-                    setMobileMenuOpen(false);
-                  }}
+                  href={crmTabHref(tab.id)}
                   className={`rounded-xl px-3 py-3 text-left text-sm font-bold ${
                     activeTab === tab.id
                       ? "bg-emerald-500 text-slate-950"
@@ -1272,7 +1268,7 @@ export default function AsteroCrm() {
                   }`}
                 >
                   {tab.icon} {tab.label}
-                </button>
+                </a>
               ))}
             </div>
           )}
@@ -1314,17 +1310,12 @@ export default function AsteroCrm() {
                 x
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSupportClientId(supportToast.userId);
-                openTab("support");
-                setSupportToast(null);
-              }}
+            <a
+              href={supportDialogHref(supportToast.userId)}
               className="mt-3 w-full rounded-xl bg-sky-500 px-3 py-2 text-xs font-black text-white hover:bg-sky-400"
             >
               Открыть чат
-            </button>
+            </a>
           </div>
         )}
 
@@ -1360,7 +1351,7 @@ export default function AsteroCrm() {
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <Panel title="Ближайшие действия">
-                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onDelete={deleteAction} onOpenClient={openClientCard} showClient />
+                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onDelete={deleteAction} showClient />
               </Panel>
               <Panel title="Финансы и верификация">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1471,7 +1462,6 @@ export default function AsteroCrm() {
                 clients={filteredClients}
                 managers={managers}
                 onAssign={assignManager}
-                onOpen={openClientCard}
                 onBlock={(client) => toggleBlockUser(client.id, client.isBlocked)}
                 onDelete={(client) => deleteUser(client.id, client.email)}
               />
@@ -1531,7 +1521,7 @@ export default function AsteroCrm() {
                 </button>
               ))}
             </div>
-            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} onOpenClient={openClientCard} showClient />
+            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} showClient />
           </Panel>
         )}
 
@@ -3114,14 +3104,12 @@ function ClientsTable({
   clients,
   managers,
   onAssign,
-  onOpen,
   onBlock,
   onDelete,
 }: {
   clients: User[];
   managers: User[];
   onAssign: (userId: string, managerId: string) => void;
-  onOpen: (client: User) => void;
   onBlock: (client: User) => void;
   onDelete: (client: User) => void;
 }) {
@@ -3147,7 +3135,7 @@ function ClientsTable({
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
               <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(clientDisplayNumber(client))} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
               <td className="px-3 py-2">
-                <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="text-left font-black text-slate-950 hover:text-emerald-700">
+                <a href={clientCardHref(client.id)} className="text-left font-black text-slate-950 hover:text-emerald-700">
                   {displayName(client)}
                 </a>
                 <p className="text-[11px] text-slate-400">#{index + 1}</p>
@@ -3172,7 +3160,7 @@ function ClientsTable({
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-2">
-                  <a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} onClick={(event) => { event.preventDefault(); onOpen(client); }} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">Открыть</a>
+                  <a href={clientCardHref(client.id)} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">Открыть</a>
                 </div>
               </td>
             </tr>
@@ -3191,7 +3179,7 @@ function ClientsTable({
 }
 
 function ClientListCard({ client, managers, onAssign, onOpen, onBlock, onDelete }: { client: User; managers: User[]; onAssign: (userId: string, managerId: string) => void; onOpen: () => void; onBlock: () => void; onDelete: () => void }) {
-  return <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-black text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} · {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">Не назначен</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={onOpen} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">Открыть карточку</button><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-white">{client.isBlocked ? "Разблокировать" : "Заблокировать"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">Удалить</button></div></div>;
+  return <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-black text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} · {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">Не назначен</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><a href={clientCardHref(client.id)} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">Открыть карточку</a><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-white">{client.isBlocked ? "Разблокировать" : "Заблокировать"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">Удалить</button></div></div>;
 }
 
 function Info({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -3204,8 +3192,8 @@ function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (i
   return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
-function ActionList({ actions, onUpdate, onDelete, managers, showClient, onOpenClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean; onOpenClient?: (client: User) => void }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <button onClick={() => onOpenClient?.(action.client!)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></button> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
+function ActionList({ actions, onUpdate, onDelete, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean }) {
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <a href={clientCardHref(action.client.id)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></a> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
 }
 
 function TradingOperationsDesk({
@@ -3593,9 +3581,9 @@ function SupportPanel({
       <Panel title="Диалоги поддержки">
         <div className="max-h-[650px] divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
           {clientsWithMessages.map(({ client, count, last }) => (
-            <button
+            <a
               key={client.id}
-              onClick={() => setSelectedClientId(client.id)}
+              href={supportDialogHref(client.id)}
               className={`w-full px-3 py-2 text-left transition ${
                 selectedClientId === client.id
                   ? "bg-emerald-50"
@@ -3617,7 +3605,7 @@ function SupportPanel({
               <p className="mt-2 truncate text-xs text-slate-500">
                 {last?.message || "Сообщений пока нет"}
               </p>
-            </button>
+            </a>
           ))}
 
           {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
@@ -3800,19 +3788,14 @@ function SupportPanelV2({
             />
             <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white">
               {supportSearchResults.map((client) => (
-                <button
+                <a
                   key={client.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedClientId(client.id);
-                    onReadClient(client.id);
-                    setSearchOpen(false);
-                  }}
+                  href={supportDialogHref(client.id)}
                   className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
                 >
                   <span className="block text-sm font-black text-slate-900">{displayName(client)}</span>
                   <span className="block text-xs text-slate-500">{client.email} · {client.phone || "без телефона"}</span>
-                </button>
+                </a>
               ))}
               {supportSearchResults.length === 0 && <p className="p-3 text-sm text-slate-500">Клиент не найден</p>}
             </div>
@@ -3820,44 +3803,39 @@ function SupportPanelV2({
         )}
         <div className="space-y-2">
           {clientsWithMessages.map(({ client, count, conversation, last }) => (
-            <button
+            <div
               key={client.id}
-              onClick={() => {
-                setSelectedClientId(client.id);
-                onReadClient(client.id);
-              }}
               className={`w-full rounded-2xl border p-3 text-left transition ${
                 selectedClientId === client.id
                   ? "border-emerald-500 bg-emerald-50"
                   : "border-emerald-100 bg-white hover:bg-emerald-50"
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="flex items-center gap-2 font-black text-slate-950">
-                    {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
-                    {displayName(client)}
-                  </p>
-                  <p className="text-xs text-slate-500">{client.email}</p>
+              <a href={supportDialogHref(client.id)} className="block">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="flex items-center gap-2 font-black text-slate-950">
+                      {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
+                      {displayName(client)}
+                    </p>
+                    <p className="text-xs text-slate-500">{client.email}</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                    {count}
+                  </span>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
-                  {count}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
+                <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
+              </a>
               {supportMode === "archive" && (
                 <button
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteArchive(client.id);
-                  }}
+                  onClick={() => onDeleteArchive(client.id)}
                   className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-100"
                 >
                   Удалить из архива
                 </button>
               )}
-            </button>
+            </div>
           ))}
 
           {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
