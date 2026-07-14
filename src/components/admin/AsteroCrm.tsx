@@ -272,6 +272,11 @@ function readSessionValue(key: string, fallback = "") {
   return window.sessionStorage.getItem(key) || fallback;
 }
 
+function csvCell(value: unknown) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 export default function AsteroCrm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -303,8 +308,12 @@ export default function AsteroCrm() {
   const [managerFilterId, setManagerFilterId] = useState(() => readSessionValue("astero.crm.managerFilter", "all"));
   const [currentAdminEmail, setCurrentAdminEmail] = useState("");
   const [currentAdminRole, setCurrentAdminRole] = useState("");
-  const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
-  const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified">("all");
+  const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">(
+    () => readSessionValue("astero.crm.actionPeriod", "today") as "overdue" | "today" | "future"
+  );
+  const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified">(
+    () => readSessionValue("astero.crm.clientQuickFilter", "all") as "all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified"
+  );
   const [depositAmount, setDepositAmount] = useState("0");
   const [balanceAmount, setBalanceAmount] = useState("1000");
   const [passwords, setPasswords] = useState<Record<string, string>>({});
@@ -576,6 +585,14 @@ export default function AsteroCrm() {
   }, [managerFilterId]);
 
   useEffect(() => {
+    sessionStorage.setItem("astero.crm.clientQuickFilter", clientQuickFilter);
+  }, [clientQuickFilter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.actionPeriod", actionPeriod);
+  }, [actionPeriod]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 60000);
     return () => window.clearInterval(interval);
   }, []);
@@ -661,6 +678,40 @@ export default function AsteroCrm() {
     setActionForm({ title: "", description: "", dueAt: "", reminderMinutes: "", status: "OPEN", managerId: "" });
     openTab("clientCard");
     window.history.replaceState(null, "", `/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`);
+  }
+
+  function resetClientFilters() {
+    setClientSearch("");
+    setClientQuickFilter("all");
+    setManagerFilterId("all");
+  }
+
+  function exportClientsCsv() {
+    const header = ["ID", "Номер", "Email", "Имя", "Фамилия", "Телефон", "Страна", "Город", "Статус", "KYC", "Менеджер", "Баланс EUR", "Последний вход", "IP"];
+    const rows = filteredClients.map((client) => [
+      client.id,
+      client.clientNumber || "",
+      client.email,
+      client.firstName || "",
+      client.lastName || "",
+      client.phone || "",
+      client.country || "",
+      client.city || "",
+      client.clientStatus || (client.isBlocked ? "BLOCKED" : "ACTIVE"),
+      client.kycStatus,
+      client.manager ? displayName(client.manager) : "",
+      Number(client.balance || 0).toFixed(2),
+      client.lastSeenAt || client.lastLoginAt || "",
+      client.lastIp || "",
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `astero-clients-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function createUser(role: "CLIENT" | "MANAGER") {
@@ -1382,7 +1433,7 @@ export default function AsteroCrm() {
                     </button>
                   ))}
                 </div>
-                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[520px] lg:flex-row">
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[680px] lg:flex-row">
                   {currentAdminEmail === "test6@test.com" && (
                     <select
                       className={`${inputClass} lg:max-w-[220px]`}
@@ -1400,6 +1451,20 @@ export default function AsteroCrm() {
                     </select>
                   )}
                   <input name="crm-client-table-search" autoComplete="off" autoCorrect="off" spellCheck={false} className={`${inputClass} lg:max-w-md`} placeholder="Поиск: email, имя, телефон, страна" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                  <button
+                    type="button"
+                    onClick={resetClientFilters}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Сброс
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportClientsCsv}
+                    className="h-10 rounded-xl bg-slate-950 px-3 text-xs font-black text-white transition hover:bg-slate-800"
+                  >
+                    CSV
+                  </button>
                 </div>
               </div>
               <ClientsTable
@@ -2166,6 +2231,11 @@ function ClientProfileUtip({
   const [numberCopied, setNumberCopied] = useState(false);
   const [showClientPassword, setShowClientPassword] = useState(false);
   const [notePage, setNotePage] = useState(1);
+  const [noteSearch, setNoteSearch] = useState("");
+  const [noteFilter, setNoteFilter] = useState<"all" | "OPEN" | "IMPORTANT" | "CLOSED">("all");
+  const [noteSort, setNoteSort] = useState<"new" | "old" | "updated">("new");
+  const [actionSearch, setActionSearch] = useState("");
+  const [actionStatusFilter, setActionStatusFilter] = useState<"all" | "OPEN" | "IN_PROGRESS" | "POSTPONED" | "CLOSED">("all");
   const [editClient, setEditClient] = useState({
     firstName: selectedClient.firstName || "",
     lastName: selectedClient.lastName || "",
@@ -2195,10 +2265,26 @@ function ClientProfileUtip({
   const clientDeposits = deposits.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientWithdrawals = withdrawals.filter((item) => item.user.id === selectedClient.id || item.user.email === selectedClient.email);
   const clientDocs = documents.filter((doc) => doc.user?.id === selectedClient.id || doc.user?.email === selectedClient.email);
-  const sortedNotes = [...(selectedClient.clientNotes || [])].sort((a, b) => {
-    if (a.status === "IMPORTANT" && b.status !== "IMPORTANT") return -1;
-    if (a.status !== "IMPORTANT" && b.status === "IMPORTANT") return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  const sortedNotes = [...(selectedClient.clientNotes || [])]
+    .filter((note) => {
+      const matchesSearch = noteSearch.trim() === "" || note.text.toLowerCase().includes(noteSearch.trim().toLowerCase());
+      const matchesStatus = noteFilter === "all" || note.status === noteFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (a.status === "IMPORTANT" && b.status !== "IMPORTANT") return -1;
+      if (a.status !== "IMPORTANT" && b.status === "IMPORTANT") return 1;
+      if (noteSort === "old") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (noteSort === "updated") return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  const filteredClientActions = clientActions.filter((action) => {
+    const search = actionSearch.trim().toLowerCase();
+    const matchesSearch =
+      search === "" ||
+      `${action.title} ${action.description || ""} ${action.manager ? displayName(action.manager) : ""}`.toLowerCase().includes(search);
+    const matchesStatus = actionStatusFilter === "all" || action.status === actionStatusFilter;
+    return matchesSearch && matchesStatus;
   });
   const notePageSize = 10;
   const notePageCount = Math.max(1, Math.ceil(sortedNotes.length / notePageSize));
@@ -2422,14 +2508,32 @@ function ClientProfileUtip({
 
         {clientSection === "overview" && <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
           <Panel title="Описание">
-            <div className="space-y-2 text-sm text-slate-700">
-              <p>Сделок: <b>{clientTrades.length}</b></p>
-              <p>Выводов: <b>{clientWithdrawals.length}</b></p>
-              <p>Документов: <b>{clientDocs.length}</b></p>
-              <p>Открытых действий: <b>{clientActions.filter((action) => action.status !== "CLOSED").length}</b></p>
+            <div className="grid grid-cols-2 gap-2 text-sm text-slate-700">
+              <Info label="Сделки" value={String(clientTrades.length)} sub={`${clientTrades.filter((trade) => trade.closePrice === null).length} открыто`} />
+              <Info label="Выводы" value={String(clientWithdrawals.length)} sub={`${clientWithdrawals.filter((item) => item.status === "PENDING").length} ожидают`} />
+              <Info label="Документы" value={String(clientDocs.length)} sub={`${clientDocs.filter((doc) => doc.status === "PENDING").length} на проверке`} />
+              <Info label="Действия" value={String(clientActions.filter((action) => action.status !== "CLOSED").length)} sub="открытые задачи" />
             </div>
           </Panel>
           <Panel title="Заметки">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {[
+                "Связаться сегодня",
+                "Клиент просит перезвонить",
+                "Проверить вывод средств",
+                "Проверить пополнение",
+                "Ожидает документы",
+              ].map((template) => (
+                <button
+                  key={template}
+                  type="button"
+                  onClick={() => setNoteText(noteText ? `${noteText}\n${template}` : template)}
+                  className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                >
+                  + {template}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_auto]">
               <textarea className={`${areaClass} min-h-20 rounded-lg`} placeholder="Заметка по клиенту" value={noteText} onChange={(event) => setNoteText(event.target.value)} />
               <select className={`${inputClass} h-10 rounded-lg`} value={noteStatus} onChange={(event) => setNoteStatus(event.target.value)}>
@@ -2439,9 +2543,23 @@ function ClientProfileUtip({
               </select>
               <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
             </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_160px]">
+              <input className={`${inputClass} h-10 rounded-lg`} placeholder="Поиск по заметкам" value={noteSearch} onChange={(event) => setNoteSearch(event.target.value)} />
+              <select className={`${inputClass} h-10 rounded-lg`} value={noteFilter} onChange={(event) => setNoteFilter(event.target.value as typeof noteFilter)}>
+                <option value="all">Все</option>
+                <option value="IMPORTANT">Важные</option>
+                <option value="OPEN">Открытые</option>
+                <option value="CLOSED">Закрытые</option>
+              </select>
+              <select className={`${inputClass} h-10 rounded-lg`} value={noteSort} onChange={(event) => setNoteSort(event.target.value as typeof noteSort)}>
+                <option value="new">Сначала новые</option>
+                <option value="old">Сначала старые</option>
+                <option value="updated">По изменению</option>
+              </select>
+            </div>
             <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
               {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} onDelete={deleteNote} />)}
-              {(selectedClient.clientNotes || []).length === 0 && <Empty text="Заметок пока нет" />}
+              {sortedNotes.length === 0 && <Empty text={(selectedClient.clientNotes || []).length === 0 ? "Заметок пока нет" : "По фильтру заметок нет"} />}
             </div>
             {sortedNotes.length > notePageSize && (
               <div className="mt-3 flex items-center justify-end gap-2">
@@ -2458,6 +2576,32 @@ function ClientProfileUtip({
         </div>}
 
         {clientSection === "overview" && <Panel title="Действия">
+          <div className="mb-3 flex flex-wrap gap-2">
+            {[
+              ["Позвонить клиенту", 30],
+              ["Проверить документы", 60],
+              ["Проверить депозит", 15],
+              ["Уточнить реквизиты", 30],
+            ].map(([title, minutes]) => (
+              <button
+                key={String(title)}
+                type="button"
+                onClick={() => {
+                  const due = new Date(Date.now() + Number(minutes) * 60 * 1000);
+                  const pad = (value: number) => String(value).padStart(2, "0");
+                  setActionForm({
+                    ...actionForm,
+                    title: String(title),
+                    dueAt: `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`,
+                    status: "OPEN",
+                  });
+                }}
+                className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+              >
+                + {String(title)}
+              </button>
+            ))}
+          </div>
           <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_150px_150px_190px_auto]">
             <input className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
             <input className={`${inputClass} h-10 rounded-lg`} type="datetime-local" value={actionForm.dueAt} onChange={(event) => setActionForm({ ...actionForm, dueAt: event.target.value })} />
@@ -2480,10 +2624,20 @@ function ClientProfileUtip({
             <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
           </div>
           <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
-          <UtipActionsTable actions={clientActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} />
+          <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px]">
+            <input className={`${inputClass} h-10 rounded-lg`} placeholder="Поиск по действиям" value={actionSearch} onChange={(event) => setActionSearch(event.target.value)} />
+            <select className={`${inputClass} h-10 rounded-lg`} value={actionStatusFilter} onChange={(event) => setActionStatusFilter(event.target.value as typeof actionStatusFilter)}>
+              <option value="all">Все статусы</option>
+              <option value="OPEN">Открытые</option>
+              <option value="IN_PROGRESS">В работе</option>
+              <option value="POSTPONED">Перенесённые</option>
+              <option value="CLOSED">Закрытые</option>
+            </select>
+          </div>
+          <UtipActionsTable actions={filteredClientActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} />
         </Panel>}
 
-        {clientSection === "overview" && <ClientTimeline client={selectedClient} withdrawals={withdrawals} trades={trades} documents={documents} />}
+        {clientSection === "overview" && <ClientTimeline client={selectedClient} withdrawals={withdrawals} deposits={deposits} trades={trades} documents={documents} />}
     </div>
   );
 }
@@ -2881,11 +3035,20 @@ function UtipActionsTable({
   onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string; reminderMinutes: number | null }>) => void;
   onDelete: (id: string) => void;
 }) {
+  function actionUrgency(action: ClientAction) {
+    if (action.status === "CLOSED") return { label: "Закрыто", className: "bg-slate-100 text-slate-500" };
+    const due = new Date(action.dueAt).getTime();
+    if (due < Date.now()) return { label: "Просрочено", className: "bg-red-100 text-red-700" };
+    if (due - Date.now() < 24 * 60 * 60 * 1000) return { label: "Сегодня", className: "bg-amber-100 text-amber-700" };
+    return { label: "Будущее", className: "bg-emerald-100 text-emerald-700" };
+  }
+
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-[1220px] w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
+            <th className="px-3 py-2">Приоритет</th>
             <th className="px-3 py-2">Дата</th>
             <th className="px-3 py-2">Тип</th>
             <th className="px-3 py-2">Создатель</th>
@@ -2897,8 +3060,11 @@ function UtipActionsTable({
           </tr>
         </thead>
         <tbody>
-          {actions.map((action) => (
-            <tr key={action.id} className="border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50">
+          {actions.map((action) => {
+            const urgency = actionUrgency(action);
+            return (
+            <tr key={action.id} className={`border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50 ${urgency.label === "Просрочено" ? "bg-red-50/40" : ""}`}>
+              <td className="px-3 py-2"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${urgency.className}`}>{urgency.label}</span></td>
               <td className="px-3 py-2"><input type="datetime-local" className="h-10 rounded border border-slate-200 px-3" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
               <td className="px-3 py-2"><input title={action.title} className="h-10 w-44 rounded border border-slate-200 px-3 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
               <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
@@ -2932,10 +3098,10 @@ function UtipActionsTable({
                 </div>
               </td>
             </tr>
-          ))}
+          )})}
           {actions.length === 0 && (
             <tr>
-              <td className="px-3 py-8 text-center text-slate-500" colSpan={8}>Действий нет</td>
+              <td className="px-3 py-8 text-center text-slate-500" colSpan={9}>Действий нет</td>
             </tr>
           )}
         </tbody>
@@ -3868,29 +4034,60 @@ function SupportPanelV2({
 function ClientTimeline({
   client,
   withdrawals,
+  deposits,
   trades,
   documents,
 }: {
   client: User;
   withdrawals: Withdrawal[];
+  deposits: Deposit[];
   trades: Trade[];
   documents: VerificationDocument[];
 }) {
+  const [typeFilter, setTypeFilter] = useState("all");
   const events = [
     {
       id: `created-${client.id}`,
       date: client.createdAt,
       title: "Регистрация клиента",
       text: client.email,
+      type: "system",
       tone: "bg-emerald-50 text-emerald-700",
     },
+    ...(client.lastLoginAt ? [{
+      id: `login-${client.id}`,
+      date: client.lastLoginAt,
+      title: "Последний вход",
+      text: `${client.lastIp || "IP не определён"} · ${isClientOnline(client) ? "сейчас онлайн" : "не в сети"}`,
+      type: "login",
+      tone: "bg-sky-50 text-sky-700",
+    }] : []),
+    ...(client.lastSeenAt ? [{
+      id: `activity-${client.id}`,
+      date: client.lastSeenAt,
+      title: "Последняя активность",
+      text: client.lastIp || "IP не определён",
+      type: "login",
+      tone: "bg-cyan-50 text-cyan-700",
+    }] : []),
+    ...deposits
+      .filter((item) => item.user?.id === client.id || item.user?.email === client.email)
+      .map((item) => ({
+        id: `deposit-${item.id}`,
+        date: item.createdAt,
+        title: `Пополнение: €${Number(item.amount).toFixed(2)}`,
+        text: `${item.method || "Метод не указан"} · ${item.status}${item.adminComment ? ` · ${item.adminComment}` : ""}`,
+        type: "finance",
+        tone: "bg-emerald-50 text-emerald-700",
+      })),
     ...withdrawals
       .filter((item) => item.user?.id === client.id || item.user?.email === client.email)
       .map((item) => ({
         id: `withdrawal-${item.id}`,
         date: item.createdAt,
-        title: `Вывод средств: $${Number(item.amount).toFixed(2)}`,
+        title: `Вывод средств: €${Number(item.amount).toFixed(2)}`,
         text: `${withdrawalMethodLabel(item.method)} · ${item.status}`,
+        type: "finance",
         tone: "bg-yellow-50 text-yellow-700",
       })),
     ...trades
@@ -3900,6 +4097,7 @@ function ClientTimeline({
         date: item.createdAt,
         title: `${item.side} ${item.symbol}`,
         text: `Объём ${item.volume} · Open ${item.openPrice} · TP ${item.takeProfit ?? "-"} · SL ${item.stopLoss ?? "-"}`,
+        type: "trade",
         tone: item.side === "BUY" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700",
       })),
     ...(client.clientNotes || []).map((note) => ({
@@ -3907,6 +4105,7 @@ function ClientTimeline({
       date: note.createdAt,
       title: `Комментарий: ${note.status}`,
       text: note.text,
+      type: "note",
       tone: "bg-blue-50 text-blue-700",
     })),
     ...(client.clientActions || []).map((action) => ({
@@ -3914,6 +4113,7 @@ function ClientTimeline({
       date: action.createdAt,
       title: `Действие: ${action.title}`,
       text: `${action.status} · срок ${action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "-"}`,
+      type: "action",
       tone: "bg-slate-100 text-slate-700",
     })),
     ...documents
@@ -3923,14 +4123,36 @@ function ClientTimeline({
         date: doc.createdAt,
         title: `Документ: ${doc.documentType || "DOCUMENT"}`,
         text: `${doc.fileName} · ${doc.status}`,
+        type: "document",
         tone: "bg-purple-50 text-purple-700",
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredEvents = events.filter((event) => typeFilter === "all" || event.type === typeFilter);
 
   return (
     <Panel title="Timeline клиента">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {[
+          ["all", "Все"],
+          ["finance", "Финансы"],
+          ["trade", "Торговля"],
+          ["note", "Заметки"],
+          ["action", "Действия"],
+          ["document", "Документы"],
+          ["login", "Входы"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTypeFilter(key)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-black ${typeFilter === key ? "bg-emerald-500 text-slate-950" : "border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="space-y-3">
-        {events.slice(0, 12).map((event) => (
+        {filteredEvents.slice(0, 20).map((event) => (
           <div key={event.id} className="flex gap-3 rounded-2xl border border-emerald-100 bg-white p-3">
             <div className={`mt-1 h-3 w-3 shrink-0 rounded-full ${event.tone.split(" ")[0]}`} />
             <div className="min-w-0 flex-1">
@@ -3943,7 +4165,7 @@ function ClientTimeline({
           </div>
         ))}
 
-        {events.length === 0 && <Empty text="Событий пока нет" />}
+        {filteredEvents.length === 0 && <Empty text="Событий по выбранному фильтру нет" />}
       </div>
     </Panel>
   );
