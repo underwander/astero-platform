@@ -7,8 +7,11 @@ export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
+    fetch("/api/logout", { method: "POST" }).catch(() => undefined);
     localStorage.removeItem("userId");
     localStorage.removeItem("email");
+    localStorage.removeItem("role");
+    localStorage.removeItem("isBlocked");
 
     setTimeout(() => {
       router.push("/login");

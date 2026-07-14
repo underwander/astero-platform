@@ -1,10 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 export async function POST(req: Request) {
   try {
     await ensureCrmSchema();
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+
+    if (!session || !["ADMIN", "MANAGER"].includes(session.role)) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { email, password, firstName, lastName, phone, country, city, address, balance, role, managerId } = await req.json();
 
     if (!email) {
@@ -12,6 +21,10 @@ export async function POST(req: Request) {
     }
 
     const selectedRole = role === "MANAGER" ? "MANAGER" : "CLIENT";
+    if (selectedRole === "MANAGER" && session.role !== "ADMIN") {
+      return Response.json({ error: "Only admin can create managers" }, { status: 403 });
+    }
+
     const rawPassword = selectedRole === "CLIENT" ? String(password || "Ww123456") : String(password || "");
 
     if (!rawPassword) {
@@ -49,7 +62,6 @@ export async function POST(req: Request) {
         clientNumber,
         email,
         password: hashedPassword,
-        plainPassword: rawPassword,
         firstName: firstName || null,
         lastName: lastName || null,
         phone: phone || null,
@@ -58,7 +70,7 @@ export async function POST(req: Request) {
         address: address || null,
         balance: selectedRole === "CLIENT" ? initialBalance : 0,
         role: selectedRole,
-        managerId: selectedRole === "CLIENT" ? managerId || null : null,
+        managerId: selectedRole === "CLIENT" ? (session.role === "MANAGER" ? session.sub : managerId || null) : null,
         tradingEnabled: selectedRole !== "CLIENT",
       },
     });

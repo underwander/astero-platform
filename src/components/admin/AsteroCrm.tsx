@@ -88,6 +88,36 @@ type Announcement = {
   updatedAt: string;
 };
 
+type SecurityEvent = {
+  id: string;
+  type: string;
+  risk: string;
+  description: string;
+  ip?: string | null;
+  country?: string | null;
+  city?: string | null;
+  userAgent?: string | null;
+  device?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  path?: string | null;
+  createdAt: string;
+  user?: {
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    role?: string | null;
+  } | null;
+};
+
+type IpAccessRule = {
+  id: string;
+  ip: string;
+  mode: "BLACKLIST" | "WHITELIST";
+  reason?: string | null;
+  createdAt: string;
+};
+
 type SupportToast = {
   userId: string;
   clientName: string;
@@ -215,6 +245,7 @@ type Tab =
   | "verification"
   | "support"
   | "announcements"
+  | "security"
   | "quotes";
 
 const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
@@ -227,6 +258,7 @@ const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
   { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
   { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
   { id: "announcements", label: "Доска объявлений", hint: "Новости", icon: "!" },
+  { id: "security", label: "Безопасность", hint: "Журнал", icon: "!" },
   { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
 ];
 
@@ -270,6 +302,7 @@ export default function AsteroCrm() {
   const [clientSearch, setClientSearch] = useState(() => readSessionValue("astero.crm.clientSearch"));
   const [managerFilterId, setManagerFilterId] = useState(() => readSessionValue("astero.crm.managerFilter", "all"));
   const [currentAdminEmail, setCurrentAdminEmail] = useState("");
+  const [currentAdminRole, setCurrentAdminRole] = useState("");
   const [actionPeriod, setActionPeriod] = useState<"overdue" | "today" | "future">("today");
   const [clientQuickFilter, setClientQuickFilter] = useState<"all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified">("all");
   const [depositAmount, setDepositAmount] = useState("0");
@@ -365,6 +398,7 @@ export default function AsteroCrm() {
     const activeManagerFilter = isMainAdmin ? managerFilterId : "all";
     const managerQuery = activeManagerFilter !== "all" ? `&managerId=${encodeURIComponent(activeManagerFilter)}` : "";
     setCurrentAdminEmail(currentEmail);
+    setCurrentAdminRole(role);
     const res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}${managerQuery}`, { cache: "no-store" });
     const data = await res.json();
     const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
@@ -1122,6 +1156,11 @@ export default function AsteroCrm() {
     );
   }
 
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.id === "security" || tab.id === "managers") return currentAdminRole === "ADMIN";
+    return true;
+  });
+
   return (
     <div className="flex min-h-[calc(100vh-64px)] bg-[#06130d] text-white">
       <aside className="hidden w-80 shrink-0 border-r border-emerald-400/10 bg-[#07170f] p-4 lg:block">
@@ -1131,7 +1170,7 @@ export default function AsteroCrm() {
           <p className="mt-1 text-sm text-emerald-50/60">Клиенты, действия, сделки, финансы и верификация.</p>
         </div>
         <nav className="space-y-2">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => openTab(tab.id)}
@@ -1162,13 +1201,13 @@ export default function AsteroCrm() {
             onClick={() => setMobileMenuOpen((prev) => !prev)}
             className="flex h-12 w-full items-center justify-between rounded-2xl border border-emerald-400/10 bg-[#07170f] px-4 text-sm font-black text-white"
           >
-            <span>☰ {activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</span>
+            <span>☰ {activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</span>
             <span className="text-emerald-300">{mobileMenuOpen ? "Закрыть" : "Меню"}</span>
           </button>
 
           {mobileMenuOpen && (
             <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl border border-emerald-400/10 bg-[#07170f] p-2">
-              {tabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => {
@@ -1191,7 +1230,7 @@ export default function AsteroCrm() {
         <div className="rounded-xl border border-emerald-400/10 bg-white/[0.04] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
             <input
               name="crm-client-search"
@@ -1431,7 +1470,7 @@ export default function AsteroCrm() {
           </Panel>
         )}
 
-        {activeTab === "managers" && (
+        {activeTab === "managers" && currentAdminRole === "ADMIN" && (
           <div className="space-y-4">
             <Panel title="Создать менеджера">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
@@ -1498,6 +1537,7 @@ export default function AsteroCrm() {
           />
         )}
         {activeTab === "announcements" && <AnnouncementsAdminPanel />}
+        {activeTab === "security" && currentAdminRole === "ADMIN" && <SecurityPanel />}
         {activeTab === "quotes" && <ManualQuotesPanel />}
       </main>
     </div>
@@ -1597,6 +1637,231 @@ function EyeIcon({ closed = false }: { closed?: boolean }) {
       />
       {closed && <path d="M4 20L20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
     </svg>
+  );
+}
+
+function SecurityPanel() {
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [rules, setRules] = useState<IpAccessRule[]>([]);
+  const [summary, setSummary] = useState({ attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0 });
+  const [criticalEvents, setCriticalEvents] = useState<SecurityEvent[]>([]);
+  const [countryStats, setCountryStats] = useState<Array<{ country: string | null; _count: { country: number } }>>([]);
+  const [search, setSearch] = useState(() => readSessionValue("astero.crm.securitySearch"));
+  const [ip, setIp] = useState("");
+  const [mode, setMode] = useState<"BLACKLIST" | "WHITELIST">("BLACKLIST");
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function loadSecurity() {
+    const res = await fetch(`/api/admin/security?search=${encodeURIComponent(search)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      setMessage(data?.error || "Не удалось загрузить журнал безопасности");
+      return;
+    }
+
+    setSummary(data.summary || { attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0 });
+    setEvents(data.events || []);
+    setRules(data.ipRules || []);
+    setCriticalEvents(data.criticalEvents || []);
+    setCountryStats(data.countryStats || []);
+    setMessage("");
+  }
+
+  async function saveRule() {
+    if (!ip.trim()) {
+      setMessage("Введите IP или CIDR-диапазон");
+      return;
+    }
+
+    const res = await fetch("/api/admin/security", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ip: ip.trim(), mode, reason }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setMessage(data?.error || "Не удалось сохранить правило");
+      return;
+    }
+
+    setIp("");
+    setReason("");
+    setMessage(mode === "BLACKLIST" ? "IP добавлен в черный список" : "IP добавлен в белый список");
+    await loadSecurity();
+  }
+
+  async function deleteRule(id: string) {
+    if (!confirm("Удалить IP-правило?")) return;
+
+    const res = await fetch("/api/admin/security", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      setMessage(data?.error || "Не удалось удалить правило");
+      return;
+    }
+
+    await loadSecurity();
+  }
+
+  function exportEvents() {
+    const header = ["Дата", "Риск", "Тип", "IP", "Пользователь", "Описание", "Браузер", "ОС", "Устройство"];
+    const rows = events.map((event) => [
+      new Date(event.createdAt).toLocaleString("ru-RU"),
+      event.risk,
+      event.type,
+      event.ip || "",
+      event.user?.email || "",
+      event.description,
+      event.browser || "",
+      event.os || "",
+      event.device || "",
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `astero-security-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.securitySearch", search);
+    const timer = window.setTimeout(() => {
+      loadSecurity();
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const riskClass = (risk: string) => {
+    if (risk === "CRITICAL") return "bg-red-600 text-white";
+    if (risk === "HIGH") return "bg-orange-500 text-white";
+    if (risk === "MEDIUM") return "bg-amber-400 text-slate-950";
+    return "bg-emerald-100 text-emerald-700";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <Metric title="Попытки входа 24ч" value={summary.attempts24h} />
+        <Metric title="Активные пользователи" value={summary.activeUsers} />
+        <Metric title="Заблокированные IP" value={summary.blockedIps} danger={summary.blockedIps > 0} />
+        <Metric title="Критические события" value={summary.criticalCount} danger={summary.criticalCount > 0} />
+      </div>
+
+      {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</div>}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <Panel title="Управление IP">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px]">
+            <input className={inputClass} placeholder="IP или CIDR, например 192.168.1.0/24" value={ip} onChange={(event) => setIp(event.target.value)} />
+            <select className={inputClass} value={mode} onChange={(event) => setMode(event.target.value as "BLACKLIST" | "WHITELIST")}>
+              <option value="BLACKLIST">Черный список</option>
+              <option value="WHITELIST">Белый список</option>
+            </select>
+          </div>
+          <textarea className={`${areaClass} mt-2 min-h-16`} placeholder="Причина" value={reason} onChange={(event) => setReason(event.target.value)} />
+          <button type="button" onClick={saveRule} className="mt-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">
+            Сохранить правило
+          </button>
+
+          <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-slate-100">
+            {rules.map((rule) => (
+              <div key={rule.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-3 text-sm last:border-b-0">
+                <div>
+                  <p className="font-black text-slate-900">{rule.ip}</p>
+                  <p className="text-xs text-slate-500">{rule.mode} · {rule.reason || "Без комментария"}</p>
+                </div>
+                <button type="button" onClick={() => deleteRule(rule.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-black text-red-600 hover:bg-red-50">
+                  Удалить
+                </button>
+              </div>
+            ))}
+            {rules.length === 0 && <Empty text="IP-правил пока нет" />}
+          </div>
+        </Panel>
+
+        <Panel title="Мониторинг">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-slate-100 p-3">
+              <p className="text-xs font-black uppercase text-slate-400">Критические события</p>
+              <div className="mt-2 space-y-2">
+                {criticalEvents.map((event) => (
+                  <div key={event.id} className="rounded-lg bg-red-50 p-2 text-xs text-red-800">
+                    <b>{event.type}</b> · {event.ip || "-"} · {event.description}
+                  </div>
+                ))}
+                {criticalEvents.length === 0 && <p className="text-sm text-slate-400">Критических событий нет</p>}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-100 p-3">
+              <p className="text-xs font-black uppercase text-slate-400">Страны за 24 часа</p>
+              <div className="mt-2 space-y-2">
+                {countryStats.map((item) => (
+                  <div key={item.country || "unknown"} className="flex justify-between rounded-lg bg-slate-50 p-2 text-xs">
+                    <span>{item.country || "Не определено"}</span>
+                    <b>{item._count.country}</b>
+                  </div>
+                ))}
+                {countryStats.length === 0 && <p className="text-sm text-slate-400">Данных пока нет</p>}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Журнал безопасности">
+        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <input className={`${inputClass} md:max-w-md`} placeholder="Поиск по IP, событию, пользователю" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <button type="button" onClick={exportEvents} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50">
+            Экспорт CSV
+          </button>
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <table className="min-w-[1120px] w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="p-3">Дата</th>
+                <th className="p-3">Риск</th>
+                <th className="p-3">Тип</th>
+                <th className="p-3">IP</th>
+                <th className="p-3">Пользователь</th>
+                <th className="p-3">Устройство</th>
+                <th className="p-3">Описание</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id} className="border-t border-slate-100 align-top hover:bg-emerald-50/40">
+                  <td className="p-3">{new Date(event.createdAt).toLocaleString("ru-RU")}</td>
+                  <td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${riskClass(event.risk)}`}>{event.risk}</span></td>
+                  <td className="p-3 font-black">{event.type}</td>
+                  <td className="p-3">{event.ip || "-"}</td>
+                  <td className="p-3">{event.user?.email || "-"}</td>
+                  <td className="p-3">{event.device || "-"} · {event.browser || "-"} · {event.os || "-"}</td>
+                  <td className="p-3">{event.description}</td>
+                </tr>
+              ))}
+              {events.length === 0 && (
+                <tr>
+                  <td className="p-6 text-center text-sm text-slate-400" colSpan={7}>Событий пока нет</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -2090,7 +2355,7 @@ function ClientProfileUtip({
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-black text-slate-900">Пароль клиента</p>
-                    <p className="text-[11px] text-slate-500">{showClientPassword ? selectedClient.plainPassword || "Доступен после смены пароля" : "••••••••"}</p>
+                    <p className="text-[11px] text-slate-500">{showClientPassword ? "Пароль хранится только в виде защищенного хеша" : "••••••••"}</p>
                   </div>
                   <button
                     type="button"

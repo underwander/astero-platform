@@ -20,7 +20,7 @@ export async function PATCH(req: Request) {
       where: { id: userId },
       data: {
         password: hashedPassword,
-        plainPassword: String(newPassword),
+        plainPassword: null,
       },
     });
 

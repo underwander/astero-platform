@@ -1,22 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { ensureCrmSchema } from "@/lib/crm-schema";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 export async function GET(req: Request) {
   try {
     await ensureCrmSchema();
     const { searchParams } = new URL(req.url);
-    const requesterId = searchParams.get("requesterId");
-    const requesterRole = searchParams.get("role");
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+
+    if (!session || !["ADMIN", "MANAGER"].includes(session.role)) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const requesterId = session.sub;
+    const requesterRole = session.role;
     const requestedManagerId = searchParams.get("managerId");
-    const requester = requesterId
-      ? await prisma.user.findUnique({
-          where: { id: requesterId },
-          select: { email: true },
-        })
-      : null;
     const mainAdminManagerScope =
       requesterRole === "ADMIN" &&
-      requester?.email === "test6@test.com" &&
+      session.email === "test6@test.com" &&
       requestedManagerId &&
       requestedManagerId !== "all"
         ? requestedManagerId
@@ -31,7 +34,6 @@ export async function GET(req: Request) {
         id: true,
         clientNumber: true,
         email: true,
-        plainPassword: true,
         firstName: true,
         lastName: true,
         phone: true,

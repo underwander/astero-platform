@@ -44,6 +44,7 @@ model User {
   authoredNotes    ClientNote[]   @relation("ClientNoteManagers")
   clientActions    ClientAction[] @relation("ClientActions")
   assignedActions  ClientAction[] @relation("ClientActionManagers")
+  securityEvents   SecurityEvent[]
 }
 
 model Trade {
@@ -215,4 +216,41 @@ model ManualQuote {
   tradeForbidden  Boolean  @default(false)
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
+}
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  type        String
+  risk        String   @default("LOW")
+  description String
+  ip          String?
+  country     String?
+  city        String?
+  userAgent   String?
+  device      String?
+  browser     String?
+  os          String?
+  path        String?
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([ip])
+  @@index([type])
+  @@index([risk])
+}
+
+model IpAccessRule {
+  id        String   @id @default(cuid())
+  ip        String
+  mode      String   @default("BLACKLIST")
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ip, mode])
+  @@index([ip])
+  @@index([mode])
 }

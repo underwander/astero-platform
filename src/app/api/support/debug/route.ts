@@ -8,6 +8,10 @@ type CountRow = {
 
 export async function GET(req: Request) {
   try {
+    if (process.env.NODE_ENV === "production") {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
     await ensureSupportMessagesTable();
 
     const { searchParams } = new URL(req.url);

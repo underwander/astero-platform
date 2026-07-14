@@ -55,6 +55,57 @@ export function ensureCrmSchema() {
         ADD COLUMN IF NOT EXISTS "managerId" TEXT,
         ADD COLUMN IF NOT EXISTS "reminderMinutes" INTEGER
     `),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "SecurityEvent" (
+        "id" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "risk" TEXT NOT NULL DEFAULT 'LOW',
+        "description" TEXT NOT NULL,
+        "ip" TEXT,
+        "country" TEXT,
+        "city" TEXT,
+        "userAgent" TEXT,
+        "device" TEXT,
+        "browser" TEXT,
+        "os" TEXT,
+        "path" TEXT,
+        "userId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "SecurityEvent_pkey" PRIMARY KEY ("id")
+      )
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "IpAccessRule" (
+        "id" TEXT NOT NULL,
+        "ip" TEXT NOT NULL,
+        "mode" TEXT NOT NULL DEFAULT 'BLACKLIST',
+        "reason" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "IpAccessRule_pkey" PRIMARY KEY ("id")
+      )
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_createdAt_idx" ON "SecurityEvent"("createdAt")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_ip_idx" ON "SecurityEvent"("ip")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_type_idx" ON "SecurityEvent"("type")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_risk_idx" ON "SecurityEvent"("risk")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "IpAccessRule_ip_mode_key" ON "IpAccessRule"("ip", "mode")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "IpAccessRule_ip_idx" ON "IpAccessRule"("ip")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "IpAccessRule_mode_idx" ON "IpAccessRule"("mode")
+    `),
   ]).then(() => undefined);
 
   return crmSchemaReady;
