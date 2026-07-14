@@ -377,6 +377,9 @@ export default function AsteroCrm() {
     phone: "",
   });
   const seenSupportMessageIdsRef = useRef<Set<string>>(new Set());
+  const supportNotificationStartedAtRef = useRef(Date.now());
+  const activeTabRef = useRef<Tab>("desktop");
+  const supportClientIdRef = useRef("");
   const actionReminderKeysRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
   const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -541,7 +544,10 @@ export default function AsteroCrm() {
     const newClientMessages = visibleSupportMessages
       .filter((item) => {
         const isClientMessage = item.sender === "CLIENT" || item.fromRole === "CLIENT";
-        return isClientMessage && !seenSupportMessageIdsRef.current.has(item.id);
+        const createdAt = new Date(item.createdAt).getTime();
+        const isNewAfterCrmOpen = Number.isFinite(createdAt) && createdAt > supportNotificationStartedAtRef.current;
+        const isCurrentOpenDialog = activeTabRef.current === "support" && supportClientIdRef.current === item.userId;
+        return isClientMessage && isNewAfterCrmOpen && !isCurrentOpenDialog && !seenSupportMessageIdsRef.current.has(item.id);
       })
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
@@ -619,6 +625,24 @@ export default function AsteroCrm() {
   useEffect(() => {
     sessionStorage.setItem("astero.crm.actionPeriod", actionPeriod);
   }, [actionPeriod]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    supportClientIdRef.current = supportClientId;
+  }, [supportClientId]);
+
+  useEffect(() => {
+    if (activeTab !== "support" || !supportClientId) return;
+    setSupportUnreadIds((prev) => {
+      if (!prev.has(supportClientId)) return prev;
+      const next = new Set(prev);
+      next.delete(supportClientId);
+      return next;
+    });
+  }, [activeTab, supportClientId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 5000);
@@ -1451,10 +1475,10 @@ export default function AsteroCrm() {
                     >
                       <option value="all">Все менеджеры</option>
                       {managers
-                        .filter((manager) => manager.role === "MANAGER")
+                        .filter((manager) => manager.role === "MANAGER" || manager.role === "ADMIN")
                         .map((manager) => (
                           <option key={manager.id} value={manager.id}>
-                            {displayName(manager)}
+                            {manager.role === "ADMIN" ? `${displayName(manager)} · админский менеджер` : displayName(manager)}
                           </option>
                         ))}
                     </select>
@@ -3998,6 +4022,7 @@ function SupportPanelV2({
                 <a
                   key={client.id}
                   href={supportDialogHref(client.id)}
+                  onClick={() => onReadClient(client.id)}
                   className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
                 >
                   <span className="block text-sm font-black text-slate-900">{displayName(client)}</span>
@@ -4018,7 +4043,7 @@ function SupportPanelV2({
                   : "border-emerald-100 bg-white hover:bg-emerald-50"
               }`}
             >
-              <a href={supportDialogHref(client.id)} className="block">
+              <a href={supportDialogHref(client.id)} onClick={() => onReadClient(client.id)} className="block">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="flex items-center gap-2 font-black text-slate-950">
