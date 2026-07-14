@@ -42,7 +42,7 @@ export default function AdminLayout({
       : "xl:ml-[90px]";
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white xl:flex">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_30%),linear-gradient(180deg,#f8fafc,#edfdf5_48%,#f8fafc)] text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_28%),linear-gradient(180deg,#03110a,#07130d_48%,#020617)] dark:text-white xl:flex">
       <AppSidebar />
       <Backdrop />
 
@@ -52,7 +52,7 @@ export default function AdminLayout({
           className={
             isTerminal
               ? "w-full bg-[#151821]"
-              : "w-full overflow-x-hidden bg-slate-50 p-3 dark:bg-slate-950 sm:p-4 lg:p-5"
+              : "w-full overflow-x-hidden px-3 py-4 sm:px-4 lg:px-6 lg:py-6"
           }
         >
           {children}
