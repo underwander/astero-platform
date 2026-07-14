@@ -8,12 +8,16 @@ import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
+type BeforeInstallPromptEvent = Event & {
+  prompt?: () => Promise<void>;
+};
+
 export default function AppHeader() {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const { t } = useLanguage();
   const [email, setEmail] = useState("Client");
   const [role, setRole] = useState("CLIENT");
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     setEmail(localStorage.getItem("email") || "Client");
@@ -23,7 +27,7 @@ export default function AppHeader() {
     }
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      setInstallPrompt(event);
+      setInstallPrompt(event as BeforeInstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
@@ -57,16 +61,19 @@ export default function AppHeader() {
             aria-label="Toggle sidebar"
           >
             {isMobileOpen ? (
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             ) : (
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             )}
           </button>
 
           <div className="hidden sm:block lg:hidden">
             <AsteroLogo />
           </div>
-
         </div>
 
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
@@ -79,7 +86,7 @@ export default function AppHeader() {
             onClick={installApp}
             className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300 lg:hidden"
           >
-            Установить приложение
+            {t("installApp")}
           </button>
 
           <LanguageSwitcher />

@@ -16,17 +16,16 @@ type Trade = {
 
 export default function TradeHistoryPage() {
   const router = useRouter();
-
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadHistory(userId: string) {
     setLoading(true);
 
-    const res = await fetch(`/api/trades?userId=${userId}`);
+    const res = await fetch(`/api/trades?userId=${userId}`, { cache: "no-store" });
     const data: Trade[] = await res.json();
 
-    setTrades(data.filter((trade) => trade.closePrice !== null));
+    setTrades(Array.isArray(data) ? data.filter((trade) => trade.closePrice !== null) : []);
     setLoading(false);
   }
 
@@ -53,53 +52,18 @@ export default function TradeHistoryPage() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-          Trade History
+          История сделок
         </h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Реальная история закрытых сделок текущего клиента.
+          Закрытые торговые операции текущего клиента.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Closed Trades
-          </h3>
-          <p className="mt-2 text-3xl font-bold text-gray-800 dark:text-white/90">
-            {loading ? "..." : trades.length}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Winning Trades
-          </h3>
-          <p className="mt-2 text-3xl font-bold text-green-500">
-            {loading ? "..." : winningTrades}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Losing Trades
-          </h3>
-          <p className="mt-2 text-3xl font-bold text-red-500">
-            {loading ? "..." : losingTrades}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">
-            Total Profit
-          </h3>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              totalProfit >= 0 ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            {loading ? "..." : `$${totalProfit.toFixed(2)}`}
-          </p>
-        </div>
+        <MetricCard title="Закрытые сделки" value={loading ? "..." : String(trades.length)} />
+        <MetricCard title="Прибыльные" value={loading ? "..." : String(winningTrades)} positive />
+        <MetricCard title="Убыточные" value={loading ? "..." : String(losingTrades)} negative />
+        <MetricCard title="Итог" value={loading ? "..." : `€${totalProfit.toFixed(2)}`} positive={totalProfit >= 0} negative={totalProfit < 0} />
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -107,31 +71,30 @@ export default function TradeHistoryPage() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="px-6 py-4 text-left text-gray-500">ID</th>
-                <th className="px-6 py-4 text-left text-gray-500">Symbol</th>
-                <th className="px-6 py-4 text-left text-gray-500">Type</th>
-                <th className="px-6 py-4 text-left text-gray-500">Volume</th>
-                <th className="px-6 py-4 text-left text-gray-500">Open</th>
-                <th className="px-6 py-4 text-left text-gray-500">Close</th>
-                <th className="px-6 py-4 text-left text-gray-500">Profit</th>
-                <th className="px-6 py-4 text-left text-gray-500">Result</th>
-                <th className="px-6 py-4 text-left text-gray-500">Date</th>
+                <th className="px-6 py-4 text-left text-gray-500">Символ</th>
+                <th className="px-6 py-4 text-left text-gray-500">Тип</th>
+                <th className="px-6 py-4 text-left text-gray-500">Объем</th>
+                <th className="px-6 py-4 text-left text-gray-500">Открытие</th>
+                <th className="px-6 py-4 text-left text-gray-500">Закрытие</th>
+                <th className="px-6 py-4 text-left text-gray-500">Прибыль</th>
+                <th className="px-6 py-4 text-left text-gray-500">Результат</th>
+                <th className="px-6 py-4 text-left text-gray-500">Дата</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td className="px-6 py-6 text-gray-500" colSpan={9}>
-                    Loading...
+                  <td className="px-6 py-6 text-gray-500" colSpan={8}>
+                    Загрузка...
                   </td>
                 </tr>
               )}
 
               {!loading && trades.length === 0 && (
                 <tr>
-                  <td className="px-6 py-6 text-gray-500" colSpan={9}>
-                    No closed trades
+                  <td className="px-6 py-6 text-gray-500" colSpan={8}>
+                    Закрытых сделок пока нет
                   </td>
                 </tr>
               )}
@@ -145,10 +108,6 @@ export default function TradeHistoryPage() {
                       key={trade.id}
                       className="border-b border-gray-100 dark:border-gray-800"
                     >
-                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                        {trade.id}
-                      </td>
-
                       <td className="px-6 py-4 font-medium text-gray-800 dark:text-white/90">
                         {trade.symbol}
                       </td>
@@ -180,7 +139,7 @@ export default function TradeHistoryPage() {
                           profit >= 0 ? "text-green-500" : "text-red-500"
                         }`}
                       >
-                        ${profit.toFixed(2)}
+                        €{profit.toFixed(2)}
                       </td>
 
                       <td className="px-6 py-4">
@@ -191,12 +150,12 @@ export default function TradeHistoryPage() {
                               : "bg-red-50 text-red-600"
                           }`}
                         >
-                          {profit >= 0 ? "WIN" : "LOSS"}
+                          {profit >= 0 ? "Прибыль" : "Убыток"}
                         </span>
                       </td>
 
                       <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                        {new Date(trade.createdAt).toLocaleString()}
+                        {new Date(trade.createdAt).toLocaleString("ru-RU")}
                       </td>
                     </tr>
                   );
@@ -205,6 +164,19 @@ export default function TradeHistoryPage() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ title, value, positive, negative }: { title: string; value: string; positive?: boolean; negative?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 className="text-sm text-gray-500 dark:text-gray-400">
+        {title}
+      </h3>
+      <p className={`mt-2 text-3xl font-bold ${positive ? "text-green-500" : negative ? "text-red-500" : "text-gray-800 dark:text-white/90"}`}>
+        {value}
+      </p>
     </div>
   );
 }

@@ -1003,7 +1003,7 @@ function PositionsPanel({
                   <td className="px-3 py-2 text-[#7fa293]">{new Date(trade.createdAt).toLocaleString("ru-RU")}</td>
                   <td className="px-3 py-2">{trade.takeProfit ? formatPrice(trade.symbol, trade.takeProfit) : "-"}</td>
                   <td className="px-3 py-2">{trade.stopLoss ? formatPrice(trade.symbol, trade.stopLoss) : "-"}</td>
-                  <td className={`px-3 py-2 font-black ${profit >= 0 ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>${profit.toFixed(2)}</td>
+                  <td className={`px-3 py-2 font-black ${profit >= 0 ? "text-[#0fd47a]" : "text-[#ff4d5e]"}`}>€{profit.toFixed(2)}</td>
                   {activeTab === "open" && (
                     <td className="px-3 py-2 text-right">
                       <button onClick={() => onClose(trade)} className="bg-[#21483d] px-3 py-1 font-black text-white hover:bg-[#e83b4b]">

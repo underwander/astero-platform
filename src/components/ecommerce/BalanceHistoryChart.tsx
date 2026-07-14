@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,6 +11,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { useLanguage } from "@/context/LanguageContext";
 
 type BalanceHistoryItem = {
   id: string;
@@ -21,6 +23,9 @@ type BalanceHistoryItem = {
 };
 
 export default function BalanceHistoryChart() {
+  const router = useRouter();
+  const { language } = useLanguage();
+  const isRu = language === "ru";
   const [history, setHistory] = useState<BalanceHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,14 +33,14 @@ export default function BalanceHistoryChart() {
     const userId = localStorage.getItem("userId");
 
     if (!userId) {
-      window.location.href = "/login";
+      router.push("/login");
       return;
     }
 
-    const res = await fetch(`/api/user/balance-history?userId=${userId}`);
+    const res = await fetch(`/api/user/balance-history?userId=${userId}`, { cache: "no-store" });
     const data = await res.json();
 
-    setHistory(data || []);
+    setHistory(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 
@@ -47,10 +52,10 @@ export default function BalanceHistoryChart() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   const chartData = history.map((item) => ({
-    date: new Date(item.createdAt).toLocaleDateString(),
+    date: new Date(item.createdAt).toLocaleDateString(isRu ? "ru-RU" : "en-US"),
     balance: Number(item.balance),
     type: item.type,
   }));
@@ -69,32 +74,31 @@ export default function BalanceHistoryChart() {
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Equity Curve
+            {isRu ? "Кривая средств" : "Equity curve"}
           </h2>
-
         </div>
 
         {history.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Latest Balance
+                {isRu ? "Текущий баланс" : "Latest balance"}
               </p>
               <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">
-                ${latestBalance.toFixed(2)}
+                €{latestBalance.toFixed(2)}
               </p>
             </div>
 
             <div className="rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Total Change
+                {isRu ? "Изменение" : "Total change"}
               </p>
               <p
                 className={`mt-1 text-lg font-bold ${
                   totalChange >= 0 ? "text-green-500" : "text-red-500"
                 }`}
               >
-                ${totalChange.toFixed(2)}
+                €{totalChange.toFixed(2)}
               </p>
             </div>
           </div>
@@ -102,9 +106,9 @@ export default function BalanceHistoryChart() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading...</p>
+        <p className="text-sm text-gray-500">{isRu ? "Загрузка..." : "Loading..."}</p>
       ) : chartData.length === 0 ? (
-        <p className="text-sm text-gray-500">No balance history yet</p>
+        <p className="text-sm text-gray-500">{isRu ? "Истории баланса пока нет" : "No balance history yet"}</p>
       ) : (
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -130,11 +134,11 @@ export default function BalanceHistoryChart() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="py-3 text-left text-gray-500">Type</th>
-                <th className="py-3 text-left text-gray-500">Description</th>
-                <th className="py-3 text-left text-gray-500">Amount</th>
-                <th className="py-3 text-left text-gray-500">Balance</th>
-                <th className="py-3 text-left text-gray-500">Date</th>
+                <th className="py-3 text-left text-gray-500">{isRu ? "Тип" : "Type"}</th>
+                <th className="py-3 text-left text-gray-500">{isRu ? "Описание" : "Description"}</th>
+                <th className="py-3 text-left text-gray-500">{isRu ? "Сумма" : "Amount"}</th>
+                <th className="py-3 text-left text-gray-500">{isRu ? "Баланс" : "Balance"}</th>
+                <th className="py-3 text-left text-gray-500">{isRu ? "Дата" : "Date"}</th>
               </tr>
             </thead>
 
@@ -174,15 +178,15 @@ export default function BalanceHistoryChart() {
                         item.amount >= 0 ? "text-green-500" : "text-red-500"
                       }`}
                     >
-                      ${item.amount.toFixed(2)}
+                      €{item.amount.toFixed(2)}
                     </td>
 
                     <td className="py-3 text-gray-700 dark:text-gray-300">
-                      ${item.balance.toFixed(2)}
+                      €{item.balance.toFixed(2)}
                     </td>
 
                     <td className="py-3 text-gray-700 dark:text-gray-300">
-                      {new Date(item.createdAt).toLocaleString()}
+                      {new Date(item.createdAt).toLocaleString(isRu ? "ru-RU" : "en-US")}
                     </td>
                   </tr>
                 ))}

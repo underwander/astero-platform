@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { calculateTradeProfit } from "@/lib/market-instruments";
 
@@ -20,6 +21,7 @@ type QuoteMap = Record<string, { price: number; tickValue?: number | null }>;
 const DASHBOARD_REFRESH_MS = 5000;
 
 export default function BrokerMetrics() {
+  const router = useRouter();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [equity, setEquity] = useState(0);
@@ -37,7 +39,7 @@ export default function BrokerMetrics() {
     const userId = localStorage.getItem("userId");
 
     if (!userId) {
-      window.location.href = "/login";
+      router.push("/login");
       return;
     }
 
@@ -81,7 +83,7 @@ export default function BrokerMetrics() {
     loadDashboard().catch(() => setLoading(false));
     const interval = setInterval(() => loadDashboard().catch(() => setLoading(false)), DASHBOARD_REFRESH_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   return (
     <div className="space-y-4">
