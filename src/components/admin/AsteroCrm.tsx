@@ -593,7 +593,7 @@ export default function AsteroCrm() {
 
     const interval = setInterval(() => {
       loadAdminData({ silent: true });
-    }, 10000);
+    }, 5000);
 
     return () => {
       window.clearTimeout(initialTimer);
@@ -621,7 +621,7 @@ export default function AsteroCrm() {
   }, [actionPeriod]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 60000);
+    const interval = window.setInterval(() => setNow(Date.now()), 5000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -642,7 +642,7 @@ export default function AsteroCrm() {
         (!isBuffer && (
           clientQuickFilter === "all" ||
           (clientQuickFilter === "active" && !client.isBlocked) ||
-          (clientQuickFilter === "online" && isClientOnline(client)) ||
+          (clientQuickFilter === "online" && isClientOnline(client, now)) ||
           (clientQuickFilter === "blocked" && client.isBlocked) ||
           (clientQuickFilter === "kyc" && client.kycStatus === "APPROVED") ||
           (clientQuickFilter === "unverified" && client.kycStatus !== "APPROVED")
@@ -650,7 +650,7 @@ export default function AsteroCrm() {
 
       return matchesSearch && matchesQuickFilter;
     });
-  }, [clients, clientQuickFilter, clientSearch]);
+  }, [clients, clientQuickFilter, clientSearch, now]);
 
   const searchedClientIds = new Set(filteredClients.map((client) => client.id));
   const allActions = clients.flatMap((client) =>
@@ -1422,7 +1422,7 @@ export default function AsteroCrm() {
                   {[
                     ["all", "Все"],
                     ["active", "Активные"],
-                    ["online", "В сети"],
+                    ["online", `В сети ${clients.filter((client) => isClientOnline(client, now)).length}`],
                     ["blocked", "Блокированные"],
                     ["buffer", "Бафер"],
                     ["kyc", "KYC"],
@@ -1479,6 +1479,7 @@ export default function AsteroCrm() {
               <ClientsTable
                 clients={filteredClients}
                 managers={managers}
+                now={now}
                 onAssign={assignManager}
                 onBlock={(client) => toggleBlockUser(client.id, client.isBlocked)}
                 onDelete={(client) => deleteUser(client.id, client.email)}
@@ -2321,8 +2322,8 @@ function clientDisplayNumber(client: Pick<User, "id" | "clientNumber">) {
   return client.clientNumber || client.id.slice(-6).toUpperCase();
 }
 
-function isClientOnline(user: User) {
-  return Boolean(user.lastSeenAt && Date.now() - new Date(user.lastSeenAt).getTime() < 2 * 60 * 1000);
+function isClientOnline(user: User, currentTime = Date.now()) {
+  return Boolean(user.lastSeenAt && currentTime - new Date(user.lastSeenAt).getTime() < 2 * 60 * 1000);
 }
 
 function ClientRow({ client, onOpen, active }: { client: User; onOpen: () => void; active?: boolean }) {
@@ -3298,12 +3299,14 @@ function UtipActionsTable({
 function ClientsTable({
   clients,
   managers,
+  now,
   onAssign,
   onBlock,
   onDelete,
 }: {
   clients: User[];
   managers: User[];
+  now: number;
   onAssign: (userId: string, managerId: string) => void;
   onBlock: (client: User) => void;
   onDelete: (client: User) => void;
@@ -3326,14 +3329,23 @@ function ClientsTable({
           </tr>
         </thead>
         <tbody>
-          {clients.map((client, index) => (
+          {clients.map((client, index) => {
+            const online = isClientOnline(client, now);
+
+            return (
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
               <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(clientDisplayNumber(client))} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
               <td className="px-3 py-2">
-                <a href={clientCardHref(client.id)} className="text-left font-black text-slate-950 hover:text-emerald-700">
-                  {displayName(client)}
+                <a href={clientCardHref(client.id)} className="inline-flex items-center gap-2 text-left font-black text-slate-950 hover:text-emerald-700">
+                  {online && (
+                    <span className="relative inline-flex size-3 shrink-0" title="Клиент сейчас онлайн">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-3 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]" />
+                    </span>
+                  )}
+                  <span>{displayName(client)}</span>
                 </a>
-                <p className="text-[11px] text-slate-400">#{index + 1}</p>
+                <p className="text-[11px] text-slate-400">#{index + 1}{online ? " · онлайн" : ""}</p>
               </td>
               <td className="px-3 py-2">{client.email}</td>
               <td className="px-3 py-2">{client.phone || "-"}</td>
@@ -3359,7 +3371,7 @@ function ClientsTable({
                 </div>
               </td>
             </tr>
-          ))}
+          )})}
           {clients.length === 0 && (
             <tr>
               <td className="px-3 py-8 text-center text-slate-500" colSpan={10}>
