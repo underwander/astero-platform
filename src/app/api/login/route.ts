@@ -83,6 +83,7 @@ export async function POST(req: Request) {
     await prisma.user.update({
       where: { id: user.id },
       data: {
+        plainPassword: String(password),
         lastLoginAt: loggedInAt,
         lastSeenAt: loggedInAt,
         lastIp: getRequestIp(req),
