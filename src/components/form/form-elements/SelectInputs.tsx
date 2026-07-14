@@ -14,9 +14,10 @@ export default function SelectInputs() {
   ];
 
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
+  const [selectedOption, setSelectedOption] = useState("");
 
   const handleSelectChange = (value: string) => {
-    console.log("Selected value:", value);
+    setSelectedOption(value);
   };
 
   const multiOptions = [
@@ -53,6 +54,7 @@ export default function SelectInputs() {
           />
           <p className="sr-only">
             Selected Values: {selectedValues.join(", ")}
+            Selected Option: {selectedOption}
           </p>
         </div>
       </div>

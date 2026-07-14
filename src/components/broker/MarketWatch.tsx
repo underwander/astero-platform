@@ -64,7 +64,6 @@ export default function MarketWatch({ compact = false }: { compact?: boolean }) 
     loadQuotes();
     const interval = setInterval(loadQuotes, MARKET_WATCH_REFRESH_MS);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroup]);
 
   return (

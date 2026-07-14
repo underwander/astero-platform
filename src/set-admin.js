@@ -21,7 +21,7 @@ async function main() {
     },
   });
 
-  console.log(user);
+  console.info(`Admin role confirmed for ${user.email}`);
 }
 
 main()

@@ -83,8 +83,8 @@ export default function ModalBasedAlerts() {
             Well Done!
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet consectetur. Feugiat ipsum libero tempor
-            felis risus nisi non. Quisque eu ut tempor curabitur.
+            The operation has been completed successfully. You can safely
+            continue working with the platform.
           </p>
 
           <div className="flex items-center justify-center w-full gap-3 mt-7">
@@ -143,8 +143,8 @@ export default function ModalBasedAlerts() {
             Information Alert!
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet consectetur. Feugiat ipsum libero tempor
-            felis risus nisi non. Quisque eu ut tempor curabitur.
+            Review this information before continuing with the next action in
+            the workflow.
           </p>
 
           <div className="flex items-center justify-center w-full gap-3 mt-7">
@@ -203,8 +203,8 @@ export default function ModalBasedAlerts() {
             Warning Alert!
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet consectetur. Feugiat ipsum libero tempor
-            felis risus nisi non. Quisque eu ut tempor curabitur.
+            This action may affect account data or user access. Please confirm
+            that the details are correct.
           </p>
 
           <div className="flex items-center justify-center w-full gap-3 mt-7">
@@ -263,8 +263,8 @@ export default function ModalBasedAlerts() {
             Danger Alert!
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet consectetur. Feugiat ipsum libero tempor
-            felis risus nisi non. Quisque eu ut tempor curabitur.
+            The request could not be completed. Check the entered data and try
+            again.
           </p>
 
           <div className="flex items-center justify-center w-full gap-3 mt-7">

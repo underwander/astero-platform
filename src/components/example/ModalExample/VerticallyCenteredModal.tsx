@@ -8,8 +8,6 @@ import { useModal } from "@/hooks/useModal";
 export default function VerticallyCenteredModal() {
   const { isOpen, openModal, closeModal } = useModal();
   const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
     closeModal();
   };
   return (
@@ -28,8 +26,8 @@ export default function VerticallyCenteredModal() {
             All Done! Success Confirmed
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-            Pellentesque euismod est quis mauris lacinia pharetra.
+            The requested action has been processed successfully and the
+            interface is ready for the next step.
           </p>
 
           <div className="flex items-center justify-center w-full gap-3 mt-8">

@@ -9,8 +9,6 @@ import { useModal } from "@/hooks/useModal";
 export default function DefaultModal() {
   const { isOpen, openModal, closeModal } = useModal();
   const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
     closeModal();
   };
   return (
@@ -28,15 +26,12 @@ export default function DefaultModal() {
             Modal Heading
           </h4>
           <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-            Pellentesque euismod est quis mauris lacinia pharetra. Sed a ligula
-            ac odio condimentum aliquet a nec nulla. Aliquam bibendum ex sit
-            amet ipsum rutrum feugiat ultrices enim quam.
+            This dialog is designed for short confirmations, account updates,
+            and operational messages that require a focused user decision.
           </p>
           <p className="mt-5 text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-            Pellentesque euismod est quis mauris lacinia pharetra. Sed a ligula
-            ac odio.
+            Keep the content concise, clear, and directly connected to the
+            action the user is about to complete.
           </p>
           <div className="flex items-center justify-end w-full gap-3 mt-8">
             <Button size="sm" variant="outline" onClick={closeModal}>
