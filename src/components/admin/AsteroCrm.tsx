@@ -72,6 +72,10 @@ type SupportConversation = {
   status: "OPEN" | "CLOSED";
   closedAt?: string | null;
   updatedAt?: string | null;
+  adminLastReadAt?: string | null;
+  clientLastReadAt?: string | null;
+  unreadClientMessages?: number;
+  unreadClientDialogs?: number;
 };
 
 type Announcement = {
@@ -133,9 +137,11 @@ type IpAccessRule = {
 };
 
 type SupportToast = {
+  id: string;
   userId: string;
   clientName: string;
   message: string;
+  count?: number;
 };
 
 type AttachmentPayload = {
@@ -334,7 +340,7 @@ export default function AsteroCrm() {
   const [supportAttachment, setSupportAttachment] = useState<AttachmentPayload | null>(null);
   const [supportClientId, setSupportClientId] = useState("");
   const [supportError, setSupportError] = useState("");
-  const [supportToast, setSupportToast] = useState<SupportToast | null>(null);
+  const [supportToasts, setSupportToasts] = useState<SupportToast[]>([]);
   const [actionReminder, setActionReminder] = useState<{ title: string; clientName: string; minutes: number } | null>(null);
   const [supportUnreadIds, setSupportUnreadIds] = useState<Set<string>>(new Set());
   const [showPasswords, setShowPasswords] = useState(false);
@@ -391,7 +397,7 @@ export default function AsteroCrm() {
   const supportClientIdRef = useRef("");
   const actionReminderKeysRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
-  const supportToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clientsRef = useRef<User[]>([]);
 
   function playSupportSound() {
     try {
@@ -425,13 +431,96 @@ export default function AsteroCrm() {
     const client = allClients.find((item) => item.id === supportMessage.userId);
     const clientName = client ? displayName(client) : supportMessage.user?.email || "Клиент";
 
-    setSupportToast({
-      userId: supportMessage.userId,
-      clientName,
-      message: supportMessage.message,
+    setSupportToasts((prev) => {
+      const existing = prev.find((item) => item.userId === supportMessage.userId);
+      if (existing) {
+        return prev.map((item) =>
+          item.userId === supportMessage.userId
+            ? { ...item, message: supportMessage.message || "Файл", count: (item.count || 1) + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          id: supportMessage.id,
+          userId: supportMessage.userId,
+          clientName,
+          message: supportMessage.message || "Файл",
+          count: 1,
+        },
+      ].slice(-4);
     });
 
     playSupportSound();
+  }
+
+  function applySupportPayload(supportPayload: unknown, visibleClients: User[]) {
+    const payload = supportPayload as { messages?: SupportMessage[]; conversations?: SupportConversation[] } | SupportMessage[] | null;
+    const allSupportMessages: SupportMessage[] = Array.isArray(payload)
+      ? payload
+      : payload?.messages || [];
+    const allSupportConversations: SupportConversation[] = Array.isArray(payload)
+      ? []
+      : payload?.conversations || [];
+    const visibleClientIds = new Set(visibleClients.map((client) => client.id));
+    const visibleSupportMessages = allSupportMessages.filter((item) => visibleClientIds.has(item.userId));
+    const visibleSupportConversations = allSupportConversations.filter((item) => visibleClientIds.has(item.userId));
+
+    const unreadIdsFromServer = new Set(
+      visibleSupportConversations
+        .filter((item) => Number(item.unreadClientMessages || 0) > 0)
+        .map((item) => item.userId)
+    );
+
+    const newClientMessages = visibleSupportMessages
+      .filter((item) => {
+        const isClientMessage = item.sender === "CLIENT" || item.fromRole === "CLIENT";
+        const createdAt = new Date(item.createdAt).getTime();
+        const isNewAfterCrmOpen = Number.isFinite(createdAt) && createdAt > supportNotificationStartedAtRef.current;
+        const isCurrentOpenDialog = activeTabRef.current === "support" && supportClientIdRef.current === item.userId;
+        return isClientMessage && isNewAfterCrmOpen && !isCurrentOpenDialog && !seenSupportMessageIdsRef.current.has(item.id);
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    setSupportMessages(visibleSupportMessages);
+    setSupportConversations(visibleSupportConversations);
+    setSupportUnreadIds(unreadIdsFromServer);
+
+    if (supportMessagesReadyRef.current && newClientMessages.length > 0) {
+      newClientMessages.forEach((item) => notifySupportMessage(item, visibleClients));
+    }
+
+    seenSupportMessageIdsRef.current = new Set(visibleSupportMessages.map((item) => item.id));
+    supportMessagesReadyRef.current = true;
+  }
+
+  async function loadSupportData() {
+    const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
+    const supportPayload = await supportRes.json().catch(() => null);
+
+    if (!supportRes.ok) {
+      setSupportError(
+        `${supportPayload?.error || "Support load failed"}${
+          supportPayload?.details ? `: ${supportPayload.details}` : ""
+        }`
+      );
+      return;
+    }
+
+    setSupportError("");
+    applySupportPayload(supportPayload, clientsRef.current);
+  }
+
+  async function markSupportDialogRead(clientId: string) {
+    if (!clientId) return;
+    await fetch("/api/admin/support", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ action: "read", userId: clientId }),
+    }).catch(() => null);
   }
 
   async function loadAdminData(options: { silent?: boolean } = {}) {
@@ -478,6 +567,7 @@ export default function AsteroCrm() {
 
     setUsers(allUsers);
     setClients(visibleClients);
+    clientsRef.current = visibleClients;
     setManagers(allManagers);
     setDeposits(
       role === "MANAGER" && currentUserId
@@ -517,65 +607,9 @@ export default function AsteroCrm() {
         : allVerificationDocs
     );
 
-    const allSupportMessages: SupportMessage[] = Array.isArray(supportPayload)
-      ? supportPayload
-      : supportPayload?.messages || [];
-    const allSupportConversations: SupportConversation[] = Array.isArray(supportPayload)
-      ? []
-      : supportPayload?.conversations || [];
-
-    const visibleSupportMessages: SupportMessage[] =
-      role === "MANAGER" && currentUserId
-        ? allSupportMessages.filter((item: SupportMessage) => {
-            const client = allClients.find((client) => client.id === item.userId);
-            return client?.managerId === currentUserId;
-          })
-        : isMainAdmin && activeManagerFilter !== "all"
-          ? allSupportMessages.filter((item: SupportMessage) => {
-              const client = allClients.find((client) => client.id === item.userId);
-              return client?.managerId === activeManagerFilter;
-            })
-        : allSupportMessages;
-
-    const visibleSupportConversations: SupportConversation[] =
-      role === "MANAGER" && currentUserId
-        ? allSupportConversations.filter((item) => {
-            const client = allClients.find((client) => client.id === item.userId);
-            return client?.managerId === currentUserId;
-          })
-        : isMainAdmin && activeManagerFilter !== "all"
-          ? allSupportConversations.filter((item) => {
-              const client = allClients.find((client) => client.id === item.userId);
-              return client?.managerId === activeManagerFilter;
-            })
-        : allSupportConversations;
-
-    const newClientMessages = visibleSupportMessages
-      .filter((item) => {
-        const isClientMessage = item.sender === "CLIENT" || item.fromRole === "CLIENT";
-        const createdAt = new Date(item.createdAt).getTime();
-        const isNewAfterCrmOpen = Number.isFinite(createdAt) && createdAt > supportNotificationStartedAtRef.current;
-        const isCurrentOpenDialog = activeTabRef.current === "support" && supportClientIdRef.current === item.userId;
-        return isClientMessage && isNewAfterCrmOpen && !isCurrentOpenDialog && !seenSupportMessageIdsRef.current.has(item.id);
-      })
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-    setSupportMessages(visibleSupportMessages);
-    setSupportConversations(visibleSupportConversations);
-    setSupportClientId((prev) => prev || visibleSupportMessages[0]?.userId || visibleClients[0]?.id || "");
+    applySupportPayload(supportPayload, visibleClients);
+    setSupportClientId((prev) => prev || visibleClients[0]?.id || "");
     setSelectedClientId((prev) => prev || visibleClients[0]?.id || "");
-
-    if (supportMessagesReadyRef.current && newClientMessages.length > 0) {
-      notifySupportMessage(newClientMessages[newClientMessages.length - 1], allClients);
-      setSupportUnreadIds((prev) => {
-        const next = new Set(prev);
-        newClientMessages.forEach((item) => next.add(item.userId));
-        return next;
-      });
-    }
-
-    seenSupportMessageIdsRef.current = new Set(visibleSupportMessages.map((item) => item.id));
-    supportMessagesReadyRef.current = true;
 
     if (!options.silent) setLoading(false);
   }
@@ -608,16 +642,22 @@ export default function AsteroCrm() {
 
     const interval = setInterval(() => {
       loadAdminData({ silent: true });
-    }, 5000);
+    }, 15000);
+
+    const supportInterval = setInterval(() => {
+      void loadSupportData();
+    }, 2500);
 
     return () => {
       window.clearTimeout(initialTimer);
       clearInterval(interval);
-      if (supportToastTimerRef.current) {
-        clearTimeout(supportToastTimerRef.current);
-      }
+      clearInterval(supportInterval);
     };
   }, [router, managerFilterId]);
+
+  useEffect(() => {
+    clientsRef.current = clients;
+  }, [clients]);
 
   useEffect(() => {
     sessionStorage.setItem("astero.crm.clientSearch", clientSearch);
@@ -651,6 +691,8 @@ export default function AsteroCrm() {
       next.delete(supportClientId);
       return next;
     });
+    setSupportToasts((prev) => prev.filter((item) => item.userId !== supportClientId));
+    void markSupportDialogRead(supportClientId);
   }, [activeTab, supportClientId]);
 
   useEffect(() => {
@@ -1284,7 +1326,9 @@ export default function AsteroCrm() {
               <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-lg font-black">
                 {tab.icon}
                 {tab.id === "support" && supportUnreadIds.size > 0 && (
-                  <span className="absolute -right-1 -top-1 size-3 rounded-full bg-red-500 ring-2 ring-[#07170f]" />
+                  <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white ring-2 ring-[#07170f]">
+                    {Math.min(supportUnreadIds.size, 99)}
+                  </span>
                 )}
               </span>
               <span>
@@ -1345,28 +1389,37 @@ export default function AsteroCrm() {
 
         {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-100">{message}</div>}
 
-        {supportToast && (
-          <div className="fixed right-4 top-24 z-[80] w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-sky-300/40 bg-slate-950 p-3 text-white shadow-2xl shadow-sky-950/30">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
-                <p className="mt-1 font-black">{supportToast.clientName}</p>
-                <p className="mt-1 line-clamp-2 text-xs text-slate-200">{supportToast.message || "Файл"}</p>
+        {supportToasts.length > 0 && (
+          <div className="fixed right-4 top-24 z-[80] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2">
+            {supportToasts.map((toast) => (
+              <div key={toast.id} className="rounded-2xl border border-sky-300/40 bg-slate-950 p-3 text-white shadow-2xl shadow-sky-950/30">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
+                    <p className="mt-1 font-black">{toast.clientName}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-200">{toast.message || "Файл"}</p>
+                    {toast.count && toast.count > 1 && <p className="mt-1 text-[11px] font-bold text-sky-200">Сообщений: {toast.count}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSupportToasts((prev) => prev.filter((item) => item.id !== toast.id))}
+                    className="rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white hover:bg-white/20"
+                  >
+                    x
+                  </button>
+                </div>
+                <a
+                  href={supportDialogHref(toast.userId)}
+                  onClick={() => {
+                    setSupportToasts((prev) => prev.filter((item) => item.userId !== toast.userId));
+                    void markSupportDialogRead(toast.userId);
+                  }}
+                  className="mt-3 flex w-full justify-center rounded-xl bg-sky-500 px-3 py-2 text-xs font-black text-white hover:bg-sky-400"
+                >
+                  Открыть чат
+                </a>
               </div>
-              <button
-                type="button"
-                onClick={() => setSupportToast(null)}
-                className="rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white hover:bg-white/20"
-              >
-                x
-              </button>
-            </div>
-            <a
-              href={supportDialogHref(supportToast.userId)}
-              className="mt-3 w-full rounded-xl bg-sky-500 px-3 py-2 text-xs font-black text-white hover:bg-sky-400"
-            >
-              Открыть чат
-            </a>
+            ))}
           </div>
         )}
 
@@ -1627,11 +1680,15 @@ export default function AsteroCrm() {
             unreadIds={supportUnreadIds}
             selectedClientId={supportClientId}
             setSelectedClientId={setSupportClientId}
-            onReadClient={(clientId: string) => setSupportUnreadIds((prev) => {
-              const next = new Set(prev);
-              next.delete(clientId);
-              return next;
-            })}
+            onReadClient={(clientId: string) => {
+              setSupportUnreadIds((prev) => {
+                const next = new Set(prev);
+                next.delete(clientId);
+                return next;
+              });
+              setSupportToasts((prev) => prev.filter((item) => item.userId !== clientId));
+              void markSupportDialogRead(clientId);
+            }}
             text={supportText}
             setText={setSupportText}
             attachment={supportAttachment}
@@ -4077,9 +4134,16 @@ function SupportPanelV2({
                     </p>
                     <p className="text-xs text-slate-500">{client.email}</p>
                   </div>
-                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
-                    {count}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {Number(conversation?.unreadClientMessages || 0) > 0 && (
+                      <span className="rounded-full bg-red-500 px-2 py-1 text-xs font-black text-white">
+                        {conversation?.unreadClientMessages}
+                      </span>
+                    )}
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                      {count}
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2"><p className="truncate text-xs text-slate-500">{last?.message || (last?.attachmentName ? "Файл" : "Сообщений пока нет")}</p><Badge value={conversation?.status || "OPEN"} /></div>
               </a>

@@ -28,6 +28,16 @@ export function ensureSupportMessagesTable() {
     `;
 
     await prisma.$executeRaw`
+      ALTER TABLE "SupportConversation"
+      ADD COLUMN IF NOT EXISTS "adminLastReadAt" TIMESTAMPTZ
+    `;
+
+    await prisma.$executeRaw`
+      ALTER TABLE "SupportConversation"
+      ADD COLUMN IF NOT EXISTS "clientLastReadAt" TIMESTAMPTZ
+    `;
+
+    await prisma.$executeRaw`
     CREATE TABLE IF NOT EXISTS "SupportMessage" (
       "id" TEXT PRIMARY KEY,
       "userId" TEXT NOT NULL,
@@ -74,6 +84,11 @@ export function ensureSupportMessagesTable() {
     await prisma.$executeRaw`
       CREATE INDEX IF NOT EXISTS "SupportMessage_userId_createdAt_idx"
       ON "SupportMessage" ("userId", "createdAt")
+    `;
+
+    await prisma.$executeRaw`
+      CREATE INDEX IF NOT EXISTS "SupportMessage_sender_createdAt_idx"
+      ON "SupportMessage" ("sender", "createdAt")
     `;
 
     await prisma.$executeRaw`

@@ -13,10 +13,10 @@ export async function POST(req: Request) {
     }
 
     await prisma.$executeRaw`
-      INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt")
-      VALUES (${userId}, 'CLOSED', NOW(), NOW(), NOW())
+      INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt", "adminLastReadAt")
+      VALUES (${userId}, 'CLOSED', NOW(), NOW(), NOW(), NOW())
       ON CONFLICT ("userId")
-      DO UPDATE SET "status" = 'CLOSED', "updatedAt" = NOW(), "closedAt" = NOW()
+      DO UPDATE SET "status" = 'CLOSED', "updatedAt" = NOW(), "closedAt" = NOW(), "adminLastReadAt" = NOW()
     `;
 
     return Response.json(

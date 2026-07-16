@@ -8,6 +8,7 @@ type SupportMessageRow = {
   userId: string;
   message: string;
   sender: string | null;
+  fromRole: string | null;
   attachmentName: string | null;
   attachmentMimeType: string | null;
   attachmentBase64: string | null;
@@ -19,6 +20,10 @@ type SupportConversationRow = {
   status: string;
   closedAt: Date | null;
   updatedAt: Date;
+  adminLastReadAt: Date | null;
+  clientLastReadAt: Date | null;
+  unreadClientMessages: number;
+  unreadClientDialogs: number;
 };
 
 export async function GET() {
@@ -26,15 +31,31 @@ export async function GET() {
     await ensureSupportMessagesTable();
 
     const messages = await prisma.$queryRaw<SupportMessageRow[]>`
-      SELECT "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
+      SELECT "id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
       FROM "SupportMessage"
       ORDER BY "createdAt" DESC
     `;
 
     const conversations = await prisma.$queryRaw<SupportConversationRow[]>`
-      SELECT "userId", "status", "closedAt", "updatedAt"
-      FROM "SupportConversation"
-      ORDER BY "updatedAt" DESC
+      SELECT
+        c."userId",
+        c."status",
+        c."closedAt",
+        c."updatedAt",
+        c."adminLastReadAt",
+        c."clientLastReadAt",
+        COALESCE(unread."count", 0)::int AS "unreadClientMessages",
+        CASE WHEN COALESCE(unread."count", 0) > 0 THEN 1 ELSE 0 END::int AS "unreadClientDialogs"
+      FROM "SupportConversation" c
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS "count"
+        FROM "SupportMessage" m
+        WHERE m."userId" = c."userId"
+          AND COALESCE(m."sender", m."fromRole") = 'CLIENT'
+          AND (c."adminLastReadAt" IS NULL OR m."createdAt" > c."adminLastReadAt")
+          AND (c."closedAt" IS NULL OR m."createdAt" > c."closedAt")
+      ) unread ON true
+      ORDER BY c."updatedAt" DESC
     `;
 
     return Response.json({ messages, conversations }, {
@@ -86,16 +107,16 @@ export async function POST(req: Request) {
 
     const id = randomUUID();
     await prisma.$executeRaw`
-      INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt")
-      VALUES (${userId}, 'OPEN', NOW(), NOW(), NULL)
+      INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "closedAt", "adminLastReadAt")
+      VALUES (${userId}, 'OPEN', NOW(), NOW(), NULL, NOW())
       ON CONFLICT ("userId")
-      DO UPDATE SET "status" = 'OPEN', "updatedAt" = NOW()
+      DO UPDATE SET "status" = 'OPEN', "updatedAt" = NOW(), "closedAt" = NULL, "adminLastReadAt" = NOW()
     `;
 
     const created = await prisma.$queryRaw<SupportMessageRow[]>`
       INSERT INTO "SupportMessage" ("id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64")
       VALUES (${id}, ${userId}, ${text}, ${senderRole}, ${senderRole}, ${attachmentName}, ${attachmentMimeType}, ${attachmentBase64})
-      RETURNING "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
+      RETURNING "id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
     `;
 
     return Response.json(created[0], {
@@ -114,7 +135,23 @@ export async function PATCH(req: Request) {
   try {
     await ensureSupportMessagesTable();
 
-    const { messageId, message } = await req.json();
+    const { messageId, message, action, userId } = await req.json();
+
+    if (action === "read") {
+      if (!userId) {
+        return Response.json({ error: "UserId required" }, { status: 400 });
+      }
+
+      await prisma.$executeRaw`
+        INSERT INTO "SupportConversation" ("userId", "status", "createdAt", "updatedAt", "adminLastReadAt")
+        VALUES (${String(userId)}, 'OPEN', NOW(), NOW(), NOW())
+        ON CONFLICT ("userId")
+        DO UPDATE SET "adminLastReadAt" = NOW(), "updatedAt" = NOW()
+      `;
+
+      return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    }
+
     const text = String(message || "").trim();
 
     if (!messageId || !text) {
@@ -125,7 +162,7 @@ export async function PATCH(req: Request) {
       UPDATE "SupportMessage"
       SET "message" = ${text}
       WHERE "id" = ${String(messageId)} AND COALESCE("sender", "fromRole") IN ('ADMIN', 'MANAGER')
-      RETURNING "id", "userId", "message", "sender", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
+      RETURNING "id", "userId", "message", "sender", "fromRole", "attachmentName", "attachmentMimeType", "attachmentBase64", "createdAt"
     `;
 
     if (!updated[0]) {
