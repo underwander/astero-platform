@@ -1,0 +1,10 @@
+export { advantagesContent } from "./advantages";
+export { consultationContent } from "./consultation";
+export { faqContent } from "./faq";
+export { footerContent } from "./footer";
+export { formContent } from "./form";
+export { heroContent } from "./hero";
+export { legalDocuments, type LegalDocument } from "./legal";
+export { processContent } from "./process";
+export { servicesContent } from "./services";
+export { errorContent, notFoundContent } from "./system";

@@ -1,19 +1,24 @@
-import type { Metadata } from "next";
-import AsteroLanding from "@/components/landing/AsteroLanding";
+import { JsonLd } from "@/components/legal/JsonLd";
+import { homeSchema } from "@/lib/seo";
+import { AdvantagesSection } from "@/sections/AdvantagesSection";
+import { ConsultationSection } from "@/sections/ConsultationSection";
+import { FaqSection } from "@/sections/FaqSection";
+import { HeroSection } from "@/sections/HeroSection";
+import { ProcessSection } from "@/sections/ProcessSection";
+import { ServicesSection } from "@/sections/ServicesSection";
 
-export const metadata: Metadata = {
-  title: "Astero | Premium FinTech trading workspace",
-  description:
-    "Astero Trader Room is a premium FinTech workspace with a client cabinet, trading terminal, market quotes, analytics, support and CRM-managed landing content.",
-  keywords: ["Astero", "trading platform", "client cabinet", "FinTech", "market analytics", "trader room"],
-  openGraph: {
-    title: "Astero Trader Room",
-    description:
-      "A premium trading workspace with client cabinet, quotes, analytics, support and modern CRM-controlled content.",
-    type: "website",
-  },
-};
-
-export default function LandingPage() {
-  return <AsteroLanding />;
+export default function HomePage() {
+  return (
+    <>
+      {homeSchema ? <JsonLd data={homeSchema} /> : null}
+      <main id="main-content">
+        <HeroSection />
+        <ServicesSection />
+        <ProcessSection />
+        <AdvantagesSection />
+        <FaqSection />
+        <ConsultationSection />
+      </main>
+    </>
+  );
 }

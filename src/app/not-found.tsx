@@ -1,47 +1,41 @@
-import GridShape from "@/components/common/GridShape";
-import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import React from "react";
+import { CtaLink } from "@/components/ui/CtaLink";
+import { siteConfig } from "@/config/site";
+import { notFoundContent } from "@/content";
 
-export default function NotFound() {
+export const metadata: Metadata = {
+  title: notFoundContent.title,
+  description: notFoundContent.description,
+  robots: { index: false, follow: false },
+};
+
+export default function NotFoundPage() {
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">
-      <GridShape />
-      <div className="mx-auto w-full max-w-[242px] text-center sm:max-w-[472px]">
-        <h1 className="mb-8 font-bold text-gray-800 text-title-md dark:text-white/90 xl:text-title-2xl">
-          ERROR
+    <main
+      id="main-content"
+      className="bg-ink-950 relative isolate grid min-h-screen place-items-center overflow-hidden px-5 py-32 text-white"
+    >
+      <div aria-hidden="true" className="hero-grid absolute inset-0 opacity-40" />
+      <div aria-hidden="true" className="bg-gold-500/15 absolute size-[520px] rounded-full blur-[140px]" />
+      <section className="glass-dark relative max-w-2xl p-8 text-center sm:p-12" aria-labelledby="not-found-title">
+        <p className="text-gold-300 text-xs font-bold tracking-[.16em] uppercase">{notFoundContent.eyebrow}</p>
+        <h1 id="not-found-title" className="section-title mt-5 text-4xl sm:text-6xl">
+          {notFoundContent.title}
         </h1>
-
-        <Image
-          src="/images/error/404.svg"
-          alt="404"
-          className="dark:hidden"
-          width={472}
-          height={152}
-        />
-        <Image
-          src="/images/error/404-dark.svg"
-          alt="404"
-          className="hidden dark:block"
-          width={472}
-          height={152}
-        />
-
-        <p className="mt-10 mb-6 text-base text-gray-700 dark:text-gray-400 sm:text-lg">
-          We can’t seem to find the page you are looking for!
-        </p>
-
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-        >
-          Back to Home Page
-        </Link>
-      </div>
-      {/* <!-- Footer --> */}
-      <p className="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-        &copy; {new Date().getFullYear()} - TailAdmin
-      </p>
-    </div>
+        <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-white/65">{notFoundContent.description}</p>
+        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <CtaLink {...siteConfig.cta.primary} source="not_found" />
+          <Link
+            href="/"
+            className="inline-flex min-h-13 items-center justify-center gap-2 rounded-[14px] border border-white/15 px-6 text-sm font-bold text-white hover:bg-white/[.08]"
+          >
+            <ArrowLeft aria-hidden="true" size={17} />
+            {notFoundContent.home}
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }
