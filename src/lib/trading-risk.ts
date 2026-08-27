@@ -1,4 +1,4 @@
-import { calculateTradeProfit, getInstrument } from "@/lib/market-instruments";
+import { calculateTradeProfit, getInstrument } from "./market-instruments.ts";
 
 export const STOP_OUT_LEVEL_PERCENT = 20;
 

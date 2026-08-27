@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { visibleTransactionDescription } from "@/lib/deposit-comment";
 
 type BalanceHistoryItem = {
   id: string;
@@ -57,7 +58,14 @@ export default function TransferHistory() {
             {history.slice(-6).reverse().map((item) => (
               <tr key={item.id} className="border-b border-slate-100 text-slate-700 dark:border-white/10 dark:text-slate-300">
                 <td className="px-3 py-3">{new Date(item.createdAt).toLocaleString(language === "ru" ? "ru-RU" : "en-US")}</td>
-                <td className="px-3 py-3">{historyTypeLabel(item.type, language)}</td>
+                <td className="px-3 py-3">
+                  <p>{historyTypeLabel(item.type, language)}</p>
+                  {visibleTransactionDescription(item.description) && (
+                    <p className="mt-1 max-w-xs whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
+                      {visibleTransactionDescription(item.description)}
+                    </p>
+                  )}
+                </td>
                 <td className={`px-3 py-3 font-black ${Number(item.amount) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                   {Number(item.amount).toFixed(2)} EUR
                 </td>

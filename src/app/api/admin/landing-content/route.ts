@@ -46,7 +46,7 @@ async function requireStaff() {
 export async function GET() {
   const session = await requireStaff();
   if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: "Session expired" }, { status: 401 });
   }
 
   const entries = await getLandingContentRows(true);
@@ -56,7 +56,7 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const session = await requireStaff();
   if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: "Session expired" }, { status: 401 });
   }
 
   await ensureLandingContentTable();

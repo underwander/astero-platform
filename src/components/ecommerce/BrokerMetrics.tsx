@@ -1,10 +1,11 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { calculateTradeProfit } from "@/lib/market-instruments";
+import { clearClientAuthState } from "@/lib/client-auth";
 
 type Trade = {
   id: string;
@@ -27,6 +28,8 @@ export default function BrokerMetrics() {
   const [equity, setEquity] = useState(0);
   const [available, setAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const requestRunning = useRef(false);
 
   async function loadQuote(symbol: string) {
     const res = await fetch(`/api/quotes?symbol=${encodeURIComponent(symbol)}`);
@@ -36,57 +39,65 @@ export default function BrokerMetrics() {
   }
 
   async function loadDashboard() {
-    const userId = localStorage.getItem("userId");
+    if (requestRunning.current) return;
+    requestRunning.current = true;
 
-    if (!userId) {
-      router.push("/login");
-      return;
+    try {
+      const [balanceRes, tradesRes] = await Promise.all([
+        fetch("/api/user/balance", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/trades", { cache: "no-store", credentials: "same-origin" }),
+      ]);
+
+      if (balanceRes.status === 401 || tradesRes.status === 401) {
+        clearClientAuthState();
+        router.replace("/login?reason=session-expired");
+        return;
+      }
+      if (!balanceRes.ok || !tradesRes.ok) {
+        setError(t("dataTemporarilyUnavailable"));
+        return;
+      }
+
+      const balanceData = await balanceRes.json();
+      const trades: Trade[] = await tradesRes.json();
+      const numericBalance = Number(balanceData.balance || 0);
+      const open = trades.filter((trade) => trade.closePrice === null);
+      const symbols = Array.from(new Set(open.map((trade) => trade.symbol)));
+
+      const quoteEntries = await Promise.all(
+        symbols.map(async (symbol) => [symbol, await loadQuote(symbol)] as const)
+      );
+
+      const quotes: QuoteMap = {};
+      quoteEntries.forEach(([symbol, quote]) => {
+        if (quote) quotes[symbol] = quote;
+      });
+
+      const floating = open.reduce((sum, trade) => {
+        const quote = quotes[trade.symbol];
+        const currentPrice = quote?.price || trade.openPrice;
+        return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0, quote?.tickValue);
+      }, 0);
+
+      setEmail(balanceData.email || "");
+      setEquity(numericBalance + floating);
+      setAvailable(numericBalance + floating);
+      setLoading(false);
+      setError("");
+    } finally {
+      requestRunning.current = false;
     }
-
-    const [balanceRes, tradesRes] = await Promise.all([
-      fetch(`/api/user/balance?userId=${userId}`, { cache: "no-store" }),
-      fetch(`/api/trades?userId=${userId}`, { cache: "no-store" }),
-    ]);
-
-    if (!balanceRes.ok || !tradesRes.ok) {
-      throw new Error("Dashboard load error");
-    }
-
-    const balanceData = await balanceRes.json();
-    const trades: Trade[] = await tradesRes.json();
-    const numericBalance = Number(balanceData.balance || 0);
-    const open = trades.filter((trade) => trade.closePrice === null);
-    const symbols = Array.from(new Set(open.map((trade) => trade.symbol)));
-
-    const quoteEntries = await Promise.all(
-      symbols.map(async (symbol) => [symbol, await loadQuote(symbol)] as const)
-    );
-
-    const quotes: QuoteMap = {};
-    quoteEntries.forEach(([symbol, quote]) => {
-      if (quote) quotes[symbol] = quote;
-    });
-
-    const floating = open.reduce((sum, trade) => {
-      const quote = quotes[trade.symbol];
-      const currentPrice = quote?.price || trade.openPrice;
-      return sum + calculateTradeProfit(trade.symbol, trade.side, trade.openPrice, currentPrice, trade.volume, trade.swap ?? 0, quote?.tickValue);
-    }, 0);
-
-    setEmail(balanceData.email || "");
-    setEquity(numericBalance + floating);
-    setAvailable(numericBalance + floating);
-    setLoading(false);
   }
 
   useEffect(() => {
-    loadDashboard().catch(() => setLoading(false));
-    const interval = setInterval(() => loadDashboard().catch(() => setLoading(false)), DASHBOARD_REFRESH_MS);
+    loadDashboard().catch(() => setError(t("dataTemporarilyUnavailable")));
+    const interval = setInterval(() => loadDashboard().catch(() => setError(t("dataTemporarilyUnavailable"))), DASHBOARD_REFRESH_MS);
     return () => clearInterval(interval);
   }, [router]);
 
   return (
     <div className="space-y-4">
+      {error && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.35fr]">
         <AccountCard label={t("clientEmail")} value={email || t("clientCabinet")} loading={loading} />
         <AccountCard label={t("funds")} value={`€${equity.toFixed(2)}`} loading={loading} />

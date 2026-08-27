@@ -49,6 +49,7 @@ model User {
 
 model Trade {
   id         String   @id @default(cuid())
+  clientOrderId String?
   symbol     String
   side       String
   openPrice  Float
@@ -63,6 +64,8 @@ model Trade {
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, clientOrderId])
 }
 
 model Withdrawal {

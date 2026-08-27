@@ -49,6 +49,7 @@ const dictionaries: Record<Language, Dictionary> = {
     managerChat: "Manager chat",
     adminPanel: "Admin panel",
     installApp: "Install app",
+    dataTemporarilyUnavailable: "Account data is temporarily unavailable. Retrying automatically.",
   },
   ru: {
     dashboard: "Панель",
@@ -93,6 +94,7 @@ const dictionaries: Record<Language, Dictionary> = {
     managerChat: "Чат с менеджером",
     adminPanel: "Панель администратора",
     installApp: "Установить приложение",
+    dataTemporarilyUnavailable: "Данные счета временно недоступны. Повторяем запрос автоматически.",
   },
 };
 

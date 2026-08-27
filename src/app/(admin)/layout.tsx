@@ -8,6 +8,7 @@ import SupportPage from "@/app/(admin)/support/page";
 import { usePathname } from "next/navigation";
 import React from "react";
 import { useEffect } from "react";
+import ProtectedPage from "@/components/auth/ProtectedPage";
 
 export default function AdminLayout({
   children,
@@ -42,6 +43,7 @@ export default function AdminLayout({
       : "xl:ml-[90px]";
 
   return (
+    <ProtectedPage>
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white xl:flex">
       <AppSidebar />
       <Backdrop />
@@ -60,5 +62,6 @@ export default function AdminLayout({
         {pathname !== "/support" && <SupportPage />}
       </div>
     </div>
+    </ProtectedPage>
   );
 }

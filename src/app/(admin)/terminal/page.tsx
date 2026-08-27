@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   calculateTradeProfit,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/market-instruments";
 import { calculateAccountRisk, calculateRequiredMargin } from "@/lib/trading-risk";
 import { useLanguage } from "@/context/LanguageContext";
+import { clearClientAuthState } from "@/lib/client-auth";
 
 type Quote = {
   symbol: string;
@@ -117,6 +118,9 @@ export default function TradingTerminalPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [chartSymbols, setChartSymbols] = useState<string[]>(() => marketInstruments.slice(0, 9).map((item) => item.symbol));
   const [symbolToAdd, setSymbolToAdd] = useState(marketInstruments[9]?.symbol || marketInstruments[0].symbol);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const pendingOrderRef = useRef<{ fingerprint: string; clientOrderId: string } | null>(null);
 
   const instrument = getInstrument(symbol);
   const selectedQuote = quotes[symbol];
@@ -326,51 +330,87 @@ export default function TradingTerminalPage() {
   }
 
   async function openTrade(nextSide = side) {
+    if (submittingRef.current) return;
     if (!userId) {
       setMessage("Сначала войдите в аккаунт");
       router.push("/login");
       return;
     }
 
-    if (!openPrice || !volume || Number(volume) < instrument.minLot) {
-      setMessage(`Минимальный объем: ${instrument.minLot}`);
+    const numericVolume = Number(volume);
+    const lotSteps = (numericVolume - instrument.minLot) / instrument.lotStep;
+    if (
+      !selectedQuote ||
+      !Number.isFinite(numericVolume) ||
+      numericVolume < instrument.minLot ||
+      numericVolume > instrument.maxLot ||
+      Math.abs(lotSteps - Math.round(lotSteps)) >= 1e-8
+    ) {
+      setMessage(
+        !selectedQuote
+          ? "Ожидаем актуальную котировку. Попробуйте через несколько секунд."
+          : `Объем должен быть от ${instrument.minLot} до ${instrument.maxLot} с шагом ${instrument.lotStep}`
+      );
       return;
     }
 
-    const bidPrice = selectedQuote?.bid ?? Number(openPrice);
-    const askPrice = selectedQuote?.ask ?? bidPrice + instrument.pointSize * activeSpreadPoints;
-    const tradePrice = nextSide === "BUY" ? askPrice : bidPrice;
-
+    const fingerprint = JSON.stringify([symbol, nextSide, numericVolume, stopLoss || null, takeProfit || null]);
+    const pendingOrder = pendingOrderRef.current?.fingerprint === fingerprint
+      ? pendingOrderRef.current
+      : {
+          fingerprint,
+          clientOrderId:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        };
+    pendingOrderRef.current = pendingOrder;
     const payload = {
-      userId,
+      clientOrderId: pendingOrder.clientOrderId,
       symbol,
       side: nextSide,
-      openPrice: tradePrice,
-      volume: Number(volume),
+      volume: numericVolume,
       stopLoss: stopLoss ? Number(stopLoss) : null,
       takeProfit: takeProfit ? Number(takeProfit) : null,
     };
 
+    submittingRef.current = true;
+    setIsSubmitting(true);
     setMessage("Открытие сделки...");
 
-    const res = await fetch("/api/trade/open", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await fetch("/api/trade/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
 
-    const data = await res.json();
+      if (res.status === 401) {
+        pendingOrderRef.current = null;
+        clearClientAuthState();
+        router.replace("/login?reason=session-expired");
+        return;
+      }
+      if (!res.ok) {
+        pendingOrderRef.current = null;
+        setMessage(data.error || "Не удалось открыть сделку. Проверьте параметры и попробуйте снова.");
+        return;
+      }
 
-    if (!res.ok) {
-      setMessage(data.error || "Ошибка открытия сделки");
-      return;
+      pendingOrderRef.current = null;
+      setTrades((current) => current.some((trade) => trade.id === data.id) ? current : [data as Trade, ...current]);
+      setMessage(`Сделка открыта: ${data.symbol} ${data.side}, объем ${data.volume}, цена ${data.openPrice}`);
+      setStopLoss("");
+      setTakeProfit("");
+      await Promise.allSettled([loadBalance(), loadTrades()]);
+    } catch {
+      setMessage("Связь с сервером прервана. Повторите запрос — дубликат сделки создан не будет.");
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
-
-    setMessage(`Сделка открыта: ${data.symbol} ${data.side}, объем ${data.volume}, цена ${data.openPrice}`);
-    setStopLoss("");
-    setTakeProfit("");
-    await loadBalance();
-    await loadTrades();
   }
 
   async function closeTrade(trade: Trade) {
@@ -413,7 +453,13 @@ export default function TradingTerminalPage() {
         chartSeries={chartSeries}
         trades={trades}
         onClose={closeTrade}
+        isSubmitting={isSubmitting}
       />
+      {message && (
+        <div className="mb-2 border border-[#16a34a]/40 bg-[#0c2f24] p-3 text-xs font-bold text-[#d7efe5] xl:hidden">
+          {message}
+        </div>
+      )}
       <div className="mb-2 border border-[#1f332f] bg-[#101a18] px-3 py-2">
         <div>
       <h1 className="text-base font-black text-white">Торговый терминал</h1>
@@ -552,8 +598,8 @@ export default function TradingTerminalPage() {
                   <input value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className={inputClass} type="number" step={instrument.pointSize} />
                 </div>
               </div>
-              <button onClick={() => openTrade()} className={`w-full px-4 py-4 text-sm font-black text-white shadow-lg ${side === "BUY" ? "bg-[#0bbf73] hover:bg-[#13d684]" : "bg-[#e83b4b] hover:bg-[#ff4d5e]"}`}>
-                Открыть {side}
+              <button disabled={isSubmitting} onClick={() => openTrade()} className={`w-full px-4 py-4 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60 ${side === "BUY" ? "bg-[#0bbf73] hover:bg-[#13d684]" : "bg-[#e83b4b] hover:bg-[#ff4d5e]"}`}>
+                {isSubmitting ? "Открытие..." : `Открыть ${side}`}
               </button>
             </div>
             </div>
@@ -694,6 +740,7 @@ function MobileTerminal({
   chartSeries,
   trades,
   onClose,
+  isSubmitting,
 }: {
   activeGroup: MarketGroup | "All";
   setActiveGroup: (group: MarketGroup | "All") => void;
@@ -711,6 +758,7 @@ function MobileTerminal({
   chartSeries: Record<string, number[]>;
   trades: Trade[];
   onClose: (trade: Trade) => void;
+  isSubmitting: boolean;
 }) {
   const [marketsOpen, setMarketsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "history">("open");
@@ -824,6 +872,7 @@ function MobileTerminal({
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setPendingSide(null)}
                 className="h-12 rounded-xl border border-[#24453c] text-sm font-black text-[#d7efe5]"
               >
@@ -831,15 +880,16 @@ function MobileTerminal({
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => {
                   const sideToOpen = pendingSide;
                   setPendingSide(null);
                   setSide(sideToOpen);
                   openTrade(sideToOpen);
                 }}
-                className={`h-12 rounded-xl text-sm font-black text-white ${pendingSide === "BUY" ? "bg-[#0bbf73]" : "bg-[#e83b4b]"}`}
+                className={`h-12 rounded-xl text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60 ${pendingSide === "BUY" ? "bg-[#0bbf73]" : "bg-[#e83b4b]"}`}
               >
-                Подтвердить
+                {isSubmitting ? "Открытие..." : "Подтвердить"}
               </button>
             </div>
           </div>

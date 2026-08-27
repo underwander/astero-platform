@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getCurrentSession } from "@/lib/client-auth";
 
 type Props = {
   children: React.ReactNode;
@@ -12,14 +13,25 @@ export default function AdminOnly({ children }: Props) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    const role = localStorage.getItem("role");
-
-    if (role !== "ADMIN" && role !== "MANAGER") {
-      router.push("/");
-      return;
-    }
-
-    setAllowed(true);
+    let active = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const initializeSession = () => {
+      getCurrentSession()
+        .then((session) => {
+          if (!active) return;
+          if (!session) router.replace("/login");
+          else if (session.role !== "ADMIN" && session.role !== "MANAGER") router.replace("/");
+          else setAllowed(true);
+        })
+        .catch(() => {
+          if (active) retryTimer = setTimeout(initializeSession, 2000);
+        });
+    };
+    initializeSession();
+    return () => {
+      active = false;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [router]);
 
   if (!allowed) {

@@ -111,3 +111,16 @@ export function sessionCookieOptions() {
     maxAge: SESSION_MAX_AGE_SECONDS,
   };
 }
+
+export function sessionCookieHeader(token: string) {
+  const options = sessionCookieOptions();
+  return `${SESSION_COOKIE_NAME}=${token}; Path=${options.path}; Max-Age=${options.maxAge}; HttpOnly; SameSite=Lax${
+    options.secure ? "; Secure" : ""
+  }`;
+}
+
+export function expiredSessionCookieHeader() {
+  return `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${
+    process.env.NODE_ENV === "production" ? "; Secure" : ""
+  }`;
+}

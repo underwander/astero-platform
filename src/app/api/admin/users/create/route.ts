@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 
     if (!session || !["ADMIN", "MANAGER"].includes(session.role)) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return Response.json({ error: "Session expired" }, { status: 401 });
     }
 
     const { email, password, firstName, lastName, phone, country, city, address, balance, role, managerId } = await req.json();

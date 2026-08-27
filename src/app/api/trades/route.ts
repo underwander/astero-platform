@@ -15,7 +15,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    return Response.json(trades);
+    return Response.json(trades, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error(error);
 

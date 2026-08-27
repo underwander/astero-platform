@@ -26,7 +26,8 @@ export function ensureCrmSchema() {
     `),
     prisma.$executeRawUnsafe(`
       ALTER TABLE "Trade"
-        ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3)
+        ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3),
+        ADD COLUMN IF NOT EXISTS "clientOrderId" TEXT
     `),
     prisma.$executeRawUnsafe(`
       DO $$
@@ -106,7 +107,12 @@ export function ensureCrmSchema() {
     prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS "IpAccessRule_mode_idx" ON "IpAccessRule"("mode")
     `),
-  ]).then(() => undefined);
+  ]).then(async () => {
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Trade_userId_clientOrderId_key"
+      ON "Trade"("userId", "clientOrderId")
+    `);
+  });
 
   return crmSchemaReady;
 }

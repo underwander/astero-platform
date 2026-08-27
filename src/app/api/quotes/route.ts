@@ -140,7 +140,7 @@ async function fetchTradingViewQuote(symbol: string, tvSymbol: string) {
     columns: ["close", "change", "change_abs"],
   });
 
-  for (const endpoint of TRADINGVIEW_SCAN_ENDPOINTS) {
+  const requests = TRADINGVIEW_SCAN_ENDPOINTS.map(async (endpoint) => {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -150,15 +150,16 @@ async function fetchTradingViewQuote(symbol: string, tvSymbol: string) {
         },
         body,
         cache: "no-store",
+        signal: AbortSignal.timeout(4000),
       });
 
-      if (!response.ok) continue;
+      if (!response.ok) throw new Error("TradingView response error");
 
       const payload = await response.json();
       const values = payload?.data?.[0]?.d;
       const close = Number(values?.[0]);
 
-      if (!Number.isFinite(close) || close <= 0) continue;
+      if (!Number.isFinite(close) || close <= 0) throw new Error("TradingView price unavailable");
 
       const percentChange = Number(values?.[1] ?? 0);
       const changeValue = Number(values?.[2] ?? 0);
@@ -174,11 +175,15 @@ async function fetchTradingViewQuote(symbol: string, tvSymbol: string) {
         source: "tradingview",
       } satisfies CachedQuote;
     } catch {
-      continue;
+      throw new Error("TradingView endpoint unavailable");
     }
-  }
+  });
 
-  return null;
+  try {
+    return await Promise.any(requests);
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(req: Request) {
@@ -280,12 +285,22 @@ export async function GET(req: Request) {
       });
     }
 
-    const response = await fetch(
-      `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(twelveSymbol)}&apikey=${apiKey}`,
-      { cache: "no-store" }
-    );
-
-    const data = await response.json();
+    let data;
+    try {
+      const response = await fetch(
+        `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(twelveSymbol)}&apikey=${apiKey}`,
+        { cache: "no-store", signal: AbortSignal.timeout(5000) }
+      );
+      if (!response.ok) throw new Error("Twelve Data response error");
+      data = await response.json();
+    } catch {
+      const fallback = getInstrument(symbol).defaultPrice;
+      return Response.json({
+        ...buildFallbackQuote(symbol, fallback, "default", false, new Date().toISOString(), spreadPoints),
+        warning: "Live quote provider is temporarily unavailable",
+        settings: manualQuote ? buildQuoteSettings(manualQuote) : null,
+      });
+    }
 
     if (data.status === "error") {
       const fallback = getInstrument(symbol).defaultPrice;

@@ -15,7 +15,7 @@ export async function resolveScopedUserId(
   const session = await getRequestSession();
 
   if (!session) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    return Response.json({ error: "Session expired" }, { status: 401 });
   }
 
   const isStaff = STAFF_ROLES.has(session.role);

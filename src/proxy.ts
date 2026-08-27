@@ -30,9 +30,9 @@ function applySecurityHeaders(response: NextResponse) {
   return response;
 }
 
-function unauthorized(request: NextRequest) {
+function sessionExpiredResponse(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Session expired" }, { status: 401 });
   }
 
   const url = request.nextUrl.clone();
@@ -64,7 +64,7 @@ export async function proxy(request: NextRequest) {
     const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
     if (!session || !ADMIN_ROLES.has(session.role)) {
-      return applySecurityHeaders(unauthorized(request));
+      return applySecurityHeaders(sessionExpiredResponse(request));
     }
 
     if (pathname.startsWith("/api/admin/security") && session.role !== "ADMIN") {
@@ -76,7 +76,7 @@ export async function proxy(request: NextRequest) {
     const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
     if (!session) {
-      return applySecurityHeaders(unauthorized(request));
+      return applySecurityHeaders(sessionExpiredResponse(request));
     }
   }
 

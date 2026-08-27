@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { ensureCrmSchema, getRequestIp } from "@/lib/crm-schema";
+import {
+  ACCOUNT_FAILURE_WINDOW_MS,
+  calculateLoginRateLimit,
+  IP_FAILURE_WINDOW_MS,
+  type LoginRateLimit,
+} from "@/lib/login-rate-limit";
 
 export type SecurityRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-
-const FAILED_LOGIN_WINDOW_MINUTES = 15;
-const FAILED_LOGIN_LIMIT = 5;
 
 function ipv4ToNumber(ip: string) {
   const parts = ip.split(".").map((part) => Number(part));
@@ -123,27 +126,55 @@ export async function isIpBlocked(req: Request) {
   return blacklistRules.some((rule) => matchesIpRule(ip, rule.ip));
 }
 
-export async function isLoginTemporarilyBlocked(req: Request, email: string) {
+export async function getLoginRateLimit(
+  req: Request,
+  email: string,
+  userId?: string
+): Promise<LoginRateLimit> {
   await ensureCrmSchema();
 
   const ip = getRequestIp(req);
-  const since = new Date(Date.now() - FAILED_LOGIN_WINDOW_MINUTES * 60 * 1000);
-  const filters = [
-    ip ? { ip } : null,
-    { description: { contains: email, mode: "insensitive" as const } },
-  ].filter(Boolean) as Array<{ ip: string } | { description: { contains: string; mode: "insensitive" } }>;
+  const nowMs = Date.now();
+  const accountWindowStart = new Date(nowMs - ACCOUNT_FAILURE_WINDOW_MS);
+  const ipWindowStart = new Date(nowMs - IP_FAILURE_WINDOW_MS);
+  const lastSuccess = userId
+    ? await prisma.securityEvent.findFirst({
+        where: { type: "LOGIN_SUCCESS", userId },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      })
+    : null;
+  const accountSince =
+    lastSuccess && lastSuccess.createdAt > accountWindowStart
+      ? lastSuccess.createdAt
+      : accountWindowStart;
 
-  const attempts = await prisma.securityEvent.count({
-    where: {
-      type: "LOGIN_FAILED",
-      createdAt: {
-        gte: since,
+  const [accountFailures, ipFailures] = await Promise.all([
+    prisma.securityEvent.findMany({
+      where: {
+        type: "LOGIN_FAILED",
+        createdAt: { gte: accountSince },
+        ...(userId
+          ? { userId }
+          : { userId: null, description: { contains: email, mode: "insensitive" } }),
       },
-      OR: filters,
-    },
-  });
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    }),
+    ip
+      ? prisma.securityEvent.findMany({
+          where: { type: "LOGIN_FAILED", ip, createdAt: { gte: ipWindowStart } },
+          orderBy: { createdAt: "asc" },
+          select: { createdAt: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
-  return attempts >= FAILED_LOGIN_LIMIT;
+  return calculateLoginRateLimit({
+    nowMs,
+    accountFailureTimes: accountFailures.map((event) => event.createdAt),
+    ipFailureTimes: ipFailures.map((event) => event.createdAt),
+  });
 }
 
 export async function getSecurityOverview(search = "") {

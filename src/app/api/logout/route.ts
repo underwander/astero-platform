@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
+import { expiredSessionCookieHeader, SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -16,12 +16,8 @@ export async function POST() {
   }
 
   const response = Response.json({ ok: true });
-  response.headers.append(
-    "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${
-      process.env.NODE_ENV === "production" ? "; Secure" : ""
-    }`
-  );
+  response.headers.append("Set-Cookie", expiredSessionCookieHeader());
+  response.headers.set("Cache-Control", "no-store");
 
   return response;
 }

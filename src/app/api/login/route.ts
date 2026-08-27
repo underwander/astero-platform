@@ -1,8 +1,31 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { ensureCrmSchema, getRequestIp } from "@/lib/crm-schema";
-import { createSessionToken, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/session";
-import { isIpBlocked, isLoginTemporarilyBlocked, logSecurityEvent } from "@/lib/security";
+import { createSessionToken, sessionCookieHeader } from "@/lib/session";
+import { getLoginRateLimit, isIpBlocked, logSecurityEvent } from "@/lib/security";
+import type { LoginRateLimit } from "@/lib/login-rate-limit";
+
+const INVALID_PASSWORD_HASH = "$2b$10$u72CjnAp.lkcfLjxvll93egju3VZ2mTM0L7ZzzQY4kLgdNMYM40fq";
+
+function rateLimitResponse(rateLimit: LoginRateLimit) {
+  return Response.json(
+    {
+      error: "Too many attempts. Try again later",
+      blocked: true,
+      retryAfter: rateLimit.retryAfterSeconds,
+      blockedUntil: rateLimit.blockedUntilMs
+        ? new Date(rateLimit.blockedUntilMs).toISOString()
+        : null,
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+        "Cache-Control": "no-store",
+      },
+    }
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -26,25 +49,30 @@ export async function POST(req: Request) {
       return Response.json({ error: "Access temporarily restricted" }, { status: 429 });
     }
 
-    if (await isLoginTemporarilyBlocked(req, normalizedEmail)) {
-      await logSecurityEvent(req, {
-        type: "LOGIN_BLOCKED",
-        risk: "HIGH",
-        description: `Blocked login attempt for ${normalizedEmail}: too many failed attempts`,
-      });
-      return Response.json({ error: "Too many attempts. Try again later" }, { status: 429 });
-    }
-
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
+    const rateLimit = await getLoginRateLimit(req, normalizedEmail, user?.id);
+
+    if (rateLimit.limited) {
+      await logSecurityEvent(req, {
+        type: "LOGIN_BLOCKED",
+        risk: "HIGH",
+        description: `Blocked login attempt for ${normalizedEmail}: ${rateLimit.reason?.toLowerCase()} cooldown`,
+        userId: user?.id,
+      });
+      return rateLimitResponse(rateLimit);
+    }
 
     if (!user) {
+      await bcrypt.compare(String(password), INVALID_PASSWORD_HASH);
       await logSecurityEvent(req, {
         type: "LOGIN_FAILED",
         risk: "MEDIUM",
         description: `Login failed for ${normalizedEmail}: user not found`,
       });
+      const updatedRateLimit = await getLoginRateLimit(req, normalizedEmail);
+      if (updatedRateLimit.limited) return rateLimitResponse(updatedRateLimit);
       return Response.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -60,6 +88,8 @@ export async function POST(req: Request) {
         description: `Login failed for ${normalizedEmail}: wrong password`,
         userId: user.id,
       });
+      const updatedRateLimit = await getLoginRateLimit(req, normalizedEmail, user.id);
+      if (updatedRateLimit.limited) return rateLimitResponse(updatedRateLimit);
       return Response.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -106,12 +136,8 @@ export async function POST(req: Request) {
       isBlocked: user.isBlocked,
     });
 
-    response.headers.append(
-      "Set-Cookie",
-      `${SESSION_COOKIE_NAME}=${token}; Path=/; Max-Age=${sessionCookieOptions().maxAge}; HttpOnly; SameSite=Lax${
-        sessionCookieOptions().secure ? "; Secure" : ""
-      }`
-    );
+    response.headers.append("Set-Cookie", sessionCookieHeader(token));
+    response.headers.set("Cache-Control", "no-store");
 
     return response;
   } catch (error) {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
 import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
+import { visibleTransactionDescription } from "@/lib/deposit-comment";
 
 type ManagerRef = {
   id: string;
@@ -180,10 +181,20 @@ type User = {
   lastIp?: string | null;
   trades: unknown[];
   withdrawals: unknown[];
+  balanceHistory?: BalanceHistoryItem[];
   verificationDocs?: VerificationDocument[];
   verificationDocuments?: VerificationDocument[];
   clientNotes?: ClientNote[];
   clientActions?: ClientAction[];
+};
+
+type BalanceHistoryItem = {
+  id: string;
+  type: string;
+  amount: number;
+  balance: number;
+  description?: string | null;
+  createdAt: string;
 };
 
 type Withdrawal = {
@@ -360,6 +371,7 @@ export default function AsteroCrm() {
     () => readSessionValue("astero.crm.clientQuickFilter", "all") as "all" | "active" | "online" | "blocked" | "buffer" | "kyc" | "unverified"
   );
   const [depositAmount, setDepositAmount] = useState("0");
+  const [depositComment, setDepositComment] = useState("");
   const [balanceAmount, setBalanceAmount] = useState("1000");
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [noteText, setNoteText] = useState("");
@@ -849,10 +861,12 @@ export default function AsteroCrm() {
     const res = await fetch("/api/admin/users/deposit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, amount }),
+      body: JSON.stringify({ userId, amount, comment: depositComment }),
     });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Ошибка депозита");
+    setDepositAmount("0");
+    setDepositComment("");
     await loadAdminData();
   }
 
@@ -1581,6 +1595,8 @@ export default function AsteroCrm() {
             assignManager={assignManager}
             depositAmount={depositAmount}
             setDepositAmount={setDepositAmount}
+            depositComment={depositComment}
+            setDepositComment={setDepositComment}
             depositToUser={depositToUser}
             toggleBlockUser={toggleBlockUser}
             toggleBufferUser={toggleBufferUser}
@@ -2426,6 +2442,8 @@ function ClientProfileUtip({
   assignManager,
   depositAmount,
   setDepositAmount,
+  depositComment,
+  setDepositComment,
   depositToUser,
   toggleBlockUser,
   toggleBufferUser,
@@ -2465,6 +2483,8 @@ function ClientProfileUtip({
   assignManager: (userId: string, managerId: string) => void;
   depositAmount: string;
   setDepositAmount: (value: string) => void;
+  depositComment: string;
+  setDepositComment: (value: string) => void;
   depositToUser: (userId: string) => void;
   toggleBlockUser: (userId: string, isBlocked: boolean) => void;
   toggleBufferUser: (userId: string, currentStatus?: string | null) => void;
@@ -2770,6 +2790,13 @@ function ClientProfileUtip({
                 <input className={`${inputClass} h-9 rounded-lg`} type="number" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
                 <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-black text-slate-950">OK</button>
               </div>
+              <input
+                className={`${inputClass} mt-2 h-9 rounded-lg`}
+                value={depositComment}
+                onChange={(event) => setDepositComment(event.target.value)}
+                maxLength={500}
+                placeholder="Комментарий / описание (необязательно)"
+              />
               <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Смена пароля</label>
               <div className="flex gap-2">
                 <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
@@ -4369,6 +4396,16 @@ function ClientTimeline({
       type: "login",
       tone: "bg-cyan-50 text-cyan-700",
     }] : []),
+    ...(client.balanceHistory || [])
+      .filter((item) => item.type === "DEPOSIT" && visibleTransactionDescription(item.description))
+      .map((item) => ({
+        id: `balance-${item.id}`,
+        date: item.createdAt,
+        title: `Начисление: €${Number(item.amount).toFixed(2)}`,
+        text: visibleTransactionDescription(item.description) || "",
+        type: "finance",
+        tone: "bg-emerald-50 text-emerald-700",
+      })),
     ...deposits
       .filter((item) => item.user?.id === client.id || item.user?.email === client.email)
       .map((item) => ({

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
     if (!user) return Response.json({ error: "User not found" }, { status: 404 });
 
-    return Response.json(user);
+    return Response.json(user, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Server error" }, { status: 500 });
