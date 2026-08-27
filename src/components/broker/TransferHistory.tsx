@@ -61,7 +61,7 @@ export default function TransferHistory() {
                 <td className="px-3 py-3">
                   <p>{historyTypeLabel(item.type, language)}</p>
                   {visibleTransactionDescription(item.description) && (
-                    <p className="mt-1 max-w-xs whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="mt-1.5 w-fit max-w-[min(20rem,70vw)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-md border border-emerald-200 bg-emerald-50/80 px-2.5 py-1.5 text-xs font-semibold leading-relaxed text-emerald-800 shadow-sm dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-200">
                       {visibleTransactionDescription(item.description)}
                     </p>
                   )}
