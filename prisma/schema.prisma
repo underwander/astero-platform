@@ -234,6 +234,12 @@ model SecurityEvent {
   browser     String?
   os          String?
   path        String?
+  email       String?
+  outcome     String?
+  failureReason String?
+  classification String?
+  requestId   String?
+  signals     String?
   userId      String?
   createdAt   DateTime @default(now())
 
@@ -243,6 +249,9 @@ model SecurityEvent {
   @@index([ip])
   @@index([type])
   @@index([risk])
+  @@index([email])
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
 }
 
 model IpAccessRule {
@@ -250,10 +259,30 @@ model IpAccessRule {
   ip        String
   mode      String   @default("BLACKLIST")
   reason    String?
+  note      String?
+  expiresAt DateTime?
+  createdBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([ip, mode])
   @@index([ip])
   @@index([mode])
+  @@index([expiresAt])
+}
+
+model IdentityAccessRule {
+  id        String   @id @default(cuid())
+  kind      String
+  value     String
+  reason    String?
+  note      String?
+  expiresAt DateTime?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kind, value])
+  @@index([kind, value])
+  @@index([expiresAt])
 }

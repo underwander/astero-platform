@@ -49,7 +49,7 @@ export async function PATCH(req: Request) {
       }
       const rawPassword = password.trim();
       data.password = await bcrypt.hash(rawPassword, 10);
-      data.plainPassword = rawPassword;
+      data.plainPassword = null;
     }
 
     const user = await prisma.user.update({

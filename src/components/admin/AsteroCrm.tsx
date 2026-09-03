@@ -11,7 +11,6 @@ import { visibleTransactionDescription } from "@/lib/deposit-comment";
 type ManagerRef = {
   id: string;
   email: string;
-  plainPassword?: string | null;
   firstName?: string | null;
   lastName?: string | null;
 };
@@ -122,6 +121,12 @@ type SecurityEvent = {
   browser?: string | null;
   os?: string | null;
   path?: string | null;
+  email?: string | null;
+  outcome?: string | null;
+  failureReason?: string | null;
+  classification?: string | null;
+  requestId?: string | null;
+  signals?: string | null;
   createdAt: string;
   user?: {
     email?: string | null;
@@ -136,6 +141,9 @@ type IpAccessRule = {
   ip: string;
   mode: "BLACKLIST" | "WHITELIST";
   reason?: string | null;
+  note?: string | null;
+  expiresAt?: string | null;
+  createdBy?: string | null;
   createdAt: string;
 };
 
@@ -162,7 +170,6 @@ type User = {
   id: string;
   clientNumber?: string | null;
   email: string;
-  plainPassword?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -188,6 +195,16 @@ type User = {
   verificationDocuments?: VerificationDocument[];
   clientNotes?: ClientNote[];
   clientActions?: ClientAction[];
+};
+
+type IdentityAccessRule = {
+  id: string;
+  kind: "EMAIL" | "DOMAIN";
+  value: string;
+  reason?: string | null;
+  note?: string | null;
+  expiresAt?: string | null;
+  createdBy?: string | null;
 };
 
 type BalanceHistoryItem = {
@@ -324,15 +341,6 @@ function clientCardHref(clientId: string) {
 
 function supportDialogHref(clientId: string) {
   return `/crm?tab=support&supportClientId=${encodeURIComponent(clientId)}`;
-}
-
-function generateClientPassword() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  let password = "Ww";
-  for (let index = 0; index < 8; index += 1) {
-    password += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return `${password}7`;
 }
 
 export default function AsteroCrm() {
@@ -1843,21 +1851,28 @@ function EyeIcon({ closed = false }: { closed?: boolean }) {
 function SecurityPanel() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [rules, setRules] = useState<IpAccessRule[]>([]);
-  const [summary, setSummary] = useState({ attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0 });
+  const [identityRules, setIdentityRules] = useState<IdentityAccessRule[]>([]);
+  const [summary, setSummary] = useState({ attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0, successfulLogins: 0, failedLogins: 0, blockedAttempts: 0, uniqueIps: 0, unknownAttempts: 0 });
   const [criticalEvents, setCriticalEvents] = useState<SecurityEvent[]>([]);
   const [countryStats, setCountryStats] = useState<Array<{ country: string | null; _count: { country: number } }>>([]);
   const [search, setSearch] = useState(() => readSessionValue("astero.crm.securitySearch"));
   const [ip, setIp] = useState("");
   const [mode, setMode] = useState<"BLACKLIST" | "WHITELIST">("BLACKLIST");
   const [reason, setReason] = useState("");
+  const [ruleNote, setRuleNote] = useState("");
+  const [durationHours, setDurationHours] = useState("24");
   const [message, setMessage] = useState("");
   const [page, setPage] = useState(() => Number(readSessionValue("astero.crm.security.page", "1")) || 1);
   const [pageSize, setPageSize] = useState(() => Number(readSessionValue("astero.crm.security.pageSize", "25")) || 25);
   const [totalEvents, setTotalEvents] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [outcomeFilter, setOutcomeFilter] = useState("ALL");
+  const [riskFilter, setRiskFilter] = useState("ALL");
+  const [identityKind, setIdentityKind] = useState<"EMAIL" | "DOMAIN">("EMAIL");
+  const [identityValue, setIdentityValue] = useState("");
 
   async function loadSecurity(signal?: AbortSignal) {
-    const res = await fetch(`/api/admin/security?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`, { cache: "no-store", signal });
+    const res = await fetch(`/api/admin/security?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&outcome=${outcomeFilter}&risk=${riskFilter}`, { cache: "no-store", signal });
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
@@ -1865,9 +1880,10 @@ function SecurityPanel() {
       return;
     }
 
-    setSummary(data.summary || { attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0 });
+    setSummary(data.summary || { attempts24h: 0, blockedIps: 0, activeUsers: 0, criticalCount: 0, successfulLogins: 0, failedLogins: 0, blockedAttempts: 0, uniqueIps: 0, unknownAttempts: 0 });
     setEvents(data.events || []);
     setRules(data.ipRules || []);
+    setIdentityRules(data.identityRules || []);
     setCriticalEvents(data.criticalEvents || []);
     setCountryStats(data.countryStats || []);
     setTotalEvents(data.pagination?.totalItems || 0);
@@ -1884,7 +1900,7 @@ function SecurityPanel() {
     const res = await fetch("/api/admin/security", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ip: ip.trim(), mode, reason }),
+      body: JSON.stringify({ ip: ip.trim(), mode, reason, note: ruleNote, durationHours: durationHours === "PERMANENT" ? null : Number(durationHours) }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
@@ -1894,6 +1910,7 @@ function SecurityPanel() {
 
     setIp("");
     setReason("");
+    setRuleNote("");
     setMessage(mode === "BLACKLIST" ? "IP добавлен в черный список" : "IP добавлен в белый список");
     await loadSecurity();
   }
@@ -1912,6 +1929,25 @@ function SecurityPanel() {
       return;
     }
 
+    await loadSecurity();
+  }
+
+  async function saveIdentityRule() {
+    if (!identityValue.trim()) return setMessage(identityKind === "EMAIL" ? "Введите email" : "Введите домен");
+    const res = await fetch("/api/admin/security", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entityType: identityKind, value: identityValue, reason, note: ruleNote, durationHours: durationHours === "PERMANENT" ? null : Number(durationHours) }) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return setMessage(data?.error || "Не удалось сохранить блокировку");
+    setIdentityValue("");
+    setRuleNote("");
+    setMessage("Правило блокировки сохранено");
+    await loadSecurity();
+  }
+
+  async function deleteIdentityRule(id: string, value: string) {
+    if (!confirm(`Снять блокировку ${value}?`)) return;
+    const res = await fetch("/api/admin/security", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ruleType: "IDENTITY" }) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return setMessage(data?.error || "Не удалось снять блокировку");
     await loadSecurity();
   }
 
@@ -1957,7 +1993,7 @@ function SecurityPanel() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [search, page, pageSize]);
+  }, [search, page, pageSize, outcomeFilter, riskFilter]);
 
   const riskClass = (risk: string) => {
     if (risk === "CRITICAL") return "bg-red-600 text-white";
@@ -1968,25 +2004,30 @@ function SecurityPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <Metric title="Попытки входа 24ч" value={summary.attempts24h} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+        <Metric title="Успешные входы" value={summary.successfulLogins} />
+        <Metric title="Неуспешные входы" value={summary.failedLogins} danger={summary.failedLogins > 0} />
+        <Metric title="Заблокировано" value={summary.blockedAttempts} danger={summary.blockedAttempts > 0} />
+        <Metric title="Неизвестные аккаунты" value={summary.unknownAttempts} danger={summary.unknownAttempts > 0} />
+        <Metric title="Уникальные IP" value={summary.uniqueIps} />
         <Metric title="Активные пользователи" value={summary.activeUsers} />
         <Metric title="Заблокированные IP" value={summary.blockedIps} danger={summary.blockedIps > 0} />
-        <Metric title="Критические события" value={summary.criticalCount} danger={summary.criticalCount > 0} />
+        <Metric title="Alerts" value={summary.criticalCount} danger={summary.criticalCount > 0} />
       </div>
 
       {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</div>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <Panel title="Управление IP">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px]">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_160px_160px]">
             <input className={inputClass} placeholder="IP или CIDR, например 192.168.1.0/24" value={ip} onChange={(event) => setIp(event.target.value)} />
             <select className={inputClass} value={mode} onChange={(event) => setMode(event.target.value as "BLACKLIST" | "WHITELIST")}>
               <option value="BLACKLIST">Черный список</option>
               <option value="WHITELIST">Белый список</option>
             </select>
+            <select aria-label="Срок действия правила" className={inputClass} value={durationHours} onChange={(event) => setDurationHours(event.target.value)}><option value="1">1 час</option><option value="24">24 часа</option><option value="168">7 дней</option><option value="720">30 дней</option><option value="PERMANENT">Постоянно</option></select>
           </div>
-          <textarea className={`${areaClass} mt-2 min-h-16`} placeholder="Причина" value={reason} onChange={(event) => setReason(event.target.value)} />
+          <div className="mt-2 grid gap-2 md:grid-cols-2"><select aria-label="Причина правила" className={inputClass} value={reason} onChange={(event) => setReason(event.target.value)}><option value="">Выберите причину</option><option value="Brute-force attempts">Brute-force</option><option value="Bot traffic">Bot traffic</option><option value="Suspicious activity">Подозрительная активность</option><option value="Abuse">Abuse</option><option value="Manual">Ручное решение</option></select><input className={inputClass} placeholder="Внутренняя заметка" value={ruleNote} onChange={(event) => setRuleNote(event.target.value)} /></div>
           <button type="button" onClick={saveRule} className="mt-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">
             Сохранить правило
           </button>
@@ -1996,7 +2037,8 @@ function SecurityPanel() {
               <div key={rule.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-3 text-sm last:border-b-0">
                 <div>
                   <p className="font-black text-slate-900">{rule.ip}</p>
-                  <p className="text-xs text-slate-500">{rule.mode} · {rule.reason || "Без комментария"}</p>
+                  <p className="text-xs text-slate-500">{rule.mode} · {rule.reason || "Причина не указана"}</p>
+                  <p className="text-[11px] text-slate-400">{rule.expiresAt ? `До ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "Постоянно"} · {rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p>
                 </div>
                 <button type="button" onClick={() => deleteRule(rule.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-black text-red-600 hover:bg-red-50">
                   Удалить
@@ -2036,9 +2078,27 @@ function SecurityPanel() {
         </Panel>
       </div>
 
+      <Panel title="Блокировки email и доменов">
+        <div className="grid gap-2 lg:grid-cols-[150px_minmax(240px,1fr)_180px_auto]">
+          <select className={inputClass} value={identityKind} onChange={(event) => setIdentityKind(event.target.value as "EMAIL" | "DOMAIN")}><option value="EMAIL">Email</option><option value="DOMAIN">Email-домен</option></select>
+          <input className={inputClass} value={identityValue} onChange={(event) => setIdentityValue(event.target.value)} placeholder={identityKind === "EMAIL" ? "client@example.com" : "example.com"} />
+          <select aria-label="Срок блокировки email" className={inputClass} value={durationHours} onChange={(event) => setDurationHours(event.target.value)}><option value="1">1 час</option><option value="24">24 часа</option><option value="168">7 дней</option><option value="720">30 дней</option><option value="PERMANENT">Постоянно</option></select>
+          <button type="button" onClick={saveIdentityRule} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white hover:bg-red-500">Заблокировать</button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">Используются выбранные выше причина и внутренняя заметка. Популярные домены не блокируются автоматически.</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {identityRules.map((rule) => <div key={rule.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div className="min-w-0"><p className="truncate font-black text-slate-900" title={rule.value}>{rule.kind === "DOMAIN" ? "@" : ""}{rule.value}</p><p className="text-xs text-slate-500">{rule.reason || "Причина не указана"} · {rule.expiresAt ? `до ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "постоянно"}</p><p className="text-[11px] text-slate-400">{rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p></div><button type="button" onClick={() => deleteIdentityRule(rule.id, rule.value)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-50">Разблокировать</button></div>)}
+          {identityRules.length === 0 && <Empty text="Блокировок email и доменов нет" />}
+        </div>
+      </Panel>
+
       <Panel title="Журнал безопасности">
-        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <input className={`${inputClass} md:max-w-md`} placeholder="Поиск по IP, событию, пользователю" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+        <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[minmax(260px,1fr)_170px_150px]">
+          <input className={inputClass} placeholder="IP, email, событие или пользователь" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
+          <select aria-label="Результат авторизации" className={inputClass} value={outcomeFilter} onChange={(event) => { setOutcomeFilter(event.target.value); setPage(1); }}><option value="ALL">Все результаты</option><option value="SUCCESS">Успешные</option><option value="FAILED">Неуспешные</option><option value="BLOCKED">Заблокированные</option><option value="INFO">Информационные</option></select>
+          <select aria-label="Уровень риска" className={inputClass} value={riskFilter} onChange={(event) => { setRiskFilter(event.target.value); setPage(1); }}><option value="ALL">Любой риск</option><option value="LOW">Низкий</option><option value="MEDIUM">Средний</option><option value="HIGH">Высокий</option><option value="CRITICAL">Критический</option></select>
+          </div>
           <button type="button" onClick={exportEvents} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50">
             Экспорт CSV
           </button>
@@ -2050,6 +2110,7 @@ function SecurityPanel() {
               <tr>
                 <th className="p-3">Дата</th>
                 <th className="p-3">Риск</th>
+                <th className="p-3">Результат</th>
                 <th className="p-3">Тип</th>
                 <th className="p-3">IP</th>
                 <th className="p-3">Пользователь</th>
@@ -2062,16 +2123,17 @@ function SecurityPanel() {
                 <tr key={event.id} className="border-t border-slate-100 align-top hover:bg-emerald-50/40">
                   <td className="p-3">{new Date(event.createdAt).toLocaleString("ru-RU")}</td>
                   <td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${riskClass(event.risk)}`}>{event.risk}</span></td>
+                  <td className="p-3"><Badge value={event.outcome || (event.type === "LOGIN_SUCCESS" ? "SUCCESS" : event.type === "LOGIN_FAILED" ? "FAILED" : "INFO")} /></td>
                   <td className="p-3 font-black">{event.type}</td>
-                  <td className="p-3">{event.ip || "-"}</td>
-                  <td className="p-3">{event.user?.email || "-"}</td>
+                  <td className="p-3">{event.ip ? <span className="inline-flex items-center gap-1"><span>{event.ip}</span><CopyValueButton value={event.ip} label="IP" /></span> : "-"}</td>
+                  <td className="p-3"><p className="max-w-56 truncate" title={event.email || event.user?.email || ""}>{event.email || event.user?.email || "-"}</p><p className="text-[10px] font-bold text-slate-400">{event.classification || (event.user ? "KNOWN_ACCOUNT" : "UNKNOWN_VISITOR")}</p></td>
                   <td className="p-3">{event.device || "-"} · {event.browser || "-"} · {event.os || "-"}</td>
-                  <td className="p-3">{event.description}</td>
+                  <td className="max-w-[340px] p-3"><details><summary className="cursor-pointer truncate font-medium" title={event.description}>{event.failureReason ? `${event.failureReason}: ` : ""}{event.description}</summary><div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600"><p><b>Описание:</b> {event.description}</p><p><b>Локация:</b> {[event.city, event.country].filter(Boolean).join(", ") || "Неизвестно"} (приблизительно по IP)</p><p><b>Путь:</b> {event.path || "-"}</p><p><b>Request ID:</b> {event.requestId || "Нет данных"}</p><p><b>Сигналы:</b> {event.signals ? event.signals.replace(/[\[\]"]/g, "").replace(/,/g, ", ") : "Нет дополнительных сигналов"}</p></div></details></td>
                 </tr>
               ))}
               {events.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-sm text-slate-400" colSpan={7}>Событий пока нет</td>
+                  <td className="p-6 text-center text-sm text-slate-400" colSpan={8}>Событий по выбранным фильтрам нет</td>
                 </tr>
               )}
             </tbody>
@@ -2561,7 +2623,6 @@ function ClientProfileUtip({
     "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
   >("overview");
   const [numberCopied, setNumberCopied] = useState(false);
-  const [showClientPassword, setShowClientPassword] = useState(false);
   const [notePage, setNotePage] = useState(1);
   const [noteSearch, setNoteSearch] = useState("");
   const [noteFilter, setNoteFilter] = useState<"all" | "OPEN" | "IMPORTANT" | "CLOSED">("all");
@@ -2769,39 +2830,6 @@ function ClientProfileUtip({
             </UtipInfoPanel>
 
             <UtipInfoPanel title="Управление">
-              <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-black text-slate-900">Пароль клиента</p>
-                    <p className="text-[11px] font-black text-slate-600">
-                      {showClientPassword
-                        ? selectedClient.plainPassword || "Пароль недоступен. Задайте новый пароль ниже."
-                        : "••••••••"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowClientPassword((value) => !value)}
-                      className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"
-                    >
-                      {showClientPassword ? "Скрыть" : "Показать"}
-                    </button>
-                    {!selectedClient.plainPassword && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const generatedPassword = generateClientPassword();
-                          void changeClientPassword(selectedClient.id, generatedPassword);
-                        }}
-                        className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-emerald-400"
-                      >
-                        Создать
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
                 <div>
                   <p className="text-xs font-black text-slate-900">Разрешение торговли</p>

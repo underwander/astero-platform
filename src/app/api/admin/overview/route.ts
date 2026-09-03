@@ -34,7 +34,6 @@ export async function GET(req: Request) {
         id: true,
         clientNumber: true,
         email: true,
-        plainPassword: true,
         firstName: true,
         lastName: true,
         phone: true,

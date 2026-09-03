@@ -13,7 +13,7 @@ export async function PATCH(req: Request) {
 
     const rawPassword = String(password);
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
-    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, plainPassword: rawPassword } });
+    await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword, plainPassword: null } });
 
     return Response.json({ success: true });
   } catch (error) {

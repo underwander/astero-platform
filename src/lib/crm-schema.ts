@@ -76,6 +76,15 @@ export function ensureCrmSchema() {
       )
     `),
     prisma.$executeRawUnsafe(`
+      ALTER TABLE "SecurityEvent"
+        ADD COLUMN IF NOT EXISTS "email" TEXT,
+        ADD COLUMN IF NOT EXISTS "outcome" TEXT,
+        ADD COLUMN IF NOT EXISTS "failureReason" TEXT,
+        ADD COLUMN IF NOT EXISTS "classification" TEXT,
+        ADD COLUMN IF NOT EXISTS "requestId" TEXT,
+        ADD COLUMN IF NOT EXISTS "signals" TEXT
+    `),
+    prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "IpAccessRule" (
         "id" TEXT NOT NULL,
         "ip" TEXT NOT NULL,
@@ -85,6 +94,26 @@ export function ensureCrmSchema() {
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "IpAccessRule_pkey" PRIMARY KEY ("id")
       )
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "IdentityAccessRule" (
+        "id" TEXT NOT NULL,
+        "kind" TEXT NOT NULL,
+        "value" TEXT NOT NULL,
+        "reason" TEXT,
+        "note" TEXT,
+        "expiresAt" TIMESTAMP(3),
+        "createdBy" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "IdentityAccessRule_pkey" PRIMARY KEY ("id")
+      )
+    `),
+    prisma.$executeRawUnsafe(`
+      ALTER TABLE "IpAccessRule"
+        ADD COLUMN IF NOT EXISTS "note" TEXT,
+        ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP(3),
+        ADD COLUMN IF NOT EXISTS "createdBy" TEXT
     `),
     prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS "SecurityEvent_createdAt_idx" ON "SecurityEvent"("createdAt")
@@ -99,6 +128,15 @@ export function ensureCrmSchema() {
       CREATE INDEX IF NOT EXISTS "SecurityEvent_risk_idx" ON "SecurityEvent"("risk")
     `),
     prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_email_idx" ON "SecurityEvent"("email")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_userId_createdAt_idx" ON "SecurityEvent"("userId", "createdAt")
+    `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "SecurityEvent_ip_createdAt_idx" ON "SecurityEvent"("ip", "createdAt")
+    `),
+    prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "IpAccessRule_ip_mode_key" ON "IpAccessRule"("ip", "mode")
     `),
     prisma.$executeRawUnsafe(`
@@ -107,6 +145,12 @@ export function ensureCrmSchema() {
     prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS "IpAccessRule_mode_idx" ON "IpAccessRule"("mode")
     `),
+    prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "IpAccessRule_expiresAt_idx" ON "IpAccessRule"("expiresAt")
+    `),
+    prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "IdentityAccessRule_kind_value_key" ON "IdentityAccessRule"("kind", "value")`),
+    prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "IdentityAccessRule_kind_value_idx" ON "IdentityAccessRule"("kind", "value")`),
+    prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "IdentityAccessRule_expiresAt_idx" ON "IdentityAccessRule"("expiresAt")`),
   ]).then(async () => {
     await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "Trade_userId_clientOrderId_key"

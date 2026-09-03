@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { ensureCrmSchema, getRequestIp } from "@/lib/crm-schema";
 import { createSessionToken, sessionCookieHeader } from "@/lib/session";
-import { getLoginRateLimit, isIpBlocked, logSecurityEvent } from "@/lib/security";
+import { getLoginRateLimit, isEmailBlocked, isIpBlocked, logSecurityEvent } from "@/lib/security";
 import type { LoginRateLimit } from "@/lib/login-rate-limit";
 
 const INVALID_PASSWORD_HASH = "$2b$10$u72CjnAp.lkcfLjxvll93egju3VZ2mTM0L7ZzzQY4kLgdNMYM40fq";
@@ -27,6 +27,15 @@ function rateLimitResponse(rateLimit: LoginRateLimit) {
   );
 }
 
+async function safeLoginRateLimit(req: Request, email: string, userId?: string) {
+  try {
+    return await getLoginRateLimit(req, email, userId);
+  } catch (error) {
+    console.error("Login rate-limit evaluation failed", error);
+    return { limited: false, retryAfterSeconds: 0, blockedUntilMs: null, reason: null, accountFailures: 0, ipFailures: 0 } satisfies LoginRateLimit;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     await ensureCrmSchema();
@@ -45,6 +54,10 @@ export async function POST(req: Request) {
         type: "LOGIN_BLOCKED",
         risk: "HIGH",
         description: `Blocked login attempt for ${normalizedEmail}: IP is blacklisted`,
+        email: normalizedEmail,
+        outcome: "BLOCKED",
+        failureReason: "IP_BLOCKED",
+        classification: "BLOCKED_SOURCE",
       });
       return Response.json({ error: "Access temporarily restricted" }, { status: 429 });
     }
@@ -52,7 +65,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
-    const rateLimit = await getLoginRateLimit(req, normalizedEmail, user?.id);
+    const rateLimit = await safeLoginRateLimit(req, normalizedEmail, user?.id);
 
     if (rateLimit.limited) {
       await logSecurityEvent(req, {
@@ -60,8 +73,27 @@ export async function POST(req: Request) {
         risk: "HIGH",
         description: `Blocked login attempt for ${normalizedEmail}: ${rateLimit.reason?.toLowerCase()} cooldown`,
         userId: user?.id,
+        email: normalizedEmail,
+        outcome: "BLOCKED",
+        failureReason: "RATE_LIMIT",
+        classification: user ? "KNOWN_ACCOUNT" : "UNKNOWN_ACCOUNT_ATTEMPT",
+        signals: [rateLimit.reason === "IP" ? "HIGH_IP_VELOCITY" : "REPEATED_ACCOUNT_FAILURES"],
       });
       return rateLimitResponse(rateLimit);
+    }
+
+    const identityBlock = await isEmailBlocked(normalizedEmail);
+    if (identityBlock) {
+      await logSecurityEvent(req, {
+        type: "LOGIN_BLOCKED",
+        risk: "HIGH",
+        description: `Login blocked by ${identityBlock.toLowerCase()} rule`,
+        email: normalizedEmail,
+        outcome: "BLOCKED",
+        failureReason: identityBlock === "DOMAIN" ? "EMAIL_DOMAIN_BLOCKED" : "EMAIL_BLOCKED",
+        classification: "BLOCKED_SOURCE",
+      });
+      return Response.json({ error: "Access temporarily restricted" }, { status: 429 });
     }
 
     if (!user) {
@@ -70,8 +102,12 @@ export async function POST(req: Request) {
         type: "LOGIN_FAILED",
         risk: "MEDIUM",
         description: `Login failed for ${normalizedEmail}: user not found`,
+        email: normalizedEmail,
+        outcome: "FAILED",
+        failureReason: "ACCOUNT_NOT_FOUND",
+        classification: "UNKNOWN_ACCOUNT_ATTEMPT",
       });
-      const updatedRateLimit = await getLoginRateLimit(req, normalizedEmail);
+      const updatedRateLimit = await safeLoginRateLimit(req, normalizedEmail);
       if (updatedRateLimit.limited) return rateLimitResponse(updatedRateLimit);
       return Response.json(
         { error: "Invalid credentials" },
@@ -87,8 +123,12 @@ export async function POST(req: Request) {
         risk: "MEDIUM",
         description: `Login failed for ${normalizedEmail}: wrong password`,
         userId: user.id,
+        email: normalizedEmail,
+        outcome: "FAILED",
+        failureReason: "INVALID_CREDENTIALS",
+        classification: user.role === "ADMIN" ? "ADMIN" : "FAILED_CLIENT_LOGIN",
       });
-      const updatedRateLimit = await getLoginRateLimit(req, normalizedEmail, user.id);
+      const updatedRateLimit = await safeLoginRateLimit(req, normalizedEmail, user.id);
       if (updatedRateLimit.limited) return rateLimitResponse(updatedRateLimit);
       return Response.json(
         { error: "Invalid credentials" },
@@ -102,6 +142,10 @@ export async function POST(req: Request) {
         risk: "HIGH",
         description: `Blocked account login attempt for ${normalizedEmail}`,
         userId: user.id,
+        email: normalizedEmail,
+        outcome: "BLOCKED",
+        failureReason: "ACCOUNT_DISABLED",
+        classification: user.role === "ADMIN" ? "ADMIN" : "KNOWN_ACCOUNT",
       });
       return Response.json(
         { error: "Your account is blocked" },
@@ -113,7 +157,6 @@ export async function POST(req: Request) {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        plainPassword: String(password),
         lastLoginAt: loggedInAt,
         lastSeenAt: loggedInAt,
         lastIp: getRequestIp(req),
@@ -122,9 +165,13 @@ export async function POST(req: Request) {
 
     await logSecurityEvent(req, {
       type: "LOGIN_SUCCESS",
-      risk: "LOW",
       description: `Successful login for ${user.email}`,
       userId: user.id,
+      email: user.email,
+      outcome: "SUCCESS",
+      classification: user.role === "ADMIN" ? "ADMIN" : "KNOWN_CLIENT",
+      risk: rateLimit.accountFailures >= 5 ? "HIGH" : "LOW",
+      signals: rateLimit.accountFailures >= 5 ? ["SUCCESS_AFTER_REPEATED_FAILURES"] : [],
     });
 
     const token = await createSessionToken(user);

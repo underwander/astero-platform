@@ -16,6 +16,8 @@ export type LoginRateLimit = {
   retryAfterSeconds: number;
   blockedUntilMs: number | null;
   reason: "ACCOUNT" | "IP" | null;
+  accountFailures: number;
+  ipFailures: number;
 };
 
 function secondsUntil(nowMs: number, timestamp: Date, durationMs: number) {
@@ -41,6 +43,8 @@ export function calculateLoginRateLimit({
       retryAfterSeconds: secondsUntil(nowMs, latestAccountFailure, ACCOUNT_FAILURE_WINDOW_MS),
       blockedUntilMs: accountBlockedUntilMs,
       reason: "ACCOUNT",
+      accountFailures: accountFailureTimes.length,
+      ipFailures: ipFailureTimes.length,
     };
   }
 
@@ -54,8 +58,10 @@ export function calculateLoginRateLimit({
       retryAfterSeconds: secondsUntil(nowMs, latestIpFailure, IP_LOCK_SECONDS * 1000),
       blockedUntilMs: ipBlockedUntilMs,
       reason: "IP",
+      accountFailures: accountFailureTimes.length,
+      ipFailures: ipFailureTimes.length,
     };
   }
 
-  return { limited: false, retryAfterSeconds: 0, blockedUntilMs: null, reason: null };
+  return { limited: false, retryAfterSeconds: 0, blockedUntilMs: null, reason: null, accountFailures: accountFailureTimes.length, ipFailures: ipFailureTimes.length };
 }
