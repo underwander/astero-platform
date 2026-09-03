@@ -3576,7 +3576,7 @@ function ClientsTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="max-h-[68vh] overflow-auto">
+      <div className="overflow-x-auto">
       <table className="min-w-[1280px] w-full text-xs">
         <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_#e2e8f0]">
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
