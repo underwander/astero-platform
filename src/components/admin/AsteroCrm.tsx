@@ -1376,8 +1376,8 @@ export default function AsteroCrm() {
   });
 
   return (
-    <div className="crm-shell flex min-h-[calc(100vh-56px)]">
-      <aside className={`hidden shrink-0 border-r border-slate-800 bg-slate-950 p-3 text-white transition-[width] lg:block ${sidebarCollapsed ? "w-[68px]" : "w-60"}`}>
+    <div className="crm-shell flex min-h-[calc(100vh-56px)] items-start">
+      <aside className={`sticky top-14 hidden h-[calc(100vh-56px)] shrink-0 overflow-y-auto border-r border-slate-800 bg-slate-950 p-3 text-white transition-[width] lg:block ${sidebarCollapsed ? "w-[68px]" : "w-60"}`}>
         <div className={`mb-3 ${sidebarCollapsed ? "text-center" : "px-2 py-2"}`}>
           {!sidebarCollapsed && <><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-400">Astero CRM</p><p className="mt-1 text-xs text-slate-500">Операционная панель</p></>}
           <button type="button" aria-label={sidebarCollapsed ? "Развернуть меню" : "Свернуть меню"} onClick={() => setSidebarCollapsed((value) => !value)} className="crm-focus mt-2 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">{sidebarCollapsed ? "›" : "‹ Свернуть"}</button>
