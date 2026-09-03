@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
+import CrmPagination, { useCrmPagination } from "@/components/admin/CrmPagination";
 import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 import { visibleTransactionDescription } from "@/lib/deposit-comment";
 
@@ -356,6 +357,7 @@ export default function AsteroCrm() {
   const [supportUnreadIds, setSupportUnreadIds] = useState<Set<string>>(new Set());
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSessionValue("astero.crm.sidebar", "open") === "collapsed");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -410,6 +412,8 @@ export default function AsteroCrm() {
   const actionReminderKeysRef = useRef<Set<string>>(new Set());
   const supportMessagesReadyRef = useRef(false);
   const clientsRef = useRef<User[]>([]);
+  const adminLoadInFlightRef = useRef(false);
+  const supportLoadInFlightRef = useRef(false);
 
   function playSupportSound() {
     try {
@@ -509,20 +513,25 @@ export default function AsteroCrm() {
   }
 
   async function loadSupportData() {
-    const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
-    const supportPayload = await supportRes.json().catch(() => null);
+    if (supportLoadInFlightRef.current) return;
+    supportLoadInFlightRef.current = true;
+    try {
+      const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
+      const supportPayload = await supportRes.json().catch(() => null);
 
-    if (!supportRes.ok) {
-      setSupportError(
-        `${supportPayload?.error || "Support load failed"}${
-          supportPayload?.details ? `: ${supportPayload.details}` : ""
-        }`
-      );
-      return;
+      if (!supportRes.ok) {
+        setSupportError(supportRes.status === 401 ? "Сессия истекла. Войдите снова." : "Не удалось обновить сообщения поддержки");
+        return;
+      }
+
+      setSupportError("");
+      applySupportPayload(supportPayload, clientsRef.current);
+    } catch (error) {
+      console.error("Support refresh failed", error);
+      setSupportError("Не удалось обновить сообщения. Проверьте соединение.");
+    } finally {
+      supportLoadInFlightRef.current = false;
     }
-
-    setSupportError("");
-    applySupportPayload(supportPayload, clientsRef.current);
   }
 
   async function markSupportDialogRead(clientId: string) {
@@ -536,6 +545,8 @@ export default function AsteroCrm() {
   }
 
   async function loadAdminData(options: { silent?: boolean } = {}) {
+    if (adminLoadInFlightRef.current) return;
+    adminLoadInFlightRef.current = true;
     if (!options.silent) setLoading(true);
     const role = localStorage.getItem("role") || "";
     const currentUserId = localStorage.getItem("userId") || "";
@@ -545,22 +556,22 @@ export default function AsteroCrm() {
     const managerQuery = activeManagerFilter !== "all" ? `&managerId=${encodeURIComponent(activeManagerFilter)}` : "";
     setCurrentAdminEmail(currentEmail);
     setCurrentAdminRole(role);
-    const res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}${managerQuery}`, { cache: "no-store" });
-    const data = await res.json();
-    const supportRes = await fetch("/api/admin/support", { cache: "no-store" });
-    const supportPayload = await supportRes.json().catch(() => null);
-    setSupportError("");
-
-    if (!supportRes.ok) {
-      setSupportError(
-        `${supportPayload?.error || "Support load failed"}${
-          supportPayload?.details ? `: ${supportPayload.details}` : ""
-        }`
-      );
+    let res: Response;
+    let data;
+    try {
+      res = await fetch(`/api/admin/overview?role=${encodeURIComponent(role)}&requesterId=${encodeURIComponent(currentUserId)}${managerQuery}`, { cache: "no-store" });
+      data = await res.json();
+    } catch (error) {
+      console.error("CRM refresh failed", error);
+      setMessage("Не удалось обновить CRM. Проверьте соединение.");
+      setLoading(false);
+      adminLoadInFlightRef.current = false;
+      return;
     }
     if (!res.ok) {
       setMessage(data.error || "Не удалось загрузить CRM");
       setLoading(false);
+      adminLoadInFlightRef.current = false;
       return;
     }
 
@@ -619,11 +630,11 @@ export default function AsteroCrm() {
         : allVerificationDocs
     );
 
-    applySupportPayload(supportPayload, visibleClients);
     setSupportClientId((prev) => prev || visibleClients[0]?.id || "");
     setSelectedClientId((prev) => prev || visibleClients[0]?.id || "");
 
     if (!options.silent) setLoading(false);
+    adminLoadInFlightRef.current = false;
   }
 
   useEffect(() => {
@@ -649,7 +660,7 @@ export default function AsteroCrm() {
     }
     const initialTimer = window.setTimeout(() => {
       setAllowed(true);
-      loadAdminData();
+      void Promise.all([loadAdminData(), loadSupportData()]);
     }, 0);
 
     const interval = setInterval(() => {
@@ -686,6 +697,10 @@ export default function AsteroCrm() {
   useEffect(() => {
     sessionStorage.setItem("astero.crm.actionPeriod", actionPeriod);
   }, [actionPeriod]);
+
+  useEffect(() => {
+    sessionStorage.setItem("astero.crm.sidebar", sidebarCollapsed ? "collapsed" : "open");
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -1320,18 +1335,20 @@ export default function AsteroCrm() {
 
   return (
     <div className="flex min-h-[calc(100vh-64px)] bg-[#06130d] text-white">
-      <aside className="hidden w-80 shrink-0 border-r border-emerald-400/10 bg-[#07170f] p-4 lg:block">
-        <div className="mb-4 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.04] p-5">
+      <aside className={`hidden shrink-0 border-r border-emerald-400/10 bg-[#07170f] p-3 transition-[width] lg:block ${sidebarCollapsed ? "w-[76px]" : "w-64"}`}>
+        <div className={`mb-3 rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.04] ${sidebarCollapsed ? "p-2 text-center" : "p-4"}`}>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Astero CRM</p>
-          <h2 className="mt-2 text-2xl font-black">Панель менеджера</h2>
-          <p className="mt-1 text-sm text-emerald-50/60">Клиенты, действия, сделки, финансы и верификация.</p>
+          {!sidebarCollapsed && <><h2 className="mt-2 text-lg font-black">Панель менеджера</h2><p className="mt-1 text-xs text-emerald-50/60">Клиенты, сделки и финансы.</p></>}
+          <button type="button" aria-label={sidebarCollapsed ? "Развернуть меню" : "Свернуть меню"} onClick={() => setSidebarCollapsed((value) => !value)} className="mt-3 w-full rounded-lg bg-white/[0.06] px-2 py-1.5 text-xs font-black text-emerald-100 hover:bg-white/[0.1]">{sidebarCollapsed ? "›" : "‹ Свернуть"}</button>
         </div>
         <nav className="space-y-2">
           {visibleTabs.map((tab) => (
             <a
               key={tab.id}
               href={crmTabHref(tab.id)}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
+              title={sidebarCollapsed ? tab.label : undefined}
+              aria-label={tab.label}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${sidebarCollapsed ? "justify-center" : ""} ${
                 activeTab === tab.id
                   ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
                   : "bg-white/[0.04] text-emerald-50 hover:bg-white/[0.08]"
@@ -1345,10 +1362,10 @@ export default function AsteroCrm() {
                   </span>
                 )}
               </span>
-              <span>
+              {!sidebarCollapsed && <span>
                 <span className="block text-sm font-black">{tab.label}</span>
                 <span className={`block text-xs ${activeTab === tab.id ? "text-slate-800" : "text-emerald-50/50"}`}>{tab.hint}</span>
-              </span>
+              </span>}
             </a>
           ))}
         </nav>
@@ -1388,7 +1405,7 @@ export default function AsteroCrm() {
             <div>
               <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
-            <input
+            {(["clients", "actions", "tradeOperations", "withdrawals", "verification", "support"] as Tab[]).includes(activeTab) && <input
               name="crm-client-search"
               autoComplete="off"
               autoCorrect="off"
@@ -1397,11 +1414,12 @@ export default function AsteroCrm() {
               value={clientSearch}
               onChange={(event) => setClientSearch(event.target.value)}
               placeholder="Поиск клиента: ID, телефон, email, имя, фамилия..."
-            />
+            />}
           </div>
         </div>
 
         {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-100">{message}</div>}
+        {loading && <div role="status" aria-live="polite" className="h-1 overflow-hidden rounded-full bg-emerald-950"><div className="h-full w-1/3 animate-pulse rounded-full bg-emerald-400" /></div>}
 
         {supportToasts.length > 0 && (
           <div className="fixed right-4 top-24 z-[80] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2">
@@ -3444,10 +3462,14 @@ function ClientsTable({
   onBlock: (client: User) => void;
   onDelete: (client: User) => void;
 }) {
+  const pagination = useCrmPagination(clients.length, "astero.crm.clients.pageSize", `${clients.length}:${clients[0]?.id || ""}:${clients[clients.length - 1]?.id || ""}`);
+  const visibleClients = clients.slice(pagination.start, pagination.end);
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="max-h-[68vh] overflow-auto">
       <table className="min-w-[1280px] w-full text-xs">
-        <thead>
+        <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_#e2e8f0]">
           <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] uppercase text-slate-500">
             <th className="px-3 py-2">ID</th>
             <th className="px-3 py-2">Клиент</th>
@@ -3462,7 +3484,7 @@ function ClientsTable({
           </tr>
         </thead>
         <tbody>
-          {clients.map((client, index) => {
+          {visibleClients.map((client, index) => {
             const online = isClientOnline(client, now);
 
             return (
@@ -3478,7 +3500,7 @@ function ClientsTable({
                   )}
                   <span>{displayName(client)}</span>
                 </a>
-                <p className="text-[11px] text-slate-400">#{index + 1}{online ? " · онлайн" : ""}</p>
+                <p className="text-[11px] text-slate-400">#{pagination.start + index + 1}{online ? " · онлайн" : ""}</p>
               </td>
               <td className="px-3 py-2">{client.email}</td>
               <td className="px-3 py-2">{client.phone || "-"}</td>
@@ -3514,6 +3536,13 @@ function ClientsTable({
           )}
         </tbody>
       </table>
+      </div>
+      <CrmPagination
+        {...pagination}
+        total={clients.length}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </div>
   );
 }
@@ -3533,7 +3562,9 @@ function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (i
 }
 
 function ActionList({ actions, onUpdate, onDelete, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[1120px] text-xs"><thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{actions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle"><td className="px-2 py-1.5">{showClient && action.client ? <a href={clientCardHref(action.client.id)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="font-normal text-slate-500">{action.client.email}</span></a> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div>;
+  const pagination = useCrmPagination(actions.length, "astero.crm.actions.pageSize", `${actions.length}:${actions[0]?.id || ""}:${actions[actions.length - 1]?.id || ""}`);
+  const visibleActions = actions.slice(pagination.start, pagination.end);
+  return <div className="overflow-hidden rounded-lg border border-slate-200"><div className="max-h-[68vh] overflow-auto"><table className="w-full min-w-[1120px] text-xs"><thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_#e2e8f0]"><tr className="text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{visibleActions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle hover:bg-emerald-50/50"><td className="px-2 py-1.5">{showClient && action.client ? <a href={clientCardHref(action.client.id)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="block max-w-48 truncate font-normal text-slate-500" title={action.client.email}>{action.client.email}</span></a> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input aria-label="Срок действия" type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select aria-label="Ответственный" className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select aria-label="Статус действия" className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div><CrmPagination {...pagination} total={actions.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} /></div>;
 }
 
 function TradingOperationsDesk({
@@ -4516,11 +4547,14 @@ function TradeTable({
   onClose: (trade: Trade) => void;
   onUpdate: (tradeId: string, payload: TradeUpdatePayload) => void;
 }) {
+  const pagination = useCrmPagination(trades.length, "astero.crm.trades.pageSize", `${trades.length}:${trades[0]?.id || ""}:${trades[trades.length - 1]?.id || ""}`);
+  const visibleTrades = trades.slice(pagination.start, pagination.end);
   return (
     <Panel title="Сделки клиентов">
-      <div className="overflow-x-auto">
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[1420px] w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
             <tr className="border-b border-emerald-100 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Символ</th>
@@ -4536,7 +4570,7 @@ function TradeTable({
             </tr>
           </thead>
           <tbody>
-            {trades.map((trade) => {
+            {visibleTrades.map((trade) => {
               const isOpen = trade.closePrice === null;
               return (
                 <tr key={trade.id} className="border-b border-emerald-50 align-top">
@@ -4596,6 +4630,8 @@ function TradeTable({
             })}
           </tbody>
         </table>
+        </div>
+        <CrmPagination {...pagination} total={trades.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
       </div>
     </Panel>
   );
@@ -4680,11 +4716,14 @@ function WithdrawalsTable({
   onReject: (id: string) => void;
   onEditRequisites: (withdrawal: Withdrawal) => void;
 }) {
+  const pagination = useCrmPagination(withdrawals.length, "astero.crm.withdrawals.pageSize", `${withdrawals.length}:${withdrawals[0]?.id || ""}:${withdrawals[withdrawals.length - 1]?.id || ""}`);
+  const visibleWithdrawals = withdrawals.slice(pagination.start, pagination.end);
   return (
     <Panel title="Заявки на вывод">
-      <div className="overflow-x-auto">
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[980px] w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
             <tr className="border-b border-emerald-100 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Сумма</th>
@@ -4697,7 +4736,7 @@ function WithdrawalsTable({
           </thead>
 
           <tbody>
-            {withdrawals.map((item) => (
+            {visibleWithdrawals.map((item) => (
               <tr key={item.id} className="border-b border-emerald-50">
                 <td className="p-3">
                   <p className="font-bold text-slate-950">
@@ -4773,6 +4812,8 @@ function WithdrawalsTable({
             )}
           </tbody>
         </table>
+        </div>
+        <CrmPagination {...pagination} total={withdrawals.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
       </div>
     </Panel>
   );
@@ -4877,11 +4918,14 @@ function KycTable({
   onReview: (id: string, status: "APPROVED" | "REJECTED") => void;
   onDelete: (id: string) => void;
 }) {
+  const pagination = useCrmPagination(documents.length, "astero.crm.kyc.pageSize", `${documents.length}:${documents[0]?.id || ""}:${documents[documents.length - 1]?.id || ""}`);
+  const visibleDocuments = documents.slice(pagination.start, pagination.end);
   return (
     <Panel title="Верификация клиентов">
-      <div className="overflow-x-auto">
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[860px] w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
             <tr className="border-b border-emerald-100 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Документ</th>
@@ -4891,7 +4935,7 @@ function KycTable({
             </tr>
           </thead>
           <tbody>
-            {documents.map((doc) => (
+            {visibleDocuments.map((doc) => (
               <tr key={doc.id} className="border-b border-emerald-50">
                 <td className="p-3">{doc.user?.email}</td>
                 <td className="p-3">{doc.documentType || "DOCUMENT"}</td>
@@ -4924,6 +4968,8 @@ function KycTable({
             )}
           </tbody>
         </table>
+        </div>
+        <CrmPagination {...pagination} total={documents.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
       </div>
     </Panel>
   );
