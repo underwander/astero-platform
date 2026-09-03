@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
 import CrmPagination, { useCrmPagination } from "@/components/admin/CrmPagination";
@@ -299,27 +299,46 @@ type Tab =
   | "security"
   | "quotes";
 
-const tabs: { id: Tab; label: string; hint: string; icon: string }[] = [
-  { id: "desktop", label: "Обзор", hint: "Сводка", icon: "□" },
-  { id: "clients", label: "Клиенты", hint: "База", icon: "◎" },
-  { id: "actions", label: "Действия", hint: "Задачи", icon: "◇" },
-  { id: "managers", label: "Менеджеры", hint: "Команда", icon: "♟" },
-  { id: "tradeOperations", label: "Торговые операции", hint: "Операции", icon: "TO" },
-  { id: "withdrawals", label: "Выводы", hint: "Заявки", icon: "⇄" },
-  { id: "verification", label: "Верификация", hint: "Документы", icon: "✓" },
-  { id: "support", label: "Поддержка", hint: "Чаты", icon: "✉" },
-  { id: "announcements", label: "Доска объявлений", hint: "Новости", icon: "!" },
-  { id: "landing", label: "Лендинг", hint: "Сайт", icon: "LP" },
-  { id: "security", label: "Безопасность", hint: "Журнал", icon: "!" },
-  { id: "quotes", label: "Котировки", hint: "Цены", icon: "⌁" },
+const tabs: { id: Tab; label: string; hint: string; group: string }[] = [
+  { id: "desktop", label: "Обзор", hint: "Сводка", group: "Рабочее пространство" },
+  { id: "clients", label: "Клиенты", hint: "База", group: "Рабочее пространство" },
+  { id: "actions", label: "Действия", hint: "Задачи", group: "Рабочее пространство" },
+  { id: "managers", label: "Менеджеры", hint: "Команда", group: "Рабочее пространство" },
+  { id: "tradeOperations", label: "Торговые операции", hint: "Операции", group: "Операции" },
+  { id: "withdrawals", label: "Выводы", hint: "Заявки", group: "Операции" },
+  { id: "verification", label: "Верификация", hint: "Документы", group: "Операции" },
+  { id: "support", label: "Поддержка", hint: "Чаты", group: "Операции" },
+  { id: "announcements", label: "Объявления", hint: "Новости", group: "Контент" },
+  { id: "landing", label: "Лендинг", hint: "Сайт", group: "Контент" },
+  { id: "security", label: "Безопасность", hint: "Журнал", group: "Система" },
+  { id: "quotes", label: "Котировки", hint: "Цены", group: "Система" },
 ];
+
+function CrmNavIcon({ tab }: { tab: Tab }) {
+  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  const paths: Record<string, React.ReactNode> = {
+    desktop: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+    clients: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    actions: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="m8 12 2.5 2.5L16 9" /></>,
+    managers: <><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0M18 8h3M19.5 6.5v3" /></>,
+    tradeOperations: <><path d="M6 4v16M18 4v16M3 9h6M15 15h6M12 6v12M9 12h6" /></>,
+    withdrawals: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M12 13v5m0 0-2-2m2 2 2-2" /></>,
+    verification: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6m-11 7 2 2 4-4" /></>,
+    support: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8M8 13h5" /></>,
+    announcements: <><path d="m3 11 15-6v14L3 13Z" /><path d="M7 14v5a2 2 0 0 0 2 2h1l1-6" /></>,
+    landing: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></>,
+    security: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></>,
+    quotes: <><path d="M3 3v18h18" /><path d="m7 16 4-5 3 3 5-7" /></>,
+  };
+  return <svg {...common}>{paths[tab] || paths.desktop}</svg>;
+}
 
 const routeTabs: Tab[] = [...tabs.map((tab) => tab.id), "clientCard", "trades"];
 
 const inputClass =
-  "h-10 w-full rounded-xl border border-emerald-100 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
+  "crm-focus h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-600";
 const areaClass =
-  "min-h-24 w-full rounded-xl border border-emerald-100 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
+  "crm-focus min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-600";
 
 function readSessionValue(key: string, fallback = "") {
   if (typeof window === "undefined") return fallback;
@@ -367,6 +386,8 @@ export default function AsteroCrm() {
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSessionValue("astero.crm.sidebar", "open") === "collapsed");
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -710,6 +731,18 @@ export default function AsteroCrm() {
   useEffect(() => {
     sessionStorage.setItem("astero.crm.sidebar", sidebarCollapsed ? "collapsed" : "open");
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((value) => !value);
+      }
+      if (event.key === "Escape") setCommandOpen(false);
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -1331,7 +1364,7 @@ export default function AsteroCrm() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#06130d] text-white">
+      <div className="crm-shell flex min-h-screen items-center justify-center text-slate-600">
         Проверка доступа...
       </div>
     );
@@ -1343,108 +1376,123 @@ export default function AsteroCrm() {
   });
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] bg-[#06130d] text-white">
-      <aside className={`hidden shrink-0 border-r border-emerald-400/10 bg-[#07170f] p-3 transition-[width] lg:block ${sidebarCollapsed ? "w-[76px]" : "w-64"}`}>
-        <div className={`mb-3 rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.04] ${sidebarCollapsed ? "p-2 text-center" : "p-4"}`}>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Astero CRM</p>
-          {!sidebarCollapsed && <><h2 className="mt-2 text-lg font-black">Панель менеджера</h2><p className="mt-1 text-xs text-emerald-50/60">Клиенты, сделки и финансы.</p></>}
-          <button type="button" aria-label={sidebarCollapsed ? "Развернуть меню" : "Свернуть меню"} onClick={() => setSidebarCollapsed((value) => !value)} className="mt-3 w-full rounded-lg bg-white/[0.06] px-2 py-1.5 text-xs font-black text-emerald-100 hover:bg-white/[0.1]">{sidebarCollapsed ? "›" : "‹ Свернуть"}</button>
+    <div className="crm-shell flex min-h-[calc(100vh-56px)]">
+      <aside className={`hidden shrink-0 border-r border-slate-800 bg-slate-950 p-3 text-white transition-[width] lg:block ${sidebarCollapsed ? "w-[68px]" : "w-60"}`}>
+        <div className={`mb-3 ${sidebarCollapsed ? "text-center" : "px-2 py-2"}`}>
+          {!sidebarCollapsed && <><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-400">Astero CRM</p><p className="mt-1 text-xs text-slate-500">Операционная панель</p></>}
+          <button type="button" aria-label={sidebarCollapsed ? "Развернуть меню" : "Свернуть меню"} onClick={() => setSidebarCollapsed((value) => !value)} className="crm-focus mt-2 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">{sidebarCollapsed ? "›" : "‹ Свернуть"}</button>
         </div>
-        <nav className="space-y-2">
-          {visibleTabs.map((tab) => (
+        <nav className="space-y-1">
+          {visibleTabs.map((tab, index) => (
+            <Fragment key={tab.id}>
+            {!sidebarCollapsed && (index === 0 || visibleTabs[index - 1]?.group !== tab.group) && <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 first:pt-0">{tab.group}</p>}
             <a
-              key={tab.id}
               href={crmTabHref(tab.id)}
               title={sidebarCollapsed ? tab.label : undefined}
               aria-label={tab.label}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${sidebarCollapsed ? "justify-center" : ""} ${
+              className={`crm-focus flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition ${sidebarCollapsed ? "justify-center" : ""} ${
                 activeTab === tab.id
-                  ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
-                  : "bg-white/[0.04] text-emerald-50 hover:bg-white/[0.08]"
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
               }`}
             >
-              <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-lg font-black">
-                {tab.icon}
+              <span className={`relative flex size-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${activeTab === tab.id ? "bg-emerald-500 text-slate-950" : "bg-slate-900 text-slate-500"}`}>
+                <CrmNavIcon tab={tab.id} />
                 {tab.id === "support" && supportUnreadIds.size > 0 && (
-                  <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white ring-2 ring-[#07170f]">
+                  <span className="absolute -right-2 -top-2 flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white ring-2 ring-[#07170f]">
                     {Math.min(supportUnreadIds.size, 99)}
                   </span>
                 )}
               </span>
               {!sidebarCollapsed && <span>
-                <span className="block text-sm font-black">{tab.label}</span>
-                <span className={`block text-xs ${activeTab === tab.id ? "text-slate-800" : "text-emerald-50/50"}`}>{tab.hint}</span>
+                <span className="block text-sm font-semibold">{tab.label}</span>
               </span>}
             </a>
+            </Fragment>
           ))}
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1 space-y-4 p-3 sm:p-4 lg:p-6">
+      <main className="min-w-0 flex-1 space-y-4 p-3 text-slate-900 sm:p-4 lg:p-5">
         <div className="lg:hidden">
           <button
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="flex h-12 w-full items-center justify-between rounded-2xl border border-emerald-400/10 bg-[#07170f] px-4 text-sm font-black text-white"
+            className="crm-focus flex h-11 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm"
           >
             <span>☰ {activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</span>
-            <span className="text-emerald-300">{mobileMenuOpen ? "Закрыть" : "Меню"}</span>
+            <span className="text-emerald-700">{mobileMenuOpen ? "Закрыть" : "Меню"}</span>
           </button>
 
           {mobileMenuOpen && (
-            <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl border border-emerald-400/10 bg-[#07170f] p-2">
+            <div className="mt-2 grid grid-cols-1 gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
               {visibleTabs.map((tab) => (
                 <a
                   key={tab.id}
                   href={crmTabHref(tab.id)}
-                  className={`rounded-xl px-3 py-3 text-left text-sm font-bold ${
+                  className={`rounded-md px-3 py-2.5 text-left text-sm font-semibold ${
                     activeTab === tab.id
-                      ? "bg-emerald-500 text-slate-950"
-                      : "bg-white/[0.04] text-emerald-50"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {tab.icon} {tab.label}
+                  <span className="inline-flex items-center gap-2"><CrmNavIcon tab={tab.id} />{tab.label}</span>
                 </a>
               ))}
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-emerald-400/10 bg-white/[0.04] p-4">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black sm:text-3xl">{activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</h1>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Astero CRM</p>
+              <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-slate-950">{activeTab === "clientCard" ? "Карточка клиента" : visibleTabs.find((tab) => tab.id === activeTab)?.label}</h1>
             </div>
             {(["clients", "actions", "tradeOperations", "withdrawals", "verification", "support"] as Tab[]).includes(activeTab) && <input
               name="crm-client-search"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className="h-11 w-full rounded-xl border border-emerald-300/20 bg-slate-950/40 px-4 text-sm text-white outline-none placeholder:text-emerald-50/45 focus:border-emerald-400 lg:max-w-lg"
+              className={`${inputClass} lg:max-w-md`}
               value={clientSearch}
               onChange={(event) => setClientSearch(event.target.value)}
               placeholder="Поиск клиента: ID, телефон, email, имя, фамилия..."
             />}
+            <button type="button" onClick={() => setCommandOpen(true)} className="crm-focus hidden h-9 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500 hover:border-slate-300 xl:flex"><span>Быстрый переход</span><kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono">Ctrl K</kbd></button>
           </div>
         </div>
 
-        {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-100">{message}</div>}
+        {message && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">{message}</div>}
         {loading && <div role="status" aria-live="polite" className="h-1 overflow-hidden rounded-full bg-emerald-950"><div className="h-full w-1/3 animate-pulse rounded-full bg-emerald-400" /></div>}
+
+        {commandOpen && (
+          <div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-950/45 px-4 pt-[12vh] backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Быстрый переход" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandOpen(false); }}>
+            <div className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <div className="flex items-center gap-3 border-b border-slate-200 px-4"><span className="text-slate-400">⌕</span><input autoFocus className="h-12 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400" placeholder="Раздел или клиент..." value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} /><kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">Esc</kbd></div>
+              <div className="max-h-[55vh] overflow-y-auto p-2">
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Разделы</p>
+                {visibleTabs.filter((tab) => tab.label.toLowerCase().includes(commandQuery.trim().toLowerCase())).map((tab) => <a key={tab.id} href={crmTabHref(tab.id)} className="crm-focus flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><span>{tab.label}</span><span className="text-xs text-slate-400">{tab.group}</span></a>)}
+                {commandQuery.trim() && <><p className="mt-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Клиенты</p>{clients.filter((client) => `${displayName(client)} ${client.email} ${client.phone || ""} ${client.clientNumber || ""}`.toLowerCase().includes(commandQuery.trim().toLowerCase())).slice(0, 8).map((client) => <a key={client.id} href={clientCardHref(client.id)} className="crm-focus flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-slate-50"><span><span className="block text-sm font-semibold text-slate-800">{displayName(client)}</span><span className="block text-xs text-slate-500">{client.email}</span></span><span className="text-xs text-emerald-700">Открыть →</span></a>)}</>}
+              </div>
+            </div>
+          </div>
+        )}
 
         {supportToasts.length > 0 && (
           <div className="fixed right-4 top-24 z-[80] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2">
             {supportToasts.map((toast) => (
-              <div key={toast.id} className="rounded-2xl border border-sky-300/40 bg-slate-950 p-3 text-white shadow-2xl shadow-sky-950/30">
+              <div key={toast.id} className="rounded-lg border border-sky-300/40 bg-slate-950 p-3 text-white shadow-lg shadow-sky-950/30">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
-                    <p className="mt-1 font-black">{toast.clientName}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">Новое сообщение</p>
+                    <p className="mt-1 font-semibold">{toast.clientName}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-200">{toast.message || "Файл"}</p>
                     {toast.count && toast.count > 1 && <p className="mt-1 text-[11px] font-bold text-sky-200">Сообщений: {toast.count}</p>}
                   </div>
                   <button
                     type="button"
                     onClick={() => setSupportToasts((prev) => prev.filter((item) => item.id !== toast.id))}
-                    className="rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white hover:bg-white/20"
+                    className="rounded-lg bg-white/10 px-2 py-1 text-xs font-semibold text-white hover:bg-white/20"
                   >
                     x
                   </button>
@@ -1455,7 +1503,7 @@ export default function AsteroCrm() {
                     setSupportToasts((prev) => prev.filter((item) => item.userId !== toast.userId));
                     void markSupportDialogRead(toast.userId);
                   }}
-                  className="mt-3 flex w-full justify-center rounded-xl bg-sky-500 px-3 py-2 text-xs font-black text-white hover:bg-sky-400"
+                  className="mt-3 flex w-full justify-center rounded-xl bg-sky-500 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-400"
                 >
                   Открыть чат
                 </a>
@@ -1465,18 +1513,18 @@ export default function AsteroCrm() {
         )}
 
         {actionReminder && (
-          <div className="fixed right-4 top-24 z-[85] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-amber-300/50 bg-amber-50 p-4 text-amber-950 shadow-2xl shadow-amber-950/20">
+          <div className="fixed right-4 top-24 z-[85] w-[min(360px,calc(100vw-2rem))] rounded-lg border border-amber-300/50 bg-amber-50 p-4 text-amber-950 shadow-lg shadow-amber-950/20">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Напоминание</p>
-                <p className="mt-1 text-sm font-black">{actionReminder.clientName}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Напоминание</p>
+                <p className="mt-1 text-sm font-semibold">{actionReminder.clientName}</p>
                 <p className="mt-1 text-sm">{actionReminder.title}</p>
                 <p className="mt-2 text-xs font-bold text-amber-700">Через {actionReminder.minutes} минут</p>
               </div>
               <button
                 type="button"
                 onClick={() => setActionReminder(null)}
-                className="rounded-lg bg-amber-200 px-2 py-1 text-xs font-black text-amber-900 hover:bg-amber-300"
+                className="rounded-lg bg-amber-200 px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-300"
               >
                 x
               </button>
@@ -1505,7 +1553,7 @@ export default function AsteroCrm() {
                 </div>
                 <div className="mt-4 space-y-2">
                   {pendingWithdrawals.slice(0, 4).map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-emerald-100 p-3 text-sm">
+                    <div key={item.id} className="rounded-lg border border-slate-200 p-3 text-sm">
                       <b>{item.user.email}</b> — €{Number(item.amount).toFixed(2)} · {item.method}
                     </div>
                   ))}
@@ -1518,31 +1566,31 @@ export default function AsteroCrm() {
 
         {activeTab === "clients" && (
           <div className="space-y-4">
-            <Panel title="Создать клиента">
+            <CollapsiblePanel title="Создать клиента" actionLabel="+ Новый клиент">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <input className={inputClass} placeholder="Email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
-                <input className={inputClass} placeholder="Пароль" type={showPasswords ? "text" : "password"} value={newClient.password} onChange={(e) => setNewClient({ ...newClient, password: e.target.value })} />
-                <input className={inputClass} placeholder="Имя" value={newClient.firstName} onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })} />
-                <input className={inputClass} placeholder="Фамилия" value={newClient.lastName} onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })} />
-                <input className={inputClass} placeholder="Телефон" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
-                <input className={inputClass} placeholder="Страна" value={newClient.country} onChange={(e) => setNewClient({ ...newClient, country: e.target.value })} />
-                <input className={inputClass} placeholder="Город" value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} />
-                <input className={inputClass} placeholder="Адрес" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} />
-                <input className={inputClass} type="number" placeholder="Баланс" value={newClient.balance} onChange={(e) => setNewClient({ ...newClient, balance: e.target.value })} />
-                <select className={inputClass} value={newClient.managerId} onChange={(e) => setNewClient({ ...newClient, managerId: e.target.value })}>
-                  <option value="">Без менеджера</option>
-                  {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
-                </select>
+                <FormField label="Email" required><input className={inputClass} type="email" required autoComplete="email" placeholder="name@company.com" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} /></FormField>
+                <FormField label="Пароль" required><input className={inputClass} required placeholder="Минимум 8 символов" autoComplete="new-password" type={showPasswords ? "text" : "password"} value={newClient.password} onChange={(e) => setNewClient({ ...newClient, password: e.target.value })} /></FormField>
+                <FormField label="Имя"><input className={inputClass} placeholder="Имя" autoComplete="given-name" value={newClient.firstName} onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })} /></FormField>
+                <FormField label="Фамилия"><input className={inputClass} placeholder="Фамилия" autoComplete="family-name" value={newClient.lastName} onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })} /></FormField>
+                <FormField label="Телефон"><input className={inputClass} placeholder="+380…" autoComplete="tel" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} /></FormField>
+                <FormField label="Страна"><input className={inputClass} placeholder="Страна" autoComplete="country-name" value={newClient.country} onChange={(e) => setNewClient({ ...newClient, country: e.target.value })} /></FormField>
+                <FormField label="Город"><input className={inputClass} placeholder="Город" autoComplete="address-level2" value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} /></FormField>
+                <FormField label="Адрес"><input className={inputClass} placeholder="Улица и дом" autoComplete="street-address" value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} /></FormField>
+                <FormField label="Баланс"><input className={inputClass} type="number" inputMode="decimal" placeholder="0.00" value={newClient.balance} onChange={(e) => setNewClient({ ...newClient, balance: e.target.value })} /></FormField>
+                <FormField label="Менеджер"><select className={inputClass} value={newClient.managerId} onChange={(e) => setNewClient({ ...newClient, managerId: e.target.value })}>
+                    <option value="">Без менеджера</option>
+                    {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
+                  </select></FormField>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPasswords((prev) => !prev)}
-                className="mt-3 rounded-xl border border-emerald-100 px-4 py-2 text-xs font-black text-emerald-700"
+                className="crm-focus mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
               >
                 {showPasswords ? "Скрыть пароли" : "Показать пароли"}
               </button>
-              <button onClick={() => createUser("CLIENT")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать клиента</button>
-            </Panel>
+              <button onClick={() => createUser("CLIENT")} className="crm-focus mt-4 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800">Создать клиента</button>
+            </CollapsiblePanel>
             <Panel title={`Клиентская база: ${filteredClients.length} / ${clients.length}`}>
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap gap-2">
@@ -1559,10 +1607,10 @@ export default function AsteroCrm() {
                       key={key}
                       type="button"
                       onClick={() => setClientQuickFilter(key as typeof clientQuickFilter)}
-                      className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                      className={`crm-focus rounded-lg border px-3 py-2 text-xs font-semibold transition ${
                         clientQuickFilter === key
-                          ? "border-emerald-500 bg-emerald-500 text-slate-950"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       }`}
                     >
                       {label}
@@ -1590,14 +1638,14 @@ export default function AsteroCrm() {
                   <button
                     type="button"
                     onClick={resetClientFilters}
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50"
+                    className="crm-focus h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                   >
                     Сброс
                   </button>
                   <button
                     type="button"
                     onClick={exportClientsCsv}
-                    className="h-10 rounded-xl bg-slate-950 px-3 text-xs font-black text-white transition hover:bg-slate-800"
+                    className="crm-focus h-9 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-700"
                   >
                     CSV
                   </button>
@@ -1664,7 +1712,7 @@ export default function AsteroCrm() {
           <Panel title="Действия">
             <div className="mb-3 flex flex-wrap gap-2">
               {([['overdue', 'Просроченные'], ['today', 'Сегодня'], ['future', 'Будущие']] as const).map(([key, label]) => (
-                <button key={key} onClick={() => setActionPeriod(key)} className={`rounded-lg px-3 py-2 text-xs font-black ${actionPeriod === key ? 'bg-emerald-500 text-slate-950' : 'border border-slate-200 bg-white text-slate-600'}`}>
+                <button key={key} onClick={() => setActionPeriod(key)} className={`crm-focus rounded-lg border px-3 py-2 text-xs font-semibold ${actionPeriod === key ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
                   {label}
                 </button>
               ))}
@@ -1675,16 +1723,16 @@ export default function AsteroCrm() {
 
         {activeTab === "managers" && currentAdminRole === "ADMIN" && (
           <div className="space-y-4">
-            <Panel title="Создать менеджера">
+            <CollapsiblePanel title="Создать менеджера" actionLabel="+ Новый менеджер">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-                <input className={inputClass} placeholder="Email" value={newManager.email} onChange={(e) => setNewManager({ ...newManager, email: e.target.value })} />
-                <input className={inputClass} placeholder="Пароль" type={showPasswords ? "text" : "password"} value={newManager.password} onChange={(e) => setNewManager({ ...newManager, password: e.target.value })} />
-                <input className={inputClass} placeholder="Имя" value={newManager.firstName} onChange={(e) => setNewManager({ ...newManager, firstName: e.target.value })} />
-                <input className={inputClass} placeholder="Фамилия" value={newManager.lastName} onChange={(e) => setNewManager({ ...newManager, lastName: e.target.value })} />
-                <input className={inputClass} placeholder="Телефон" value={newManager.phone} onChange={(e) => setNewManager({ ...newManager, phone: e.target.value })} />
+                <FormField label="Email" required><input className={inputClass} type="email" required autoComplete="email" placeholder="name@company.com" value={newManager.email} onChange={(e) => setNewManager({ ...newManager, email: e.target.value })} /></FormField>
+                <FormField label="Пароль" required><input className={inputClass} required placeholder="Минимум 8 символов" autoComplete="new-password" type={showPasswords ? "text" : "password"} value={newManager.password} onChange={(e) => setNewManager({ ...newManager, password: e.target.value })} /></FormField>
+                <FormField label="Имя"><input className={inputClass} placeholder="Имя" autoComplete="given-name" value={newManager.firstName} onChange={(e) => setNewManager({ ...newManager, firstName: e.target.value })} /></FormField>
+                <FormField label="Фамилия"><input className={inputClass} placeholder="Фамилия" autoComplete="family-name" value={newManager.lastName} onChange={(e) => setNewManager({ ...newManager, lastName: e.target.value })} /></FormField>
+                <FormField label="Телефон"><input className={inputClass} placeholder="+380…" autoComplete="tel" value={newManager.phone} onChange={(e) => setNewManager({ ...newManager, phone: e.target.value })} /></FormField>
               </div>
-              <button onClick={() => createUser("MANAGER")} className="mt-4 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-slate-950">Создать менеджера</button>
-            </Panel>
+              <button onClick={() => createUser("MANAGER")} className="crm-focus mt-4 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800">Создать менеджера</button>
+            </CollapsiblePanel>
             <Panel title="Команда CRM">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {managers.map((manager) => (
@@ -1696,10 +1744,10 @@ export default function AsteroCrm() {
                   />
                 ))}
                 {managers.map((manager) => (
-                  <div key={manager.id} className="rounded-2xl border border-emerald-100 p-4">
-                    <p className="text-lg font-black">{displayName(manager)}</p>
+                  <div key={manager.id} className="rounded-lg border border-slate-200 p-4">
+                    <p className="text-lg font-semibold">{displayName(manager)}</p>
                     <p className="text-sm text-slate-500">{manager.email}</p>
-                    <p className="mt-3 text-2xl font-black text-emerald-600">{clients.filter((client) => client.managerId === manager.id).length}</p>
+                    <p className="mt-3 text-2xl font-semibold text-emerald-600">{clients.filter((client) => client.managerId === manager.id).length}</p>
                     <p className="text-xs text-slate-500">закреплённых клиентов</p>
                   </div>
                 ))}
@@ -1753,7 +1801,20 @@ export default function AsteroCrm() {
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-[1.5rem] border border-emerald-100 bg-white p-4 text-slate-950 shadow-sm dark:border-emerald-400/10 dark:bg-white/[0.04] dark:text-white sm:p-5"><h2 className="mb-4 text-lg font-black">{title}</h2>{children}</section>;
+  return <section className="rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-[var(--crm-surface)] p-4 text-[var(--crm-text)] shadow-[var(--crm-shadow)]"><h2 className="mb-3 text-sm font-semibold tracking-tight text-slate-900">{title}</h2>{children}</section>;
+}
+
+function CollapsiblePanel({ title, actionLabel, children }: { title: string; actionLabel: string; children: React.ReactNode }) {
+  return <details className="group rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white shadow-[var(--crm-shadow)]"><summary className="crm-focus flex list-none items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"><span>{title}</span><span className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white group-open:hidden">{actionLabel}</span><span className="hidden text-xs text-slate-500 group-open:inline">Свернуть ↑</span></summary><div className="border-t border-slate-200 p-4">{children}</div></details>;
+}
+
+function FormField({ label, required = false, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-1.5 text-xs font-medium text-slate-600">
+      <span>{label}{required && <span className="ml-1 text-red-600" aria-hidden="true">*</span>}</span>
+      {children}
+    </label>
+  );
 }
 
 function ManagerEditCard({
@@ -1785,16 +1846,16 @@ function ManagerEditCard({
   }, [manager.id]);
 
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4">
+    <div className="rounded-lg border border-slate-200 bg-emerald-50/30 p-4">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
-          <p className="text-lg font-black text-slate-950">{displayName(manager)}</p>
+          <p className="text-lg font-semibold text-slate-950">{displayName(manager)}</p>
           <p className="text-xs text-slate-500">{clientsCount} клиентов</p>
         </div>
         <button
           type="button"
           onClick={() => onSave(form.password.trim() ? form : { ...form, password: undefined })}
-          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700"
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
         >
           Сохранить
         </button>
@@ -1816,7 +1877,7 @@ function ManagerEditCard({
           <button
             type="button"
             onClick={() => setShowPassword((value) => !value)}
-            className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+            className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-emerald-700"
             aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
             title={showPassword ? "Скрыть пароль" : "Показать пароль"}
           >
@@ -2028,7 +2089,7 @@ function SecurityPanel() {
             <select aria-label="Срок действия правила" className={inputClass} value={durationHours} onChange={(event) => setDurationHours(event.target.value)}><option value="1">1 час</option><option value="24">24 часа</option><option value="168">7 дней</option><option value="720">30 дней</option><option value="PERMANENT">Постоянно</option></select>
           </div>
           <div className="mt-2 grid gap-2 md:grid-cols-2"><select aria-label="Причина правила" className={inputClass} value={reason} onChange={(event) => setReason(event.target.value)}><option value="">Выберите причину</option><option value="Brute-force attempts">Brute-force</option><option value="Bot traffic">Bot traffic</option><option value="Suspicious activity">Подозрительная активность</option><option value="Abuse">Abuse</option><option value="Manual">Ручное решение</option></select><input className={inputClass} placeholder="Внутренняя заметка" value={ruleNote} onChange={(event) => setRuleNote(event.target.value)} /></div>
-          <button type="button" onClick={saveRule} className="mt-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">
+          <button type="button" onClick={saveRule} className="mt-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">
             Сохранить правило
           </button>
 
@@ -2036,11 +2097,11 @@ function SecurityPanel() {
             {rules.map((rule) => (
               <div key={rule.id} className="flex items-center justify-between gap-3 border-b border-slate-100 p-3 text-sm last:border-b-0">
                 <div>
-                  <p className="font-black text-slate-900">{rule.ip}</p>
+                  <p className="font-semibold text-slate-900">{rule.ip}</p>
                   <p className="text-xs text-slate-500">{rule.mode} · {rule.reason || "Причина не указана"}</p>
                   <p className="text-[11px] text-slate-400">{rule.expiresAt ? `До ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "Постоянно"} · {rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p>
                 </div>
-                <button type="button" onClick={() => deleteRule(rule.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-black text-red-600 hover:bg-red-50">
+                <button type="button" onClick={() => deleteRule(rule.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
                   Удалить
                 </button>
               </div>
@@ -2052,7 +2113,7 @@ function SecurityPanel() {
         <Panel title="Мониторинг">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-slate-100 p-3">
-              <p className="text-xs font-black uppercase text-slate-400">Критические события</p>
+              <p className="text-xs font-semibold uppercase text-slate-400">Критические события</p>
               <div className="mt-2 space-y-2">
                 {criticalEvents.map((event) => (
                   <div key={event.id} className="rounded-lg bg-red-50 p-2 text-xs text-red-800">
@@ -2063,7 +2124,7 @@ function SecurityPanel() {
               </div>
             </div>
             <div className="rounded-xl border border-slate-100 p-3">
-              <p className="text-xs font-black uppercase text-slate-400">Страны за 24 часа</p>
+              <p className="text-xs font-semibold uppercase text-slate-400">Страны за 24 часа</p>
               <div className="mt-2 space-y-2">
                 {countryStats.map((item) => (
                   <div key={item.country || "unknown"} className="flex justify-between rounded-lg bg-slate-50 p-2 text-xs">
@@ -2083,11 +2144,11 @@ function SecurityPanel() {
           <select className={inputClass} value={identityKind} onChange={(event) => setIdentityKind(event.target.value as "EMAIL" | "DOMAIN")}><option value="EMAIL">Email</option><option value="DOMAIN">Email-домен</option></select>
           <input className={inputClass} value={identityValue} onChange={(event) => setIdentityValue(event.target.value)} placeholder={identityKind === "EMAIL" ? "client@example.com" : "example.com"} />
           <select aria-label="Срок блокировки email" className={inputClass} value={durationHours} onChange={(event) => setDurationHours(event.target.value)}><option value="1">1 час</option><option value="24">24 часа</option><option value="168">7 дней</option><option value="720">30 дней</option><option value="PERMANENT">Постоянно</option></select>
-          <button type="button" onClick={saveIdentityRule} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-black text-white hover:bg-red-500">Заблокировать</button>
+          <button type="button" onClick={saveIdentityRule} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500">Заблокировать</button>
         </div>
         <p className="mt-2 text-xs text-slate-500">Используются выбранные выше причина и внутренняя заметка. Популярные домены не блокируются автоматически.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {identityRules.map((rule) => <div key={rule.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div className="min-w-0"><p className="truncate font-black text-slate-900" title={rule.value}>{rule.kind === "DOMAIN" ? "@" : ""}{rule.value}</p><p className="text-xs text-slate-500">{rule.reason || "Причина не указана"} · {rule.expiresAt ? `до ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "постоянно"}</p><p className="text-[11px] text-slate-400">{rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p></div><button type="button" onClick={() => deleteIdentityRule(rule.id, rule.value)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-50">Разблокировать</button></div>)}
+          {identityRules.map((rule) => <div key={rule.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div className="min-w-0"><p className="truncate font-semibold text-slate-900" title={rule.value}>{rule.kind === "DOMAIN" ? "@" : ""}{rule.value}</p><p className="text-xs text-slate-500">{rule.reason || "Причина не указана"} · {rule.expiresAt ? `до ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "постоянно"}</p><p className="text-[11px] text-slate-400">{rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p></div><button type="button" onClick={() => deleteIdentityRule(rule.id, rule.value)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Разблокировать</button></div>)}
           {identityRules.length === 0 && <Empty text="Блокировок email и доменов нет" />}
         </div>
       </Panel>
@@ -2099,7 +2160,7 @@ function SecurityPanel() {
           <select aria-label="Результат авторизации" className={inputClass} value={outcomeFilter} onChange={(event) => { setOutcomeFilter(event.target.value); setPage(1); }}><option value="ALL">Все результаты</option><option value="SUCCESS">Успешные</option><option value="FAILED">Неуспешные</option><option value="BLOCKED">Заблокированные</option><option value="INFO">Информационные</option></select>
           <select aria-label="Уровень риска" className={inputClass} value={riskFilter} onChange={(event) => { setRiskFilter(event.target.value); setPage(1); }}><option value="ALL">Любой риск</option><option value="LOW">Низкий</option><option value="MEDIUM">Средний</option><option value="HIGH">Высокий</option><option value="CRITICAL">Критический</option></select>
           </div>
-          <button type="button" onClick={exportEvents} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50">
+          <button type="button" onClick={exportEvents} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-slate-50">
             Экспорт CSV
           </button>
         </div>
@@ -2120,11 +2181,11 @@ function SecurityPanel() {
             </thead>
             <tbody>
               {events.map((event) => (
-                <tr key={event.id} className="border-t border-slate-100 align-top hover:bg-emerald-50/40">
+                <tr key={event.id} className="border-t border-slate-100 align-top hover:bg-slate-50/40">
                   <td className="p-3">{new Date(event.createdAt).toLocaleString("ru-RU")}</td>
-                  <td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${riskClass(event.risk)}`}>{event.risk}</span></td>
+                  <td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${riskClass(event.risk)}`}>{event.risk}</span></td>
                   <td className="p-3"><Badge value={event.outcome || (event.type === "LOGIN_SUCCESS" ? "SUCCESS" : event.type === "LOGIN_FAILED" ? "FAILED" : "INFO")} /></td>
-                  <td className="p-3 font-black">{event.type}</td>
+                  <td className="p-3 font-semibold">{event.type}</td>
                   <td className="p-3">{event.ip ? <span className="inline-flex items-center gap-1"><span>{event.ip}</span><CopyValueButton value={event.ip} label="IP" /></span> : "-"}</td>
                   <td className="p-3"><p className="max-w-56 truncate" title={event.email || event.user?.email || ""}>{event.email || event.user?.email || "-"}</p><p className="text-[10px] font-bold text-slate-400">{event.classification || (event.user ? "KNOWN_ACCOUNT" : "UNKNOWN_VISITOR")}</p></td>
                   <td className="p-3">{event.device || "-"} · {event.browser || "-"} · {event.os || "-"}</td>
@@ -2257,11 +2318,11 @@ function AnnouncementsAdminPanel() {
           <input className={inputClass} placeholder="Заголовок" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
           <textarea className={areaClass} placeholder="Текст объявления" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs font-black text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               Размер
               <input className={`${inputClass} mt-1`} type="number" min={12} max={42} value={draft.fontSize} onChange={(event) => setDraft({ ...draft, fontSize: Number(event.target.value) })} />
             </label>
-            <label className="text-xs font-black text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               Цвет
               <input className={`${inputClass} mt-1 h-10 p-1`} type="color" value={draft.textColor} onChange={(event) => setDraft({ ...draft, textColor: event.target.value })} />
             </label>
@@ -2273,7 +2334,7 @@ function AnnouncementsAdminPanel() {
             <option value="Times New Roman">Times New Roman</option>
             <option value="Courier New">Courier New</option>
           </select>
-          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-black text-emerald-700">
+          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700">
             Добавить картинку
             <input type="file" accept="image/*" className="hidden" onChange={(event) => attachImage(event.target.files?.[0] || null)} />
           </label>
@@ -2282,7 +2343,7 @@ function AnnouncementsAdminPanel() {
             <input type="checkbox" checked={draft.isPublished} onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })} />
             Опубликовать
           </label>
-          <button type="button" onClick={saveAnnouncement} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
+          <button type="button" onClick={saveAnnouncement} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
             Сохранить
           </button>
           {message && <p className="text-sm font-bold text-emerald-700">{message}</p>}
@@ -2298,17 +2359,17 @@ function AnnouncementsAdminPanel() {
                 {imageUrl && <img src={imageUrl} alt={item.title || "announcement"} className="h-36 w-full object-cover" />}
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-black text-slate-950">{item.title || "Без заголовка"}</p>
+                    <p className="font-semibold text-slate-950">{item.title || "Без заголовка"}</p>
                     <Badge value={item.isPublished ? "PUBLISHED" : "HIDDEN"} />
                   </div>
                   <p className="mt-2 line-clamp-3 whitespace-pre-line" style={{ color: item.textColor, fontSize: item.fontSize, fontFamily: item.fontFamily }}>
                     {item.text}
                   </p>
                   <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={() => editAnnouncement(item)} className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => editAnnouncement(item)} className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
                       Редактировать
                     </button>
-                    <button type="button" onClick={() => deleteAnnouncement(item.id)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100">
+                    <button type="button" onClick={() => deleteAnnouncement(item.id)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
                       Удалить
                     </button>
                   </div>
@@ -2405,8 +2466,8 @@ function LandingContentAdminPanel() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-black">{item.titleRu || item.key}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500">{item.kind}</span>
+                <span className="text-sm font-semibold">{item.titleRu || item.key}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase text-slate-500">{item.kind}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">#{item.key} · порядок {item.sortOrder}</p>
             </button>
@@ -2419,11 +2480,11 @@ function LandingContentAdminPanel() {
         {selected ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_130px]">
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Ключ блока
                 <input className={`${inputClass} mt-1`} value={selected.key} disabled />
               </label>
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Тип
                 <select className={`${inputClass} mt-1`} value={selected.kind} onChange={(event) => updateDraft({ kind: event.target.value })}>
                   <option value="hero">Hero</option>
@@ -2442,32 +2503,32 @@ function LandingContentAdminPanel() {
                   <option value="seo">SEO</option>
                 </select>
               </label>
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Порядок
                 <input className={`${inputClass} mt-1`} type="number" value={selected.sortOrder} onChange={(event) => updateDraft({ sortOrder: Number(event.target.value) })} />
               </label>
             </div>
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Заголовок RU
                 <input className={`${inputClass} mt-1`} value={selected.titleRu} onChange={(event) => updateDraft({ titleRu: event.target.value })} />
               </label>
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Заголовок EN
                 <input className={`${inputClass} mt-1`} value={selected.titleEn} onChange={(event) => updateDraft({ titleEn: event.target.value })} />
               </label>
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Описание RU
                 <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyRu} onChange={(event) => updateDraft({ bodyRu: event.target.value })} />
               </label>
-              <label className="text-xs font-black text-slate-500">
+              <label className="text-xs font-semibold text-slate-500">
                 Описание EN
                 <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyEn} onChange={(event) => updateDraft({ bodyEn: event.target.value })} />
               </label>
             </div>
 
-            <label className="text-xs font-black text-slate-500">
+            <label className="text-xs font-semibold text-slate-500">
               JSON-настройки блока
               <textarea
                 className={`${areaClass} mt-1 min-h-64 font-mono text-xs`}
@@ -2485,7 +2546,7 @@ function LandingContentAdminPanel() {
             </label>
             {jsonError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{jsonError}</p>}
             {message && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{message}</p>}
-            <button type="button" onClick={saveLandingContent} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700">
+            <button type="button" onClick={saveLandingContent} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
               Сохранить блок лендинга
             </button>
           </div>
@@ -2498,11 +2559,11 @@ function LandingContentAdminPanel() {
 }
 
 function Metric({ title, value, danger }: { title: string; value: string | number; danger?: boolean }) {
-  return <div className="rounded-[1.5rem] border border-emerald-400/10 bg-white p-4 text-slate-950 shadow-sm dark:bg-white/[0.04] dark:text-white"><p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-emerald-50/50">{title}</p><p className={`mt-2 text-2xl font-black sm:text-3xl ${danger ? "text-red-500" : "text-emerald-600"}`}>{value}</p></div>;
+  return <div className="rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white px-3.5 py-3 shadow-[var(--crm-shadow)]"><p className="truncate text-[11px] font-medium text-slate-500" title={title}>{title}</p><p className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-600" : "text-slate-950"}`}>{value}</p></div>;
 }
 
 function MiniStat({ title, value }: { title: string; value: string | number }) {
-  return <div className="rounded-2xl border border-emerald-100 p-4"><p className="text-sm text-slate-500">{title}</p><p className="mt-1 text-3xl font-black text-emerald-600">{value}</p></div>;
+  return <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><p className="text-xs text-slate-500">{title}</p><p className="mt-0.5 text-xl font-semibold tabular-nums text-slate-950">{value}</p></div>;
 }
 
 function Badge({ value }: { value: string }) {
@@ -2513,11 +2574,11 @@ function Badge({ value }: { value: string }) {
       : value === "POSTPONED"
         ? "bg-blue-50 text-blue-700"
         : "bg-yellow-50 text-yellow-700";
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${cls}`}>{value}</span>;
+  return <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{value}</span>;
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">{text}</p>;
+  return <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center"><p className="text-sm font-medium text-slate-500">{text}</p></div>;
 }
 
 function displayName(user: { email?: string; firstName?: string | null; lastName?: string | null }) {
@@ -2533,7 +2594,7 @@ function isClientOnline(user: User, currentTime = Date.now()) {
 }
 
 function ClientRow({ client, onOpen, active }: { client: User; onOpen: () => void; active?: boolean }) {
-  return <button onClick={onOpen} className={`w-full rounded-2xl border p-3 text-left transition ${active ? "border-emerald-500 bg-emerald-50" : "border-emerald-100 bg-white hover:bg-emerald-50"}`}><p className="font-black text-slate-950">{displayName(client)}</p><p className="text-xs text-slate-500">{client.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></button>;
+  return <button onClick={onOpen} className={`w-full rounded-lg border p-3 text-left transition ${active ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}><p className="font-semibold text-slate-950">{displayName(client)}</p><p className="text-xs text-slate-500">{client.email}</p><div className="mt-2 flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></button>;
 }
 
 function ClientProfileUtip({
@@ -2697,19 +2758,19 @@ function ClientProfileUtip({
           <div className="mb-3 flex flex-col gap-2 border-b border-slate-100 pb-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-bold uppercase text-slate-400">Клиент</p>
-              <h2 className="text-xl font-black text-slate-950">{displayName(selectedClient)}</h2>
+              <h2 className="text-xl font-semibold text-slate-950">{displayName(selectedClient)}</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge value={selectedClient.kycStatus} />
               <Badge value={selectedClient.isBlocked ? "BLOCKED" : "ACTIVE"} />
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedClient.tradingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedClient.tradingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
                 {selectedClient.tradingEnabled ? "Торговля разрешена" : "Торговля запрещена"}
               </span>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${isClientOnline(selectedClient) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isClientOnline(selectedClient) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                 {isClientOnline(selectedClient) ? "Онлайн" : "Не в сети"}
               </span>
               {selectedClient.clientStatus === "BUFFER" && <Badge value="BUFFER" />}
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                 ID {clientDisplayNumber(selectedClient)}
                 <button
                   type="button"
@@ -2719,7 +2780,7 @@ function ClientProfileUtip({
                     setNumberCopied(true);
                     window.setTimeout(() => setNumberCopied(false), 1500);
                   }}
-                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-black text-emerald-700 shadow-sm hover:bg-emerald-50"
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-emerald-700 shadow-sm hover:bg-slate-50"
                 >
                   <span aria-hidden="true">⧉</span>
                   {numberCopied ? "Скопировано" : "Копировать"}
@@ -2728,21 +2789,21 @@ function ClientProfileUtip({
               <button
                 type="button"
                 onClick={() => toggleBufferUser(selectedClient.id, selectedClient.clientStatus)}
-                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700 hover:bg-amber-100"
+                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100"
               >
                 {selectedClient.clientStatus === "BUFFER" ? "Убрать Бафер" : "Бафер"}
               </button>
               <button
                 type="button"
                 onClick={() => toggleBlockUser(selectedClient.id, selectedClient.isBlocked)}
-                className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700 hover:bg-orange-100"
+                className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-100"
               >
                 {selectedClient.isBlocked ? "Разблокировать" : "Блок"}
               </button>
               <button
                 type="button"
                 onClick={() => onDeleteClient(selectedClient)}
-                className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700 hover:bg-red-100"
+                className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
               >
                 Удалить счет
               </button>
@@ -2765,7 +2826,7 @@ function ClientProfileUtip({
                 key={key}
                 type="button"
                 onClick={() => setClientSection(key as typeof clientSection)}
-                className={`shrink-0 rounded-md px-3 py-2 text-xs font-black transition ${
+                className={`shrink-0 rounded-md px-3 py-2 text-xs font-semibold transition ${
                   clientSection === key ? "bg-emerald-500 text-slate-950" : "text-slate-600 hover:bg-white"
                 }`}
               >
@@ -2775,13 +2836,13 @@ function ClientProfileUtip({
           </div>
 
           {clientSection === "overview" && (
-            <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+            <div className="mb-3 rounded-lg border border-slate-200 bg-emerald-50/40 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-black text-slate-950">Редактировать данные клиента</h3>
+                <h3 className="text-sm font-semibold text-slate-950">Редактировать данные клиента</h3>
                 <button
                   type="button"
                   onClick={() => onUpdateUser(selectedClient.id, editClient)}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   Сохранить
                 </button>
@@ -2832,7 +2893,7 @@ function ClientProfileUtip({
             <UtipInfoPanel title="Управление">
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
                 <div>
-                  <p className="text-xs font-black text-slate-900">Разрешение торговли</p>
+                  <p className="text-xs font-semibold text-slate-900">Разрешение торговли</p>
                   <p className="text-[11px] text-slate-500">Новый клиент начинает с запретом</p>
                 </div>
                 <button
@@ -2854,7 +2915,7 @@ function ClientProfileUtip({
               <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Депозит</label>
               <div className="flex gap-2">
                 <input className={`${inputClass} h-9 rounded-lg`} type="number" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
-                <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-black text-slate-950">OK</button>
+                <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-slate-950">OK</button>
               </div>
               <input
                 className={`${inputClass} mt-2 h-9 rounded-lg`}
@@ -2866,7 +2927,7 @@ function ClientProfileUtip({
               <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Смена пароля</label>
               <div className="flex gap-2">
                 <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
-                <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-black text-white">OK</button>
+                <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">OK</button>
               </div>
             </UtipInfoPanel>
           </div>}
@@ -2913,7 +2974,7 @@ function ClientProfileUtip({
                   key={template}
                   type="button"
                   onClick={() => setNoteText(noteText ? `${noteText}\n${template}` : template)}
-                  className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                  className="rounded-lg border border-slate-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                 >
                   + {template}
                 </button>
@@ -2926,7 +2987,7 @@ function ClientProfileUtip({
                 <option value="IMPORTANT">Важно</option>
                 <option value="CLOSED">Закрыто</option>
               </select>
-              <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-black text-slate-950">Добавить</button>
+              <button onClick={addNote} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">Добавить</button>
             </div>
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_160px]">
               <input className={`${inputClass} h-10 rounded-lg`} placeholder="Поиск по заметкам" value={noteSearch} onChange={(event) => setNoteSearch(event.target.value)} />
@@ -2948,11 +3009,11 @@ function ClientProfileUtip({
             </div>
             {sortedNotes.length > notePageSize && (
               <div className="mt-3 flex items-center justify-end gap-2">
-                <button type="button" disabled={notePage <= 1} onClick={() => setNotePage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+                <button type="button" disabled={notePage <= 1} onClick={() => setNotePage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">
                   Назад
                 </button>
-                <span className="text-xs font-black text-slate-500">{notePage} / {notePageCount}</span>
-                <button type="button" disabled={notePage >= notePageCount} onClick={() => setNotePage((value) => Math.min(notePageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+                <span className="text-xs font-semibold text-slate-500">{notePage} / {notePageCount}</span>
+                <button type="button" disabled={notePage >= notePageCount} onClick={() => setNotePage((value) => Math.min(notePageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">
                   Далее
                 </button>
               </div>
@@ -2981,7 +3042,7 @@ function ClientProfileUtip({
                     status: "OPEN",
                   });
                 }}
-                className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                className="rounded-lg border border-slate-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
               >
                 + {String(title)}
               </button>
@@ -3006,7 +3067,7 @@ function ClientProfileUtip({
               <option value="">Текущий менеджер</option>
               {managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}
             </select>
-            <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-black text-slate-950">Добавить</button>
+            <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-slate-950">Добавить</button>
           </div>
           <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
           <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px]">
@@ -3107,7 +3168,7 @@ function ClientUtipSection({
         </thead>
         <tbody>
           {historyEvents.map((event) => (
-            <tr key={event.id} className="border-b border-slate-100 hover:bg-emerald-50/40">
+            <tr key={event.id} className="border-b border-slate-100 hover:bg-slate-50/40">
               <UtipTd>{event.author}</UtipTd>
               <UtipTd>{new Date(event.date).toLocaleString("ru-RU")}</UtipTd>
               <UtipTd>{event.text}</UtipTd>
@@ -3139,10 +3200,10 @@ function ClientUtipSection({
               <UtipTd>{new Date(doc.createdAt).toLocaleString("ru-RU")}</UtipTd>
               <UtipTd>
                 <div className="flex flex-wrap gap-2">
-                  <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white">
+                  <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
                     Открыть
                   </a>
-                  <button type="button" onClick={() => onDeleteDocument(doc.id)} className="rounded bg-red-600 px-3 py-1.5 text-xs font-black text-white">
+                  <button type="button" onClick={() => onDeleteDocument(doc.id)} className="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white">
                     Удалить
                   </button>
                 </div>
@@ -3233,14 +3294,14 @@ function ClientUtipSection({
                     <button
                       type="button"
                       onClick={() => onApproveDeposit(deposit.id)}
-                      className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                      className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                     >
                       Подтвердить
                     </button>
                     <button
                       type="button"
                       onClick={() => onRejectDeposit(deposit.id)}
-                      className="rounded bg-red-500 px-3 py-1.5 text-xs font-black text-white hover:bg-red-600"
+                      className="rounded bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
                     >
                       Отклонить
                     </button>
@@ -3314,7 +3375,7 @@ function ClientUtipSection({
                 <button
                   type="button"
                   onClick={() => onEditWithdrawalRequisites(withdrawal)}
-                  className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   Реквизиты
                 </button>
@@ -3330,7 +3391,7 @@ function ClientUtipSection({
   if (section === "tickets") {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        <h3 className="text-lg font-black text-slate-950">Тикеты</h3>
+        <h3 className="text-lg font-semibold text-slate-950">Тикеты</h3>
         <p className="mt-2">Тикеты клиента подключены через общую вкладку поддержки CRM. История обращений сохраняется в разделе «Поддержка».</p>
       </div>
     );
@@ -3338,7 +3399,7 @@ function ClientUtipSection({
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-      <h3 className="text-lg font-black text-slate-950">Рассылка</h3>
+      <h3 className="text-lg font-semibold text-slate-950">Рассылка</h3>
       <p className="mt-2">Раздел подготовлен для будущих email/SMS-кампаний по клиенту. Текущие контакты: {client.email}</p>
     </div>
   );
@@ -3348,7 +3409,7 @@ function UtipTable({ title, children }: { title: string; children: React.ReactNo
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
-        <h3 className="text-sm font-black text-slate-950">{title}</h3>
+        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-[900px] w-full text-xs">{children}</table>
@@ -3358,7 +3419,7 @@ function UtipTable({ title, children }: { title: string; children: React.ReactNo
 }
 
 function UtipTh({ children }: { children: React.ReactNode }) {
-  return <th className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-black uppercase text-slate-500">{children}</th>;
+  return <th className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold uppercase text-slate-500">{children}</th>;
 }
 
 function UtipTd({ children }: { children: React.ReactNode }) {
@@ -3376,7 +3437,7 @@ function UtipEmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
 function UtipInfoPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-      <h3 className="mb-2 text-sm font-black text-slate-950">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-slate-950">{title}</h3>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -3399,7 +3460,7 @@ function UtipRow({ label, value, copyValue }: { label: string; value: string; co
               setCopied(true);
               window.setTimeout(() => setCopied(false), 1500);
             }}
-            className="shrink-0 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[10px] font-black text-emerald-700 hover:bg-emerald-50"
+            className="shrink-0 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-slate-50"
           >
             {copied ? "Скопировано" : "⧉ Копировать"}
           </button>
@@ -3449,9 +3510,9 @@ function UtipActionsTable({
             const urgency = actionUrgency(action);
             return (
             <tr key={action.id} className={`border-b border-slate-100 align-top text-slate-800 hover:bg-slate-50 ${urgency.label === "Просрочено" ? "bg-red-50/40" : ""}`}>
-              <td className="px-3 py-2"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${urgency.className}`}>{urgency.label}</span></td>
+              <td className="px-3 py-2"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${urgency.className}`}>{urgency.label}</span></td>
               <td className="px-3 py-2"><input type="datetime-local" className="h-10 rounded border border-slate-200 px-3" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td>
-              <td className="px-3 py-2"><input title={action.title} className="h-10 w-44 rounded border border-slate-200 px-3 font-black" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
+              <td className="px-3 py-2"><input title={action.title} className="h-10 w-44 rounded border border-slate-200 px-3 font-semibold" defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} /></td>
               <td className="px-3 py-2">{action.manager ? displayName(action.manager) : "-"}</td>
               <td className="px-3 py-2"><input title={action.description || ""} className="h-10 w-64 rounded border border-slate-200 px-3" defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} /></td>
               <td className="px-3 py-2">
@@ -3478,8 +3539,8 @@ function UtipActionsTable({
               </td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-3 py-2 font-black text-white">Закрыть</button>
-                  <button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-3 py-2 font-black text-red-700 hover:bg-red-100">Удалить</button>
+                  <button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-3 py-2 font-semibold text-white">Закрыть</button>
+                  <button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-3 py-2 font-semibold text-red-700 hover:bg-red-100">Удалить</button>
                 </div>
               </td>
             </tr>
@@ -3536,10 +3597,10 @@ function ClientsTable({
             const online = isClientOnline(client, now);
 
             return (
-            <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
+            <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-slate-50/50">
               <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<CopyValueButton value={clientDisplayNumber(client)} label="номер клиента" /></span></td>
               <td className="px-3 py-2">
-                <a href={clientCardHref(client.id)} className="inline-flex items-center gap-2 text-left font-black text-slate-950 hover:text-emerald-700">
+                <a href={clientCardHref(client.id)} className="inline-flex items-center gap-2 text-left font-semibold text-slate-950 hover:text-emerald-700">
                   {online && (
                     <span className="relative inline-flex size-3 shrink-0" title="Клиент сейчас онлайн">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -3553,7 +3614,7 @@ function ClientsTable({
               <td className="px-3 py-2"><span className="inline-flex max-w-60 items-center gap-1"><span className="truncate" title={client.email}>{client.email}</span><CopyValueButton value={client.email} label="email" /></span></td>
               <td className="px-3 py-2">{client.phone ? <span className="inline-flex max-w-48 items-center gap-1"><span className="truncate" title={client.phone}>{client.phone}</span><CopyValueButton value={client.phone} label="телефон" /></span> : "-"}</td>
               <td className="px-3 py-2">{client.country || "-"}</td>
-              <td className="px-3 py-2 font-black text-emerald-700">€{Number(client.balance || 0).toFixed(2)}</td>
+              <td className="px-3 py-2 font-semibold text-emerald-700">€{Number(client.balance || 0).toFixed(2)}</td>
               <td className="px-3 py-2">{new Date(client.createdAt).toLocaleDateString("ru-RU")}</td>
               <td className="px-3 py-2"><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></td>
               <td className="px-3 py-2">
@@ -3570,7 +3631,7 @@ function ClientsTable({
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-2">
-                  <a href={clientCardHref(client.id)} className="rounded bg-slate-950 px-2 py-1.5 font-black text-white">Открыть</a>
+                  <a href={clientCardHref(client.id)} className="rounded bg-slate-950 px-2 py-1.5 font-semibold text-white">Открыть</a>
                 </div>
               </td>
             </tr>
@@ -3596,23 +3657,23 @@ function ClientsTable({
 }
 
 function ClientListCard({ client, managers, onAssign, onOpen, onBlock, onDelete }: { client: User; managers: User[]; onAssign: (userId: string, managerId: string) => void; onOpen: () => void; onBlock: () => void; onDelete: () => void }) {
-  return <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-black text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} · {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">Не назначен</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><a href={clientCardHref(client.id)} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">Открыть карточку</a><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-white">{client.isBlocked ? "Разблокировать" : "Заблокировать"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white">Удалить</button></div></div>;
+  return <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-semibold text-slate-950">{displayName(client)}</p><p className="text-sm text-slate-500">{client.email}</p><p className="mt-1 text-xs text-slate-500">{client.phone || "-"} · {client.country || "-"}</p></div><div className="flex flex-wrap gap-2"><Badge value={client.kycStatus} /><Badge value={client.isBlocked ? "BLOCKED" : "ACTIVE"} /></div></div><div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><select className={inputClass} value={client.managerId || ""} onChange={(e) => onAssign(client.id, e.target.value)}><option value="">Не назначен</option>{managers.map((m) => <option key={m.id} value={m.id}>{displayName(m)}</option>)}</select><p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">${Number(client.balance).toFixed(2)}</p></div><div className="mt-4 flex flex-wrap gap-2"><a href={clientCardHref(client.id)} className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white">Открыть карточку</a><button onClick={onBlock} className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-semibold text-white">{client.isBlocked ? "Разблокировать" : "Заблокировать"}</button><button onClick={onDelete} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Удалить</button></div></div>;
 }
 
 function Info({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return <div className="rounded-2xl border border-emerald-100 p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 font-black text-slate-950 dark:text-white">{value}</p>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>;
+  return <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p><p className="mt-1 font-semibold text-slate-950 dark:text-white">{value}</p>{sub && <p className="text-xs text-slate-500">{sub}</p>}</div>;
 }
 
 function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void; onDelete: (id: string) => void }) {
   const [text, setText] = useState(note.text);
   const isImportant = note.status === "IMPORTANT";
-  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-emerald-100 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-black text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-emerald-100 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-black text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-semibold text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-slate-200 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-semibold text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
 function ActionList({ actions, onUpdate, onDelete, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean }) {
   const pagination = useCrmPagination(actions.length, "astero.crm.actions.pageSize", `${actions.length}:${actions[0]?.id || ""}:${actions[actions.length - 1]?.id || ""}`);
   const visibleActions = actions.slice(pagination.start, pagination.end);
-  return <div className="overflow-hidden rounded-lg border border-slate-200"><div className="max-h-[68vh] overflow-auto"><table className="w-full min-w-[1120px] text-xs"><thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_#e2e8f0]"><tr className="text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{visibleActions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle hover:bg-emerald-50/50"><td className="px-2 py-1.5">{showClient && action.client ? <a href={clientCardHref(action.client.id)} className="text-left font-black text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="block max-w-48 truncate font-normal text-slate-500" title={action.client.email}>{action.client.email}</span></a> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input aria-label="Срок действия" type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select aria-label="Ответственный" className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select aria-label="Статус действия" className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-black text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-black text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div><CrmPagination {...pagination} total={actions.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} /></div>;
+  return <div className="overflow-hidden rounded-lg border border-slate-200"><div className="max-h-[68vh] overflow-auto"><table className="w-full min-w-[1120px] text-xs"><thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_#e2e8f0]"><tr className="text-left text-slate-500"><th className="px-2 py-2">Клиент</th><th className="px-2 py-2">Действие</th><th className="px-2 py-2">Описание</th><th className="px-2 py-2">Срок</th><th className="px-2 py-2">Ответственный</th><th className="px-2 py-2">Статус</th><th className="px-2 py-2" /></tr></thead><tbody>{visibleActions.map((action) => <tr key={action.id} className="border-t border-slate-100 align-middle hover:bg-slate-50/50"><td className="px-2 py-1.5">{showClient && action.client ? <a href={clientCardHref(action.client.id)} className="text-left font-semibold text-emerald-700 hover:underline"><span className="block">{displayName(action.client)}</span><span className="block max-w-48 truncate font-normal text-slate-500" title={action.client.email}>{action.client.email}</span></a> : "-"}</td><td className="px-2 py-1.5"><input title={action.title} defaultValue={action.title} onBlur={(event) => event.target.value.trim() && event.target.value !== action.title && onUpdate(action.id, { title: event.target.value })} className="h-8 w-44 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input title={action.description || ""} defaultValue={action.description || ""} onBlur={(event) => event.target.value !== (action.description || "") && onUpdate(action.id, { description: event.target.value })} className="h-8 w-56 rounded border border-slate-200 px-2" /></td><td className="px-2 py-1.5"><input aria-label="Срок действия" type="datetime-local" className="h-8 rounded border border-slate-200 px-2" defaultValue={toLocalDateTime(action.dueAt)} onBlur={(event) => event.target.value && onUpdate(action.id, { dueAt: event.target.value })} /></td><td className="px-2 py-1.5"><select aria-label="Ответственный" className="h-8 w-40 rounded border border-slate-200 px-2" value={action.manager?.id || ""} onChange={(event) => onUpdate(action.id, { managerId: event.target.value })}><option value="">Без менеджера</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{displayName(manager)}</option>)}</select></td><td className="px-2 py-1.5"><select aria-label="Статус действия" className="h-8 rounded border border-slate-200 px-2" value={action.status} onChange={(event) => onUpdate(action.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Закрыто</option></select></td><td className="px-2 py-1.5"><div className="flex gap-2"><button onClick={() => onUpdate(action.id, { status: "CLOSED" })} className="rounded bg-emerald-600 px-2 py-1.5 font-semibold text-white">Закрыть</button><button type="button" onClick={() => onDelete(action.id)} className="rounded bg-red-50 px-2 py-1.5 font-semibold text-red-700 hover:bg-red-100">Удалить</button></div></td></tr>)}{actions.length === 0 && <tr><td colSpan={7} className="p-5 text-center text-slate-500">Действий нет</td></tr>}</tbody></table></div><CrmPagination {...pagination} total={actions.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} /></div>;
 }
 
 function TradingOperationsDesk({
@@ -3765,8 +3826,8 @@ function TradingOperationsDesk({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-emerald-100 bg-white p-4 text-slate-950 shadow-sm">
-        <h2 className="text-lg font-black">{title}</h2>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-slate-950 shadow-sm">
+        <h2 className="text-lg font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">
           {clients.length === 1 ? "Операции выбранного клиента" : "Операции по всем клиентам CRM"}
         </p>
@@ -3779,7 +3840,7 @@ function TradingOperationsDesk({
         <Metric title="Итог по выборке" value={`€${filteredProfit.toFixed(2)}`} danger={filteredProfit < 0} />
       </div>
 
-      <section className="rounded-xl border border-emerald-100 bg-white text-slate-950 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
             {[
@@ -3791,8 +3852,8 @@ function TradingOperationsDesk({
                 key={key}
                 type="button"
                 onClick={() => setMode(key as typeof mode)}
-                className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
-                  mode === key ? "border-emerald-500 bg-emerald-500 text-slate-950" : "border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                  mode === key ? "border-emerald-500 bg-emerald-500 text-slate-950" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {label}
@@ -3815,8 +3876,8 @@ function TradingOperationsDesk({
               <option value="SELL">SELL</option>
             </select>
             <input name="crm-trade-search" autoComplete="off" autoCorrect="off" spellCheck={false} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-emerald-500" placeholder="Поиск: символ, клиент, email" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
-            <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-black text-white">Показать</button>
-            <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-600">Сбросить</button>
+            <button type="button" className="rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white">Показать</button>
+            <button type="button" onClick={resetFilters} className="rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600">Сбросить</button>
           </div>
         </div>
 
@@ -3850,15 +3911,15 @@ function TradingOperationsDesk({
                   <tr
                     key={trade.id}
                     onClick={() => setSelectedTradeId(trade.id)}
-                    className={`cursor-pointer border-b border-slate-100 align-top hover:bg-emerald-50/60 ${selectedTrade?.id === trade.id ? "bg-emerald-50" : ""}`}
+                    className={`cursor-pointer border-b border-slate-100 align-top hover:bg-slate-50/60 ${selectedTrade?.id === trade.id ? "bg-emerald-50" : ""}`}
                   >
                     <td className="px-3 py-2 font-mono text-[11px]">{(client?.id || trade.user.id || trade.id).slice(-6).toUpperCase()}</td>
                     <td className="px-3 py-2">
-                      <p className="font-black">{client ? displayName(client) : displayName(trade.user)}</p>
+                      <p className="font-semibold">{client ? displayName(client) : displayName(trade.user)}</p>
                       <p className="text-[11px] text-slate-500">{trade.user.email}</p>
                     </td>
-                    <td className="px-3 py-2 font-black">{trade.symbol}</td>
-                    <td className={`px-3 py-2 font-black ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
+                    <td className="px-3 py-2 font-semibold">{trade.symbol}</td>
+                    <td className={`px-3 py-2 font-semibold ${trade.side === "BUY" ? "text-emerald-600" : "text-red-500"}`}>{trade.side}</td>
                     <td className="px-3 py-2">
                       {isOpen ? <TradeEditInput label="Объем" value={trade.volume} step="0.01" onCommit={(value) => onUpdate(trade.id, { volume: value ?? trade.volume })} /> : trade.volume}
                     </td>
@@ -3877,7 +3938,7 @@ function TradingOperationsDesk({
                     <td className="px-3 py-2">
                       {isOpen ? <TradeEditInput label="Swap" value={trade.swap ?? 0} step="0.01" allowNegative onCommit={(value) => onUpdate(trade.id, { swap: value ?? 0 })} /> : Number(trade.swap || 0).toFixed(2)}
                     </td>
-                    <td className={`px-3 py-2 font-black ${getTradeProfit(trade) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    <td className={`px-3 py-2 font-semibold ${getTradeProfit(trade) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                       {isOpen ? (
                         `€${getTradeProfit(trade).toFixed(2)}`
                       ) : (
@@ -3893,7 +3954,7 @@ function TradingOperationsDesk({
                     <td className="px-3 py-2"><Badge value={isOpen ? "OPEN" : "CLOSED"} /></td>
                     <td className="px-3 py-2 text-right">
                       {isOpen ? (
-                        <button onClick={(event) => { event.stopPropagation(); onClose(trade); }} className="rounded bg-red-600 px-3 py-1.5 font-black text-white">Закрыть</button>
+                        <button onClick={(event) => { event.stopPropagation(); onClose(trade); }} className="rounded bg-red-600 px-3 py-1.5 font-semibold text-white">Закрыть</button>
                       ) : (
                         <span className="text-slate-400">Закрыта</span>
                       )}
@@ -3924,13 +3985,13 @@ function TradingOperationsDesk({
             <p className="text-sm text-slate-500">Выберите операцию в таблице</p>
           )}
           <div className="flex items-center gap-2">
-            <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">
               Назад
             </button>
-            <span className="text-xs font-black text-slate-500">
+            <span className="text-xs font-semibold text-slate-500">
               {page} / {pageCount}
             </span>
-            <button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-40">
+            <button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40">
               Далее
             </button>
           </div>
@@ -3943,8 +4004,8 @@ function TradingOperationsDesk({
 function MiniCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2">
-      <p className="text-[10px] font-black uppercase text-slate-400">{label}</p>
-      <p className="mt-1 truncate font-black text-slate-900">{value}</p>
+      <p className="text-[10px] font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 truncate font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -3992,7 +4053,7 @@ function SupportPanel({
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
       {error && (
-        <div className="xl:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+        <div className="xl:col-span-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
           {error}
         </div>
       )}
@@ -4011,13 +4072,13 @@ function SupportPanel({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="flex items-center gap-2 font-black text-slate-950">
+                  <p className="flex items-center gap-2 font-semibold text-slate-950">
                     {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
                     {displayName(client)}
                   </p>
                   <p className="text-xs text-slate-500">{client.email}</p>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
                   {count}
                 </span>
               </div>
@@ -4036,7 +4097,7 @@ function SupportPanel({
           <Empty text="Выберите клиента слева" />
         ) : (
           <div className="flex min-h-[560px] flex-col">
-            <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-emerald-100 bg-slate-50 p-3">
+            <div className="flex-1 space-y-3 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
               {dialog.map((message) => {
                 const isAdmin = message.sender === "ADMIN" || message.fromRole === "ADMIN";
 
@@ -4046,7 +4107,7 @@ function SupportPanel({
                     className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[96%] rounded-2xl px-4 py-3 text-sm xl:max-w-[78%] ${
+                      className={`max-w-[96%] rounded-lg px-4 py-3 text-sm xl:max-w-[78%] ${
                         isAdmin
                           ? "bg-emerald-600 text-white"
                           : "bg-white text-slate-800 shadow-sm"
@@ -4073,7 +4134,7 @@ function SupportPanel({
               />
               <button
                 onClick={onSend}
-                className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
+                className="rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
               >
                 Отправить
               </button>
@@ -4177,7 +4238,7 @@ function SupportPanelV2({
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
       {error && (
-        <div className="xl:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+        <div className="xl:col-span-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
           {error}
         </div>
       )}
@@ -4195,7 +4256,7 @@ function SupportPanelV2({
                 setSupportMode(key);
                 setSelectedClientId("");
               }}
-              className={`rounded-lg px-3 py-2 text-xs font-black transition ${supportMode === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+              className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${supportMode === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
             >
               {label}
             </button>
@@ -4204,7 +4265,7 @@ function SupportPanelV2({
         <button
           type="button"
           onClick={() => setSearchOpen((current) => !current)}
-          className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-emerald-700"
+          className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-semibold text-white hover:bg-emerald-700"
         >
           <span aria-hidden="true">⌕</span> Поиск клиента
         </button>
@@ -4227,9 +4288,9 @@ function SupportPanelV2({
                   key={client.id}
                   href={supportDialogHref(client.id)}
                   onClick={() => onReadClient(client.id)}
-                  className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-emerald-50"
+                  className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-slate-50"
                 >
-                  <span className="block text-sm font-black text-slate-900">{displayName(client)}</span>
+                  <span className="block text-sm font-semibold text-slate-900">{displayName(client)}</span>
                   <span className="block text-xs text-slate-500">{client.email} · {client.phone || "без телефона"}</span>
                 </a>
               ))}
@@ -4242,16 +4303,16 @@ function SupportPanelV2({
           {visibleConversations.map(({ client, count, conversation, last }) => (
             <div
               key={client.id}
-              className={`w-full rounded-2xl border p-3 text-left transition ${
+              className={`w-full rounded-lg border p-3 text-left transition ${
                 selectedClientId === client.id
                   ? "border-emerald-500 bg-emerald-50"
-                  : "border-emerald-100 bg-white hover:bg-emerald-50"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
               }`}
             >
               <a href={supportDialogHref(client.id)} onClick={() => onReadClient(client.id)} className="block">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="flex items-center gap-2 font-black text-slate-950">
+                    <p className="flex items-center gap-2 font-semibold text-slate-950">
                       {unreadIds.has(client.id) && <span className="size-2.5 rounded-full bg-red-500" />}
                       {displayName(client)}
                     </p>
@@ -4259,11 +4320,11 @@ function SupportPanelV2({
                   </div>
                   <div className="flex items-center gap-2">
                     {Number(conversation?.unreadClientMessages || 0) > 0 && (
-                      <span className="rounded-full bg-red-500 px-2 py-1 text-xs font-black text-white">
+                      <span className="rounded-full bg-red-500 px-2 py-1 text-xs font-semibold text-white">
                         {conversation?.unreadClientMessages}
                       </span>
                     )}
-                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
                       {count}
                     </span>
                   </div>
@@ -4274,7 +4335,7 @@ function SupportPanelV2({
                 <button
                   type="button"
                   onClick={() => onDeleteArchive(client.id)}
-                  className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-100"
+                  className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
                 >
                   Удалить из архива
                 </button>
@@ -4294,22 +4355,22 @@ function SupportPanelV2({
           <Empty text="Выберите клиента слева" />
         ) : (
           <div className="flex h-[650px] min-h-0 flex-col">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-100 bg-white p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-slate-900">Статус обращения</span>
+                <span className="text-sm font-semibold text-slate-900">Статус обращения</span>
                 <Badge value={selectedConversation?.status || "OPEN"} />
               </div>
               <button
                 type="button"
                 onClick={() => onClose(selectedClient.id)}
                 disabled={selectedConversation?.status === "CLOSED"}
-                className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Закрыть обращение
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-emerald-100 bg-slate-50 p-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
               {dialog.map((message) => {
                 const isBot = message.sender === "BOT" || message.fromRole === "BOT";
                 const isManager = message.sender === "MANAGER" || message.fromRole === "MANAGER";
@@ -4326,7 +4387,7 @@ function SupportPanelV2({
                     className={`flex ${isStaff ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                      className={`max-w-[85%] rounded-lg px-4 py-3 text-sm ${
                         isManager
                           ? "bg-emerald-600 text-white"
                           : isAdmin
@@ -4351,7 +4412,7 @@ function SupportPanelV2({
                                 setEditingMessageId("");
                                 setEditingText("");
                               }}
-                              className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-black text-white"
+                              className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-semibold text-white"
                             >
                               OK
                             </button>
@@ -4361,7 +4422,7 @@ function SupportPanelV2({
                                 setEditingMessageId("");
                                 setEditingText("");
                               }}
-                              className="rounded-lg bg-white/15 px-3 py-1 text-xs font-black text-white"
+                              className="rounded-lg bg-white/15 px-3 py-1 text-xs font-semibold text-white"
                             >
                               Отмена
                             </button>
@@ -4378,7 +4439,7 @@ function SupportPanelV2({
                           <a
                             href={attachmentUrl}
                             download={message.attachmentName || "support-file"}
-                            className={`inline-flex rounded-xl px-3 py-2 text-xs font-black ${
+                            className={`inline-flex rounded-xl px-3 py-2 text-xs font-semibold ${
                               isStaff ? "bg-white/15 text-white" : isBot ? "bg-sky-100 text-sky-800" : "bg-emerald-50 text-emerald-700"
                             }`}
                           >
@@ -4396,7 +4457,7 @@ function SupportPanelV2({
                             setEditingMessageId(message.id);
                             setEditingText(message.message || "");
                           }}
-                          className={`mt-2 text-[11px] font-black ${isStaff ? "text-white/75 hover:text-white" : "text-emerald-700"}`}
+                          className={`mt-2 text-[11px] font-semibold ${isStaff ? "text-white/75 hover:text-white" : "text-emerald-700"}`}
                         >
                           Редактировать
                         </button>
@@ -4410,7 +4471,7 @@ function SupportPanelV2({
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[auto_1fr_auto]">
-              <label className="flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50">
+              <label className="flex h-12 cursor-pointer items-center justify-center rounded-lg border border-emerald-200 bg-white px-4 text-sm font-semibold text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-slate-50">
                 Прикрепить файл
                 <input
                   type="file"
@@ -4435,7 +4496,7 @@ function SupportPanelV2({
                   <button
                     type="button"
                     onClick={() => setAttachment(null)}
-                    className="mt-2 max-w-full truncate rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
+                    className="mt-2 max-w-full truncate rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
                     title="Убрать файл"
                   >
                     {attachment.name} ×
@@ -4444,7 +4505,7 @@ function SupportPanelV2({
               </div>
               <button
                 onClick={onSend}
-                className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-emerald-400"
+                className="rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
               >
                 Отправить
               </button>
@@ -4580,7 +4641,7 @@ function ClientTimeline({
             key={key}
             type="button"
             onClick={() => setTypeFilter(key)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-black ${typeFilter === key ? "bg-emerald-500 text-slate-950" : "border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50"}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${typeFilter === key ? "bg-emerald-500 text-slate-950" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
           >
             {label}
           </button>
@@ -4588,11 +4649,11 @@ function ClientTimeline({
       </div>
       <div className="space-y-3">
         {filteredEvents.slice(0, 20).map((event) => (
-          <div key={event.id} className="flex gap-3 rounded-2xl border border-emerald-100 bg-white p-3">
+          <div key={event.id} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3">
             <div className={`mt-1 h-3 w-3 shrink-0 rounded-full ${event.tone.split(" ")[0]}`} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="font-black text-slate-950">{event.title}</p>
+                <p className="font-semibold text-slate-950">{event.title}</p>
                 <span className="text-xs text-slate-400">{new Date(event.date).toLocaleString("ru-RU")}</span>
               </div>
               <p className="mt-1 break-words text-sm text-slate-500">{event.text}</p>
@@ -4623,7 +4684,7 @@ function TradeTable({
         <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[1420px] w-full text-sm">
           <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
-            <tr className="border-b border-emerald-100 text-left text-slate-500">
+            <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Символ</th>
               <th className="p-3">Сторона</th>
@@ -4753,7 +4814,7 @@ function TradeEditInput({
   return (
     <input
       aria-label={label}
-      className="h-9 w-28 rounded-xl border border-emerald-100 bg-white px-3 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white"
+      className="h-9 w-28 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white"
       inputMode="decimal"
       step={step}
       type="number"
@@ -4792,7 +4853,7 @@ function WithdrawalsTable({
         <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[980px] w-full text-sm">
           <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
-            <tr className="border-b border-emerald-100 text-left text-slate-500">
+            <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Сумма</th>
               <th className="p-3">Метод</th>
@@ -4820,7 +4881,7 @@ function WithdrawalsTable({
                 </td>
 
                 <td className="p-3">
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                     {withdrawalMethodLabel(item.method)}
                   </span>
                 </td>
@@ -4842,7 +4903,7 @@ function WithdrawalsTable({
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => onEditRequisites(item)}
-                      className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                      className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-slate-50"
                     >
                       Реквизиты
                     </button>
@@ -4994,7 +5055,7 @@ function KycTable({
         <div className="max-h-[68vh] overflow-auto">
         <table className="min-w-[860px] w-full text-sm">
           <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_#d1fae5]">
-            <tr className="border-b border-emerald-100 text-left text-slate-500">
+            <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="p-3">Клиент</th>
               <th className="p-3">Документ</th>
               <th className="p-3">Файл</th>
@@ -5010,7 +5071,7 @@ function KycTable({
                 <td className="p-3">
                   <div className="flex flex-col gap-2">
                     <span className="break-all">{doc.fileName}</span>
-                    <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">
+                    <a href={`/api/admin/verification/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="w-fit rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-slate-50">
                       Открыть
                     </a>
                   </div>

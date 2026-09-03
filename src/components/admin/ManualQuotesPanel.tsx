@@ -312,37 +312,28 @@ export default function ManualQuotesPanel() {
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-emerald-100 bg-white text-slate-900 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 border-b border-emerald-100 bg-[#07130d] px-4 py-3 text-white">
-        <div className="mr-2 rounded-xl bg-emerald-400 px-4 py-2 text-lg font-black text-slate-950">
-          Astero CRM
-        </div>
-        <span className="text-sm font-semibold text-emerald-50/70">Настройки торговых инструментов</span>
-      </div>
-
-      <div className="border-b border-emerald-100 bg-emerald-50/60 p-4">
+    <div className="overflow-hidden rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white text-slate-900 shadow-[var(--crm-shadow)]">
+      <div className="border-b border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">
-              Управление символами
-            </p>
-            <h2 className="mt-1 text-2xl font-black">Котировки и параметры торговых инструментов</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className="text-base font-semibold tracking-tight">Котировки и торговые инструменты</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
               Настройки сохраняются в CRM и используются в терминале: источник цены, ручная котировка, запрет торговли, часы торговли, спред, свопы, маржа, плечо, комиссия и стоимость пункта.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => openEditor(selectedSymbol)} className="h-10 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-500">
+            <button onClick={() => openEditor(selectedSymbol)} className="h-9 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800">
               Изменить символ
             </button>
-            <button onClick={loadQuotes} className="h-10 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50">
+            <button onClick={loadQuotes} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100">
               Обновить
             </button>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-10 w-56 rounded-xl border border-emerald-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              className="h-9 w-56 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10"
               placeholder="Поиск символа"
+              aria-label="Поиск торгового инструмента"
             />
           </div>
         </div>
@@ -353,7 +344,7 @@ export default function ManualQuotesPanel() {
           <thead>
             <tr className="bg-slate-50 text-left text-xs uppercase tracking-[0.08em] text-slate-500">
               {["Символ", "Описание", "Тип расчета", "Группа", "Источник", "Bid spread", "Ask spread", "Stop level", "Gap level", "Swap long", "Swap short", "Статус", "Действие"].map((head) => (
-                <th key={head} className="border-b border-emerald-100 px-3 py-3 font-black">
+                <th key={head} className="sticky top-0 border-b border-slate-200 bg-slate-50 px-3 py-2.5 font-semibold">
                   {head}
                 </th>
               ))}
@@ -368,32 +359,32 @@ export default function ManualQuotesPanel() {
                   key={row.instrument.symbol}
                   onClick={() => setSelectedSymbol(row.instrument.symbol)}
                   onDoubleClick={() => openEditor(row.instrument.symbol)}
-                  className={`${isSelected ? "bg-emerald-50" : index % 2 ? "bg-white" : "bg-slate-50/60"} cursor-default hover:bg-emerald-50`}
+                  className={`${isSelected ? "bg-emerald-50/70" : index % 2 ? "bg-white" : "bg-slate-50/60"} cursor-default hover:bg-slate-50`}
                 >
-                  <td className="border-b border-emerald-50 px-3 py-2 font-black">{row.instrument.symbol}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">{row.description}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">{row.calculation}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">{row.group}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">{quote?.quoteSource || row.feed}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.spreadBid ?? 0}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.spreadAsk ?? quote?.spread ?? 14}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.stopLevel ?? 50}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.gapLevel ?? 100}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.swapLong ?? 0}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">{quote?.swapShort ?? 0}</td>
-                  <td className="border-b border-emerald-50 px-3 py-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-black ${row.enabled ? "bg-emerald-100 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                  <td className="border-b border-slate-100 px-3 py-2 font-semibold">{row.instrument.symbol}</td>
+                  <td className="max-w-64 truncate border-b border-slate-100 px-3 py-2" title={row.description}>{row.description}</td>
+                  <td className="border-b border-slate-100 px-3 py-2">{row.calculation}</td>
+                  <td className="border-b border-slate-100 px-3 py-2">{row.group}</td>
+                  <td className="max-w-48 truncate border-b border-slate-100 px-3 py-2" title={quote?.quoteSource || row.feed}>{quote?.quoteSource || row.feed}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.spreadBid ?? 0}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.spreadAsk ?? quote?.spread ?? 14}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.stopLevel ?? 50}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.gapLevel ?? 100}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.swapLong ?? 0}</td>
+                  <td className="border-b border-slate-100 px-3 py-2 text-right tabular-nums">{quote?.swapShort ?? 0}</td>
+                  <td className="border-b border-slate-100 px-3 py-2">
+                    <span className={`rounded-md px-2 py-1 text-xs font-semibold ${row.enabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
                       {row.enabled ? "Включен" : "Торговля запрещена"}
                     </span>
                   </td>
-                  <td className="border-b border-emerald-50 px-3 py-2 text-right">
+                  <td className="border-b border-slate-100 px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={(event) => {
                           event.stopPropagation();
                           openEditor(row.instrument.symbol);
                         }}
-                        className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700"
                       >
                         Изменить
                       </button>
@@ -402,7 +393,7 @@ export default function ManualQuotesPanel() {
                           event.stopPropagation();
                           quickToggleTrade(row.instrument.symbol);
                         }}
-                        className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         {row.enabled ? "Запретить" : "Разрешить"}
                       </button>
@@ -415,13 +406,13 @@ export default function ManualQuotesPanel() {
         </table>
       </div>
 
-      <div className="flex h-10 items-center border-t border-emerald-100 bg-slate-50 px-4 text-xs text-slate-500">
+      <div className="flex h-10 items-center border-t border-slate-200 bg-slate-50 px-4 text-xs text-slate-500">
         <span>Всего символов: {rows.length}</span>
         <span className="ml-auto">Выбран: {selectedSymbol}</span>
       </div>
 
       {message && (
-        <div className="border-t border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+        <div className="border-t border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status" aria-live="polite">
           {message}
         </div>
       )}
@@ -452,13 +443,20 @@ function ModifySymbolModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-emerald-200 bg-white text-sm text-slate-900 shadow-2xl">
-        <div className="flex h-14 items-center border-b border-emerald-100 bg-[#07130d] px-5 text-white">
-          <span className="mr-3 rounded-lg bg-emerald-400 px-2 py-1 text-xs font-black text-slate-950">CRM</span>
-          <span className="font-black">Изменить символ</span>
-          <button onClick={onClose} className="ml-auto rounded-lg px-3 py-1 text-xl leading-none hover:bg-white/10">×</button>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-900 shadow-lg" role="dialog" aria-modal="true" aria-labelledby="modify-symbol-title">
+        <div className="flex h-12 items-center border-b border-slate-200 bg-white px-5">
+          <span id="modify-symbol-title" className="font-semibold">Изменить символ · {form.symbol}</span>
+          <button onClick={onClose} className="ml-auto flex size-8 items-center justify-center rounded-lg text-xl leading-none text-slate-500 hover:bg-slate-100" aria-label="Закрыть окно">×</button>
         </div>
 
         <div className="max-h-[calc(92vh-124px)] overflow-y-auto p-5">
@@ -507,11 +505,11 @@ function ModifySymbolModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-emerald-100 bg-slate-50 p-4">
-          <button onClick={onSave} disabled={saving} className="h-11 min-w-32 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-500 disabled:opacity-60">
+        <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4">
+          <button onClick={onSave} disabled={saving} className="h-9 min-w-32 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
             {saving ? "Сохранение..." : "Сохранить"}
           </button>
-          <button onClick={onClose} className="h-11 min-w-28 rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50">
+          <button onClick={onClose} className="h-9 min-w-28 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Закрыть
           </button>
         </div>
@@ -533,12 +531,12 @@ function Field({
 }) {
   return (
     <label className="grid gap-1.5 sm:grid-cols-[150px_1fr] sm:items-center">
-      <span className="text-xs font-black uppercase tracking-[0.08em] text-slate-500 sm:text-right">{label}</span>
+      <span className="text-xs font-medium text-slate-500 sm:text-right">{label}</span>
       <input
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 min-w-0 rounded-xl border border-emerald-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:bg-slate-100"
+        className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 disabled:bg-slate-100"
       />
     </label>
   );
@@ -557,11 +555,11 @@ function SelectField({
 }) {
   return (
     <label className="grid gap-1.5 sm:grid-cols-[150px_1fr] sm:items-center">
-      <span className="text-xs font-black uppercase tracking-[0.08em] text-slate-500 sm:text-right">{label}</span>
+      <span className="text-xs font-medium text-slate-500 sm:text-right">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 min-w-0 rounded-xl border border-emerald-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+        className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -583,7 +581,7 @@ function Checkbox({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm font-bold text-slate-700">
+    <label className="flex min-h-10 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="size-4 accent-emerald-600" />
       <span>{label}</span>
     </label>

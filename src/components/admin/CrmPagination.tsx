@@ -76,14 +76,14 @@ export default function CrmPagination({
   }, [page, pageCount]);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/80 px-3 py-2.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-3">
         <span aria-live="polite">Показано {total === 0 ? 0 : start + 1}–{end} из {total}</span>
         <label className="flex items-center gap-2">
           Строк на странице
           <select
             aria-label="Количество строк на странице"
-            className="h-8 rounded-lg border border-slate-200 bg-white px-2 font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            className="h-7 rounded-md border border-slate-200 bg-white px-2 font-medium text-slate-700 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
           >
@@ -94,7 +94,7 @@ export default function CrmPagination({
 
       {pageCount > 1 && (
         <nav className="flex flex-wrap items-center gap-1" aria-label="Пагинация">
-          <button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)} className="h-8 rounded-lg border border-slate-200 bg-white px-2 font-bold disabled:cursor-not-allowed disabled:opacity-40">Назад</button>
+          <button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">Назад</button>
           {pages.map((value, index) => (
             <span key={value} className="contents">
               {index > 0 && value - pages[index - 1] > 1 && <span className="px-1" aria-hidden="true">…</span>}
@@ -102,13 +102,13 @@ export default function CrmPagination({
                 type="button"
                 aria-current={value === page ? "page" : undefined}
                 onClick={() => onPageChange(value)}
-                className={`h-8 min-w-8 rounded-lg px-2 font-black ${value === page ? "bg-emerald-500 text-slate-950" : "border border-slate-200 bg-white text-slate-700 hover:bg-emerald-50"}`}
+                className={`h-7 min-w-7 rounded-md px-2 font-semibold ${value === page ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
               >
                 {value}
               </button>
             </span>
           ))}
-          <button type="button" disabled={page === pageCount} onClick={() => onPageChange(page + 1)} className="h-8 rounded-lg border border-slate-200 bg-white px-2 font-bold disabled:cursor-not-allowed disabled:opacity-40">Вперёд</button>
+          <button type="button" disabled={page === pageCount} onClick={() => onPageChange(page + 1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">Вперёд</button>
         </nav>
       )}
     </div>

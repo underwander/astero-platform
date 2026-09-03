@@ -176,6 +176,19 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  :root {
+    --crm-bg: #f5f7f6;
+    --crm-surface: #ffffff;
+    --crm-surface-subtle: #f8faf9;
+    --crm-border: #e2e8e5;
+    --crm-text: #14231c;
+    --crm-muted: #66756d;
+    --crm-accent: #0f8a5f;
+    --crm-accent-hover: #0b6f4c;
+    --crm-focus: rgba(15, 138, 95, 0.2);
+    --crm-radius: 10px;
+    --crm-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
   *,
   ::after,
   ::before,
@@ -189,6 +202,39 @@
   }
   body {
     @apply relative font-normal font-outfit z-1 bg-gray-50;
+  }
+}
+
+@layer components {
+  .crm-shell {
+    background: var(--crm-bg);
+    color: var(--crm-text);
+  }
+  .crm-focus {
+    outline: none;
+  }
+  .crm-focus:focus-visible {
+    box-shadow: 0 0 0 3px var(--crm-focus);
+  }
+  .crm-shell table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .crm-shell th {
+    color: var(--crm-muted);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .crm-shell tbody tr {
+    transition: background-color 120ms ease;
+  }
+  .crm-shell button:focus-visible,
+  .crm-shell a:focus-visible,
+  .crm-shell select:focus-visible,
+  .crm-shell input:focus-visible,
+  .crm-shell textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--crm-focus);
   }
 }
 

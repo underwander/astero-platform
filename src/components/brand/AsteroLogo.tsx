@@ -1,9 +1,10 @@
 type Props = {
   compact?: boolean;
   className?: string;
+  tone?: "dark" | "light";
 };
 
-export default function AsteroLogo({ compact = false, className = "" }: Props) {
+export default function AsteroLogo({ compact = false, className = "", tone = "dark" }: Props) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 via-green-500 to-lime-400 text-slate-950 shadow-lg shadow-emerald-900/25">
@@ -25,8 +26,8 @@ export default function AsteroLogo({ compact = false, className = "" }: Props) {
 
       {!compact && (
         <div className="leading-tight">
-          <p className="text-xl font-black tracking-tight text-white">Astero</p>
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300">
+          <p className={`text-xl font-black tracking-tight ${tone === "light" ? "text-slate-950" : "text-white"}`}>Astero</p>
+          <p className={`text-[11px] font-bold uppercase tracking-[0.24em] ${tone === "light" ? "text-emerald-700" : "text-emerald-300"}`}>
             Trader Room
           </p>
         </div>
