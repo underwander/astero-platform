@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
 import CrmPagination, { useCrmPagination } from "@/components/admin/CrmPagination";
+import CopyValueButton from "@/components/admin/CopyValueButton";
 import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 import { visibleTransactionDescription } from "@/lib/deposit-comment";
 
@@ -1850,9 +1851,13 @@ function SecurityPanel() {
   const [mode, setMode] = useState<"BLACKLIST" | "WHITELIST">("BLACKLIST");
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
+  const [page, setPage] = useState(() => Number(readSessionValue("astero.crm.security.page", "1")) || 1);
+  const [pageSize, setPageSize] = useState(() => Number(readSessionValue("astero.crm.security.pageSize", "25")) || 25);
+  const [totalEvents, setTotalEvents] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  async function loadSecurity() {
-    const res = await fetch(`/api/admin/security?search=${encodeURIComponent(search)}`, { cache: "no-store" });
+  async function loadSecurity(signal?: AbortSignal) {
+    const res = await fetch(`/api/admin/security?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`, { cache: "no-store", signal });
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
@@ -1865,6 +1870,8 @@ function SecurityPanel() {
     setRules(data.ipRules || []);
     setCriticalEvents(data.criticalEvents || []);
     setCountryStats(data.countryStats || []);
+    setTotalEvents(data.pagination?.totalItems || 0);
+    setTotalPages(data.pagination?.totalPages || 1);
     setMessage("");
   }
 
@@ -1935,12 +1942,22 @@ function SecurityPanel() {
 
   useEffect(() => {
     sessionStorage.setItem("astero.crm.securitySearch", search);
+    sessionStorage.setItem("astero.crm.security.page", String(page));
+    sessionStorage.setItem("astero.crm.security.pageSize", String(pageSize));
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      loadSecurity();
+      void loadSecurity(controller.signal).catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Security refresh failed", error);
+        setMessage("Не удалось обновить журнал. Проверьте соединение.");
+      });
     }, 250);
 
-    return () => window.clearTimeout(timer);
-  }, [search]);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search, page, pageSize]);
 
   const riskClass = (risk: string) => {
     if (risk === "CRITICAL") return "bg-red-600 text-white";
@@ -2021,14 +2038,15 @@ function SecurityPanel() {
 
       <Panel title="Журнал безопасности">
         <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <input className={`${inputClass} md:max-w-md`} placeholder="Поиск по IP, событию, пользователю" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input className={`${inputClass} md:max-w-md`} placeholder="Поиск по IP, событию, пользователю" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />
           <button type="button" onClick={exportEvents} className="rounded-xl border border-emerald-200 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50">
             Экспорт CSV
           </button>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <div className="overflow-hidden rounded-xl border border-slate-100">
+          <div className="max-h-[68vh] overflow-auto">
           <table className="min-w-[1120px] w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 shadow-[0_1px_0_#e2e8f0]">
               <tr>
                 <th className="p-3">Дата</th>
                 <th className="p-3">Риск</th>
@@ -2058,6 +2076,8 @@ function SecurityPanel() {
               )}
             </tbody>
           </table>
+          </div>
+          <CrmPagination page={page} pageCount={totalPages} pageSize={pageSize} total={totalEvents} start={totalEvents === 0 ? 0 : (page - 1) * pageSize} end={Math.min(page * pageSize, totalEvents)} onPageChange={setPage} onPageSizeChange={(value) => { setPageSize(value); setPage(1); }} />
         </div>
       </Panel>
     </div>
@@ -3489,7 +3509,7 @@ function ClientsTable({
 
             return (
             <tr key={client.id} className="border-b border-slate-100 text-slate-800 hover:bg-emerald-50/50">
-              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<button type="button" title="Копировать номер" onClick={() => navigator.clipboard.writeText(clientDisplayNumber(client))} className="rounded px-1 text-emerald-700 hover:bg-emerald-100">⧉</button></span></td>
+              <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><span className="inline-flex items-center gap-1">{clientDisplayNumber(client)}<CopyValueButton value={clientDisplayNumber(client)} label="номер клиента" /></span></td>
               <td className="px-3 py-2">
                 <a href={clientCardHref(client.id)} className="inline-flex items-center gap-2 text-left font-black text-slate-950 hover:text-emerald-700">
                   {online && (
@@ -3502,8 +3522,8 @@ function ClientsTable({
                 </a>
                 <p className="text-[11px] text-slate-400">#{pagination.start + index + 1}{online ? " · онлайн" : ""}</p>
               </td>
-              <td className="px-3 py-2">{client.email}</td>
-              <td className="px-3 py-2">{client.phone || "-"}</td>
+              <td className="px-3 py-2"><span className="inline-flex max-w-60 items-center gap-1"><span className="truncate" title={client.email}>{client.email}</span><CopyValueButton value={client.email} label="email" /></span></td>
+              <td className="px-3 py-2">{client.phone ? <span className="inline-flex max-w-48 items-center gap-1"><span className="truncate" title={client.phone}>{client.phone}</span><CopyValueButton value={client.phone} label="телефон" /></span> : "-"}</td>
               <td className="px-3 py-2">{client.country || "-"}</td>
               <td className="px-3 py-2 font-black text-emerald-700">€{Number(client.balance || 0).toFixed(2)}</td>
               <td className="px-3 py-2">{new Date(client.createdAt).toLocaleDateString("ru-RU")}</td>
@@ -4081,30 +4101,46 @@ function SupportPanelV2({
   const [editingText, setEditingText] = useState("");
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const selectedConversation = conversations.find((item) => item.userId === selectedClientId);
-  const dialog = messages
-    .filter((message) => message.userId === selectedClientId)
-    .slice()
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const messagesByClient = useMemo(() => {
+    const index = new Map<string, SupportMessage[]>();
+    for (const message of messages) {
+      const current = index.get(message.userId);
+      if (current) current.push(message);
+      else index.set(message.userId, [message]);
+    }
+    for (const clientMessages of index.values()) {
+      clientMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    return index;
+  }, [messages]);
+  const conversationsByClient = useMemo(
+    () => new Map(conversations.map((conversation) => [conversation.userId, conversation])),
+    [conversations]
+  );
+  const dialog = messagesByClient.get(selectedClientId) || [];
 
-  const clientsWithMessages = clients
-    .map((client) => ({
-      client,
-      count: messages.filter((message) => message.userId === client.id).length,
-      conversation: conversations.find((item) => item.userId === client.id),
-      last: messages
-        .filter((message) => message.userId === client.id)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0],
-    }))
+  const clientsWithMessages = useMemo(() => clients
+    .map((client) => {
+      const clientMessages = messagesByClient.get(client.id) || [];
+      return {
+        client,
+        count: clientMessages.length,
+        conversation: conversationsByClient.get(client.id),
+        last: clientMessages[clientMessages.length - 1],
+      };
+    })
     .filter((item) => item.count > 0 || item.conversation)
     .filter((item) => supportMode === "archive" ? item.conversation?.status === "CLOSED" : item.conversation?.status !== "CLOSED")
-    .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime());
-  const supportSearchResults = clients.filter((client) => {
+    .sort((a, b) => new Date(b.last?.createdAt || 0).getTime() - new Date(a.last?.createdAt || 0).getTime()), [clients, conversationsByClient, messagesByClient, supportMode]);
+  const supportPagination = useCrmPagination(clientsWithMessages.length, "astero.crm.support.pageSize", `${supportMode}:${clientsWithMessages.length}:${clientsWithMessages[0]?.client.id || ""}:${clientsWithMessages[clientsWithMessages.length - 1]?.client.id || ""}`);
+  const visibleConversations = clientsWithMessages.slice(supportPagination.start, supportPagination.end);
+  const supportSearchResults = useMemo(() => clients.filter((client) => {
     const query = supportSearch.trim().toLowerCase();
     if (!query) return true;
     return `${client.id} ${client.email} ${client.firstName || ""} ${client.lastName || ""} ${client.phone || ""}`
       .toLowerCase()
       .includes(query);
-  });
+  }), [clients, supportSearch]);
 
   useEffect(() => {
     sessionStorage.setItem("astero.crm.supportSearch", supportSearch);
@@ -4158,7 +4194,7 @@ function SupportPanelV2({
               placeholder="ID, имя, фамилия, email или телефон"
             />
             <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white">
-              {supportSearchResults.map((client) => (
+              {supportSearchResults.slice(0, 50).map((client) => (
                 <a
                   key={client.id}
                   href={supportDialogHref(client.id)}
@@ -4169,12 +4205,13 @@ function SupportPanelV2({
                   <span className="block text-xs text-slate-500">{client.email} · {client.phone || "без телефона"}</span>
                 </a>
               ))}
+              {supportSearchResults.length > 50 && <p className="p-3 text-xs font-bold text-slate-500">Показаны первые 50 результатов. Уточните запрос.</p>}
               {supportSearchResults.length === 0 && <p className="p-3 text-sm text-slate-500">Клиент не найден</p>}
             </div>
           </div>
         )}
         <div className="space-y-2">
-          {clientsWithMessages.map(({ client, count, conversation, last }) => (
+          {visibleConversations.map(({ client, count, conversation, last }) => (
             <div
               key={client.id}
               className={`w-full rounded-2xl border p-3 text-left transition ${
@@ -4218,6 +4255,9 @@ function SupportPanelV2({
           ))}
 
           {clientsWithMessages.length === 0 && <Empty text="Клиентов пока нет" />}
+        </div>
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+          <CrmPagination {...supportPagination} total={clientsWithMessages.length} onPageChange={supportPagination.setPage} onPageSizeChange={supportPagination.setPageSize} />
         </div>
       </Panel>
 

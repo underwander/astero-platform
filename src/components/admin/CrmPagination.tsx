@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const PAGE_SIZES = [25, 50, 100] as const;
 
@@ -10,12 +10,33 @@ function readPageSize(storageKey: string, fallback: number) {
   return PAGE_SIZES.includes(parsed as (typeof PAGE_SIZES)[number]) ? parsed : fallback;
 }
 
+function readPage(storageKey: string) {
+  if (typeof window === "undefined") return 1;
+  const parsed = Number(window.sessionStorage.getItem(`${storageKey}.page`));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
 export function useCrmPagination(total: number, storageKey: string, resetKey = "") {
-  const [page, setPage] = useState(1);
+  const [page, setPageState] = useState(() => readPage(storageKey));
   const [pageSize, setPageSizeState] = useState(() => readPageSize(storageKey, 25));
+  const mountedRef = useRef(false);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
-  useEffect(() => setPage(1), [resetKey]);
+  function setPage(value: number | ((current: number) => number)) {
+    setPageState((current) => {
+      const next = typeof value === "function" ? value(current) : value;
+      window.sessionStorage.setItem(`${storageKey}.page`, String(next));
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    setPage(1);
+  }, [resetKey]);
   useEffect(() => setPage((current) => Math.min(current, pageCount)), [pageCount]);
 
   function setPageSize(value: number) {

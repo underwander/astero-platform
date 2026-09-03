@@ -177,7 +177,7 @@ export async function getLoginRateLimit(
   });
 }
 
-export async function getSecurityOverview(search = "") {
+export async function getSecurityOverview(search = "", page = 1, pageSize = 25) {
   await ensureCrmSchema();
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -192,7 +192,7 @@ export async function getSecurityOverview(search = "") {
       }
     : undefined;
 
-  const [events, attempts24h, blockedIps, activeUsers, criticalEvents, ipRules] = await Promise.all([
+  const [events, totalEvents, attempts24h, blockedIps, activeUsers, criticalEvents, ipRules, countryStats] = await Promise.all([
     prisma.securityEvent.findMany({
       where,
       include: {
@@ -207,8 +207,10 @@ export async function getSecurityOverview(search = "") {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 250,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
+    prisma.securityEvent.count({ where }),
     prisma.securityEvent.count({
       where: {
         type: { in: ["LOGIN_SUCCESS", "LOGIN_FAILED", "LOGIN_BLOCKED"] },
@@ -228,18 +230,17 @@ export async function getSecurityOverview(search = "") {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    prisma.securityEvent.groupBy({
+      by: ["country"],
+      where: {
+        createdAt: { gte: since24h },
+        country: { not: null },
+      },
+      _count: { country: true },
+      orderBy: { _count: { country: "desc" } },
+      take: 10,
+    }),
   ]);
-
-  const countryStats = await prisma.securityEvent.groupBy({
-    by: ["country"],
-    where: {
-      createdAt: { gte: since24h },
-      country: { not: null },
-    },
-    _count: { country: true },
-    orderBy: { _count: { country: "desc" } },
-    take: 10,
-  });
 
   return {
     summary: {
@@ -249,6 +250,7 @@ export async function getSecurityOverview(search = "") {
       criticalCount: criticalEvents.length,
     },
     events,
+    pagination: { page, pageSize, totalItems: totalEvents, totalPages: Math.max(1, Math.ceil(totalEvents / pageSize)) },
     criticalEvents,
     ipRules,
     countryStats,

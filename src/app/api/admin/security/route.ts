@@ -17,7 +17,11 @@ export async function GET(req: Request) {
     if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
-    const data = await getSecurityOverview(searchParams.get("search") || "");
+    const requestedPage = Number(searchParams.get("page"));
+    const requestedPageSize = Number(searchParams.get("pageSize"));
+    const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const pageSize = [25, 50, 100].includes(requestedPageSize) ? requestedPageSize : 25;
+    const data = await getSecurityOverview(searchParams.get("search") || "", page, pageSize);
 
     return Response.json(data);
   } catch (error) {
