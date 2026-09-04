@@ -7,6 +7,7 @@ import CrmPagination, { useCrmPagination } from "@/components/admin/CrmPaginatio
 import CopyValueButton from "@/components/admin/CopyValueButton";
 import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 import { visibleTransactionDescription } from "@/lib/deposit-comment";
+import ActionsWorkspace from "@/components/admin/ActionsWorkspace";
 
 type ManagerRef = {
   id: string;
@@ -30,6 +31,14 @@ type ClientAction = {
   description?: string | null;
   dueAt: string;
   reminderMinutes?: number | null;
+  reminderAt?: string | null;
+  reminderState?: string;
+  type?: string;
+  priority?: string;
+  endAt?: string | null;
+  allDay?: boolean;
+  outcome?: string | null;
+  outcomeNote?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -381,7 +390,7 @@ export default function AsteroCrm() {
   const [supportClientId, setSupportClientId] = useState("");
   const [supportError, setSupportError] = useState("");
   const [supportToasts, setSupportToasts] = useState<SupportToast[]>([]);
-  const [actionReminder, setActionReminder] = useState<{ title: string; clientName: string; minutes: number } | null>(null);
+  const [actionReminder, setActionReminder] = useState<{ id: string; title: string; clientName: string; minutes: number; dueAt: string; priority?: string } | null>(null);
   const [supportUnreadIds, setSupportUnreadIds] = useState<Set<string>>(new Set());
   const [showPasswords, setShowPasswords] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -471,6 +480,29 @@ export default function AsteroCrm() {
     } catch {
       // Browsers can block sound until the admin interacts with the page.
     }
+  }
+
+  function playActionReminderSound() {
+    if (localStorage.getItem("astero.crm.actions.sound") === "off") return;
+    try {
+      const AudioCtor = window.AudioContext || (window as WindowWithAudioContext).webkitAudioContext;
+      if (!AudioCtor) return;
+      const audio = new AudioCtor();
+      const master = audio.createGain();
+      master.gain.setValueAtTime(0.001, audio.currentTime);
+      master.gain.exponentialRampToValueAtTime(0.38, audio.currentTime + 0.04);
+      master.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 1.45);
+      master.connect(audio.destination);
+      [[523.25, 0], [659.25, 0.28], [783.99, 0.58]].forEach(([frequency, delay]) => {
+        const oscillator = audio.createOscillator(); const gain = audio.createGain();
+        oscillator.type = "sine"; oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.001, audio.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.55, audio.currentTime + delay + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + delay + 0.62);
+        oscillator.connect(gain); gain.connect(master);
+        oscillator.start(audio.currentTime + delay); oscillator.stop(audio.currentTime + delay + 0.65);
+      });
+    } catch { /* Browsers can block audio until interaction. */ }
   }
 
   function notifySupportMessage(supportMessage: SupportMessage, allClients: User[]) {
@@ -820,22 +852,25 @@ export default function AsteroCrm() {
     const currentTime = Date.now();
 
     for (const action of openActions) {
-      if (!action.reminderMinutes) continue;
+      if (action.reminderMinutes === null || action.reminderMinutes === undefined) continue;
       const dueTime = new Date(action.dueAt).getTime();
-      const minutesLeft = Math.ceil((dueTime - currentTime) / 60000);
-      const matchedMinute = minutesLeft <= action.reminderMinutes && minutesLeft > action.reminderMinutes - 1 ? action.reminderMinutes : null;
+      const scheduledTime = action.reminderAt ? new Date(action.reminderAt).getTime() : dueTime - action.reminderMinutes * 60000;
+      const matchedMinute = currentTime >= scheduledTime && currentTime - scheduledTime < 60000 ? Math.max(0, Math.ceil((dueTime - currentTime) / 60000)) : null;
 
-      if (!matchedMinute) continue;
+      if (matchedMinute === null) continue;
 
-      const key = `${action.id}:${matchedMinute}`;
+      const key = `${action.id}:${scheduledTime}`;
       if (actionReminderKeysRef.current.has(key)) continue;
 
       actionReminderKeysRef.current.add(key);
-      playSupportSound();
+      playActionReminderSound();
       setActionReminder({
+        id: action.id,
         title: action.title,
         clientName: action.client ? displayName(action.client) : "Клиент",
         minutes: matchedMinute,
+        dueAt: action.dueAt,
+        priority: action.priority,
       });
       break;
     }
@@ -1513,13 +1548,13 @@ export default function AsteroCrm() {
         )}
 
         {actionReminder && (
-          <div className="fixed right-4 top-24 z-[85] w-[min(360px,calc(100vw-2rem))] rounded-lg border border-amber-300/50 bg-amber-50 p-4 text-amber-950 shadow-lg shadow-amber-950/20">
+          <div className="fixed right-4 top-20 z-[85] w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-amber-300 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-950/20">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Напоминание</p>
-                <p className="mt-1 text-sm font-semibold">{actionReminder.clientName}</p>
-                <p className="mt-1 text-sm">{actionReminder.title}</p>
-                <p className="mt-2 text-xs font-bold text-amber-700">Через {actionReminder.minutes} минут</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">◆ Напоминание {actionReminder.priority === "URGENT" && "· Срочно"}</p>
+                <p className="mt-3 text-lg font-bold">{actionReminder.clientName}</p>
+                <p className="mt-1 font-medium">{actionReminder.title}</p>
+                <p className="mt-2 text-sm font-bold text-amber-700">{actionReminder.minutes === 0 ? "Сейчас" : `Через ${actionReminder.minutes} минут`} · {new Date(actionReminder.dueAt).toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}</p>
               </div>
               <button
                 type="button"
@@ -1528,6 +1563,11 @@ export default function AsteroCrm() {
               >
                 x
               </button>
+            </div>
+            <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+              <button onClick={() => { router.push("/crm?tab=actions&view=list&status=today"); setActionReminder(null); }} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">Открыть</button>
+              <button onClick={() => { void updateAction(actionReminder.id, { status: "CLOSED" }); setActionReminder(null); }} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Выполнено</button>
+              <select aria-label="Отложить напоминание" defaultValue="" onChange={(event) => { const minutes = Number(event.target.value); if (minutes) { void fetch("/api/admin/client-actions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actionId: actionReminder.id, operation: "snooze", snoozeMinutes: minutes }) }); setActionReminder(null); } }} className="rounded-lg border border-slate-200 px-2 text-xs font-semibold"><option value="" disabled>Отложить</option><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option></select>
             </div>
           </div>
         )}
@@ -1709,16 +1749,12 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "actions" && (
-          <Panel title="Действия">
-            <div className="mb-3 flex flex-wrap gap-2">
-              {([['overdue', 'Просроченные'], ['today', 'Сегодня'], ['future', 'Будущие']] as const).map(([key, label]) => (
-                <button key={key} onClick={() => setActionPeriod(key)} className={`crm-focus rounded-lg border px-3 py-2 text-xs font-semibold ${actionPeriod === key ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <ActionList actions={filteredActions} managers={managers} onUpdate={updateAction} onDelete={deleteAction} showClient />
-          </Panel>
+          <ActionsWorkspace
+            clients={clients}
+            managers={managers}
+            reload={() => loadAdminData({ silent: true })}
+            openClient={(clientId) => router.push(clientCardHref(clientId))}
+          />
         )}
 
         {activeTab === "managers" && currentAdminRole === "ADMIN" && (

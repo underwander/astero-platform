@@ -7,21 +7,21 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  clientNumber String? @unique
-  email     String   @unique
-  password  String
-  plainPassword String?
-  balance   Float    @default(10000)
-  role      String   @default("CLIENT")
-  isBlocked Boolean  @default(false)
-  clientStatus String @default("ACTIVE")
-  tradingEnabled Boolean @default(false)
-  kycStatus String   @default("PENDING")
-  createdAt DateTime @default(now())
-  lastLoginAt DateTime?
-  lastSeenAt  DateTime?
-  lastIp      String?
+  id             String    @id @default(cuid())
+  clientNumber   String?   @unique
+  email          String    @unique
+  password       String
+  plainPassword  String?
+  balance        Float     @default(10000)
+  role           String    @default("CLIENT")
+  isBlocked      Boolean   @default(false)
+  clientStatus   String    @default("ACTIVE")
+  tradingEnabled Boolean   @default(false)
+  kycStatus      String    @default("PENDING")
+  createdAt      DateTime  @default(now())
+  lastLoginAt    DateTime?
+  lastSeenAt     DateTime?
+  lastIp         String?
 
   firstName String?
   lastName  String?
@@ -40,27 +40,27 @@ model User {
   balanceHistory   BalanceHistory[]
   verificationDocs VerificationDocument[]
   supportMessages  SupportMessage[]
-  clientNotes      ClientNote[]   @relation("ClientNotes")
-  authoredNotes    ClientNote[]   @relation("ClientNoteManagers")
-  clientActions    ClientAction[] @relation("ClientActions")
-  assignedActions  ClientAction[] @relation("ClientActionManagers")
+  clientNotes      ClientNote[]           @relation("ClientNotes")
+  authoredNotes    ClientNote[]           @relation("ClientNoteManagers")
+  clientActions    ClientAction[]         @relation("ClientActions")
+  assignedActions  ClientAction[]         @relation("ClientActionManagers")
   securityEvents   SecurityEvent[]
 }
 
 model Trade {
-  id         String   @id @default(cuid())
+  id            String    @id @default(cuid())
   clientOrderId String?
-  symbol     String
-  side       String
-  openPrice  Float
-  volume     Float    @default(1)
-  closePrice Float?
-  profit     Float?
-  swap       Float    @default(0)
-  takeProfit Float?
-  stopLoss   Float?
-  createdAt  DateTime @default(now())
-  closedAt   DateTime?
+  symbol        String
+  side          String
+  openPrice     Float
+  volume        Float     @default(1)
+  closePrice    Float?
+  profit        Float?
+  swap          Float     @default(0)
+  takeProfit    Float?
+  stopLoss      Float?
+  createdAt     DateTime  @default(now())
+  closedAt      DateTime?
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -69,27 +69,27 @@ model Trade {
 }
 
 model Withdrawal {
-  id          String   @id @default(cuid())
-  amount      Float
-  method      String
-  status      String   @default("PENDING")
-  destination String?
-  details     String?
+  id           String   @id @default(cuid())
+  amount       Float
+  method       String
+  status       String   @default("PENDING")
+  destination  String?
+  details      String?
   adminComment String?
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   userId String
-  user   User @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model Deposit {
-  id        String   @id @default(cuid())
-  amount    Float
-  method    String?
-  status    String   @default("PENDING")
-  details   String?
+  id           String   @id @default(cuid())
+  amount       Float
+  method       String?
+  status       String   @default("PENDING")
+  details      String?
   adminComment String?
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -147,19 +147,47 @@ model ClientNote {
 }
 
 model ClientAction {
-  id          String    @id @default(cuid())
-  userId      String
-  title       String
-  description String?
-  status      String    @default("OPEN")
-  dueAt       DateTime?
-  reminderMinutes Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  managerId   String?
+  id                String    @id @default(cuid())
+  userId            String
+  title             String
+  description       String?
+  status            String    @default("OPEN")
+  dueAt             DateTime?
+  reminderMinutes   Int?
+  type              String    @default("TASK")
+  priority          String    @default("NORMAL")
+  endAt             DateTime?
+  allDay            Boolean   @default(false)
+  outcome           String?
+  outcomeNote       String?
+  completedAt       DateTime?
+  completedByUserId String?
+  cancelledAt       DateTime?
+  reminderAt        DateTime?
+  reminderState     String    @default("SCHEDULED")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  managerId         String?
 
   user    User  @relation("ClientActions", fields: [userId], references: [id])
   manager User? @relation("ClientActionManagers", fields: [managerId], references: [id])
+
+  @@index([dueAt])
+  @@index([managerId, dueAt])
+  @@index([userId, dueAt])
+  @@index([status, dueAt])
+}
+
+model ClientActionHistory {
+  id        String   @id @default(cuid())
+  actionId  String
+  userId    String?
+  event     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  @@index([actionId, createdAt])
 }
 
 model CompanyDocument {
@@ -174,6 +202,7 @@ model CompanyDocument {
   isPublished   Boolean  @default(true)
   createdAt     DateTime @default(now())
 }
+
 model ManualQuote {
   id              String   @id @default(cuid())
   symbol          String   @unique
@@ -222,26 +251,26 @@ model ManualQuote {
 }
 
 model SecurityEvent {
-  id          String   @id @default(cuid())
-  type        String
-  risk        String   @default("LOW")
-  description String
-  ip          String?
-  country     String?
-  city        String?
-  userAgent   String?
-  device      String?
-  browser     String?
-  os          String?
-  path        String?
-  email       String?
-  outcome     String?
-  failureReason String?
+  id             String   @id @default(cuid())
+  type           String
+  risk           String   @default("LOW")
+  description    String
+  ip             String?
+  country        String?
+  city           String?
+  userAgent      String?
+  device         String?
+  browser        String?
+  os             String?
+  path           String?
+  email          String?
+  outcome        String?
+  failureReason  String?
   classification String?
-  requestId   String?
-  signals     String?
-  userId      String?
-  createdAt   DateTime @default(now())
+  requestId      String?
+  signals        String?
+  userId         String?
+  createdAt      DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id])
 
@@ -255,15 +284,15 @@ model SecurityEvent {
 }
 
 model IpAccessRule {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   ip        String
-  mode      String   @default("BLACKLIST")
+  mode      String    @default("BLACKLIST")
   reason    String?
   note      String?
   expiresAt DateTime?
   createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@unique([ip, mode])
   @@index([ip])
@@ -272,15 +301,15 @@ model IpAccessRule {
 }
 
 model IdentityAccessRule {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   kind      String
   value     String
   reason    String?
   note      String?
   expiresAt DateTime?
   createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@unique([kind, value])
   @@index([kind, value])
