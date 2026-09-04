@@ -5,6 +5,8 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 const statuses = new Set(["OPEN", "IN_PROGRESS", "POSTPONED", "CLOSED", "CANCELLED"]);
 const priorities = new Set(["LOW", "NORMAL", "HIGH", "URGENT"]);
+const actionTypes = new Set(["CALL", "EMAIL", "WHATSAPP", "TELEGRAM", "MEETING", "KYC", "DEPOSIT_FOLLOW_UP", "FOLLOW_UP", "TASK", "OTHER"]);
+const editableFields = ["title", "description", "type", "priority", "dueAt", "endAt", "allDay", "managerId", "reminderMinutes"];
 
 async function session() {
   const store = await cookies();
@@ -48,14 +50,23 @@ export async function PATCH(req: Request) {
     if (!actor) return Response.json({ error: "Session expired" }, { status: 401 });
     const body = await req.json(); const previous = body.actionId ? await accessible(body.actionId, actor) : null;
     if (!previous) return Response.json({ error: "Action not found" }, { status: 404 });
-    const dueAt = body.dueAt ? new Date(body.dueAt) : previous.dueAt;
+    if (["CLOSED", "CANCELLED"].includes(previous.status) && editableFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
+      return Response.json({ error: "Завершённое или отменённое действие нельзя редактировать" }, { status: 409 });
+    }
+    if (body.title !== undefined && (typeof body.title !== "string" || !body.title.trim())) return Response.json({ error: "Укажите название действия" }, { status: 400 });
+    if (body.type !== undefined && !actionTypes.has(String(body.type))) return Response.json({ error: "Некорректный тип действия" }, { status: 400 });
+    const dueAt = body.dueAt !== undefined ? new Date(body.dueAt) : previous.dueAt;
+    if (!dueAt || Number.isNaN(dueAt.getTime())) return Response.json({ error: "Некорректная дата" }, { status: 400 });
+    const endAt = body.endAt !== undefined ? (body.endAt ? new Date(body.endAt) : null) : previous.endAt;
+    if (endAt && (Number.isNaN(endAt.getTime()) || endAt <= dueAt)) return Response.json({ error: "Окончание должно быть позже начала" }, { status: 400 });
     const minutes = body.reminderMinutes !== undefined ? (body.reminderMinutes === null || body.reminderMinutes === "" ? null : Number(body.reminderMinutes)) : previous.reminderMinutes;
+    if (minutes !== null && (!Number.isFinite(minutes) || minutes < 0)) return Response.json({ error: "Некорректное напоминание" }, { status: 400 });
     const event = body.operation === "snooze" ? "REMINDER_SNOOZED" : body.status === "CLOSED" ? "COMPLETED" : body.status === "CANCELLED" ? "CANCELLED" : body.dueAt ? "RESCHEDULED" : "EDITED";
     const result = await prisma.$transaction(async tx => {
       const action = await tx.clientAction.update({ where: { id: body.actionId }, data: {
         ...(typeof body.title === "string" && body.title.trim() ? { title: body.title.trim() } : {}), ...(typeof body.description === "string" ? { description: body.description.trim() || null } : {}),
         ...(body.type ? { type: String(body.type) } : {}), ...(priorities.has(body.priority) ? { priority: body.priority } : {}), ...(body.status && statuses.has(body.status) ? { status: body.status } : {}),
-        ...(body.dueAt ? { dueAt, reminderAt: dueAt ? reminderAt(dueAt, minutes) : null, reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}), ...(body.endAt !== undefined ? { endAt: body.endAt ? new Date(body.endAt) : null } : {}), ...(body.allDay !== undefined ? { allDay: Boolean(body.allDay) } : {}),
+        ...(body.dueAt ? { dueAt, reminderAt: reminderAt(dueAt, minutes), reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}), ...(body.endAt !== undefined ? { endAt } : {}), ...(body.allDay !== undefined ? { allDay: Boolean(body.allDay) } : {}),
         ...(body.managerId !== undefined ? { managerId: actor.role === "MANAGER" ? actor.sub : body.managerId || null } : {}), ...(body.reminderMinutes !== undefined ? { reminderMinutes: minutes, reminderAt: dueAt ? reminderAt(dueAt, minutes) : null, reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}),
         ...(body.operation === "snooze" ? { reminderAt: new Date(Date.now() + Number(body.snoozeMinutes || 5) * 60_000), reminderState: "SNOOZED" } : {}), ...(body.status === "CLOSED" ? { completedAt: new Date(), completedByUserId: actor.sub, outcome: body.outcome || "OTHER", outcomeNote: body.outcomeNote || null, reminderState: "COMPLETED" } : {}), ...(body.status === "CANCELLED" ? { cancelledAt: new Date(), reminderState: "CANCELLED" } : {}) } });
       await tx.clientActionHistory.create({ data: { actionId: action.id, userId: actor.sub, event, oldValue: JSON.stringify(previous), newValue: JSON.stringify(action) } });

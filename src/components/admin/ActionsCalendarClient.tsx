@@ -12,6 +12,7 @@ export type CalendarAction = {
   start: string;
   end?: string;
   allDay: boolean;
+  editable: boolean;
   color: string;
   source: unknown;
 };
@@ -103,6 +104,7 @@ export default function ActionsCalendarClient(props: Props) {
           start: event.start,
           end: event.end,
           allDay: event.allDay,
+          editable: event.editable,
           backgroundColor: event.color,
           borderColor: "transparent",
           extendedProps: { source: event.source },
