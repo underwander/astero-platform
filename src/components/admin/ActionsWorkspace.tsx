@@ -111,8 +111,8 @@ function normalizeCalendarAction(action: ActionItem): CalendarAction | null {
 export default function ActionsWorkspace({ clients, managers, reload, openClient }: Props) {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<View>("list");
-  const [mode, setMode] = useState<Mode>("week");
-  const [section, setSection] = useState<Section>("all");
+  const [mode, setMode] = useState<Mode>("day");
+  const [section, setSection] = useState<Section>("today");
   const [date, setDate] = useState("");
   const [search, setSearch] = useState("");
   const [manager, setManager] = useState("all");
@@ -132,8 +132,8 @@ export default function ActionsWorkspace({ clients, managers, reload, openClient
     const requestedMode = params.get("mode") as Mode | null;
     const requestedSection = params.get("status") as Section | null;
     setView(params.get("view") === "calendar" ? "calendar" : "list");
-    setMode(requestedMode && validModes.has(requestedMode) ? requestedMode : "week");
-    setSection(requestedSection && validSections.has(requestedSection) ? requestedSection : "all");
+    setMode(requestedMode && validModes.has(requestedMode) ? requestedMode : "day");
+    setSection(requestedSection && validSections.has(requestedSection) ? requestedSection : "today");
     setDate(safeUrlDate(params.get("date")));
     setMounted(true);
   }, []);
@@ -260,7 +260,7 @@ export default function ActionsWorkspace({ clients, managers, reload, openClient
           <div className="flex rounded-lg bg-slate-100 p-1">
             {(["list", "calendar"] as View[]).map((key) => <button key={key} onClick={() => setView(key)} className={`rounded-md px-4 py-2 text-sm font-semibold ${view === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"}`}>{key === "list" ? "Список" : "Календарь"}</button>)}
           </div>
-          {view === "calendar" && <div className="flex rounded-lg border border-slate-200 p-1">{(["day", "week", "month"] as Mode[]).map((key) => <button key={key} onClick={() => setMode(key)} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${mode === key ? "bg-slate-900 text-white" : "text-slate-500"}`}>{key === "day" ? "День" : key === "week" ? "Неделя" : "Месяц"}</button>)}</div>}
+          {view === "calendar" && <div className="flex rounded-lg border border-slate-200 p-1">{(["day", "week", "month"] as Mode[]).map((key) => <button key={key} onClick={() => setMode(key)} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${mode === key ? "bg-slate-900 text-white" : "text-slate-500"}`}>{key === "day" ? "Сегодня" : key === "week" ? "Неделя" : "Месяц"}</button>)}</div>}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">{([['all','Все'],['today','Сегодня'],['overdue','Просроченные'],['upcoming','Предстоящие'],['completed','Выполненные']] as [Section,string][]).map(([key,label]) => <button key={key} onClick={() => setSection(key)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${section === key ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{label}</button>)}</div>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">

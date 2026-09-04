@@ -72,8 +72,10 @@ class CalendarErrorBoundary extends Component<
 }
 
 export default function ActionsCalendarClient(props: Props) {
+  const calendarHeight = props.mode === "day" ? 640 : props.mode === "week" ? 580 : 520;
   return (
     <CalendarErrorBoundary onError={props.onCalendarError} onBack={props.onBackToList}>
+      <div className={`actions-calendar actions-calendar--${props.mode}`}>
       <FullCalendar
         key={props.mode}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -84,9 +86,17 @@ export default function ActionsCalendarClient(props: Props) {
         nowIndicator
         editable
         selectable
-        height="auto"
+        height={calendarHeight}
         headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-        buttonText={{ today: "Сегодня" }}
+        buttonText={{ today: "Текущая дата" }}
+        slotMinTime="06:00:00"
+        slotMaxTime="22:00:00"
+        slotDuration="00:30:00"
+        slotLabelInterval="01:00"
+        scrollTime="08:00:00"
+        scrollTimeReset={false}
+        dayMaxEvents={props.mode === "month" ? 3 : false}
+        fixedWeekCount={false}
         events={props.events.map((event) => ({
           id: event.id,
           title: event.title,
@@ -98,6 +108,7 @@ export default function ActionsCalendarClient(props: Props) {
           extendedProps: { source: event.source },
         }))}
         eventClick={(info) => props.onEventClick(info.event.extendedProps.source)}
+        eventDidMount={(info) => info.el.setAttribute("title", info.event.title)}
         select={(info) => props.onSlotClick(info.start, info.end)}
         dateClick={(info) => {
           if (props.mode === "month") props.onMonthDayClick(info.dateStr);
@@ -117,6 +128,91 @@ export default function ActionsCalendarClient(props: Props) {
           props.onDateChange(next);
         }}
       />
+      <style jsx global>{`
+        .actions-calendar .fc {
+          --fc-today-bg-color: rgba(16, 185, 129, 0.055);
+          font-size: 13px;
+        }
+        .actions-calendar .fc.fc-media-screen {
+          min-height: 0 !important;
+        }
+        .actions-calendar .fc .fc-toolbar.fc-header-toolbar {
+          margin-bottom: 8px;
+          padding: 0 !important;
+          gap: 8px !important;
+          flex-direction: row !important;
+        }
+        .actions-calendar .fc .fc-toolbar-title {
+          font-size: 15px;
+          font-weight: 700;
+        }
+        .actions-calendar .fc .fc-button {
+          width: 30px !important;
+          height: 30px !important;
+          padding: 4px 8px;
+          font-size: 12px;
+          line-height: 1.25;
+        }
+        .actions-calendar .fc .fc-today-button {
+          width: auto !important;
+        }
+        .actions-calendar .fc .fc-col-header-cell-cushion,
+        .actions-calendar .fc .fc-daygrid-day-number {
+          padding: 4px 6px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .actions-calendar .fc .fc-daygrid-day {
+          padding: 0 !important;
+        }
+        .actions-calendar .fc .fc-timegrid-slot-label-cushion {
+          padding: 0 5px;
+          font-size: 10px;
+          color: #64748b;
+        }
+        .actions-calendar .fc .fc-event {
+          cursor: pointer;
+          overflow: hidden;
+          border-radius: 4px;
+          line-height: 1.15;
+        }
+        .actions-calendar .fc .fc-event-main {
+          overflow: hidden;
+          padding: 1px 3px;
+        }
+        .actions-calendar .fc .fc-event-title,
+        .actions-calendar .fc .fc-event-time {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .actions-calendar--day .fc .fc-timegrid-slot {
+          height: 2.35em;
+        }
+        .actions-calendar--day .fc .fc-event-main {
+          padding: 2px 4px;
+          font-size: 12px;
+        }
+        .actions-calendar--week .fc .fc-timegrid-slot {
+          height: 1.7em;
+        }
+        .actions-calendar--week .fc .fc-event-main {
+          padding: 1px 2px;
+          font-size: 10px;
+        }
+        .actions-calendar--month .fc .fc-daygrid-day-frame {
+          min-height: 66px;
+        }
+        .actions-calendar--month .fc .fc-daygrid-event {
+          margin-top: 1px;
+          font-size: 10px;
+        }
+        .actions-calendar--month .fc .fc-daygrid-more-link {
+          font-size: 10px;
+          font-weight: 700;
+        }
+      `}</style>
+      </div>
     </CalendarErrorBoundary>
   );
 }
