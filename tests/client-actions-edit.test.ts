@@ -4,6 +4,7 @@ import test from "node:test";
 
 const workspace = readFileSync("src/components/admin/ActionsWorkspace.tsx", "utf8");
 const calendar = readFileSync("src/components/admin/ActionsCalendarClient.tsx", "utf8");
+const datePicker = readFileSync("src/components/form/date-picker.tsx", "utf8");
 const route = readFileSync("src/app/api/admin/client-actions/route.ts", "utf8");
 
 test("only the selected action row enters inline edit mode", () => {
@@ -29,10 +30,21 @@ test("the list exposes inline editing without an edit modal", () => {
 });
 
 test("inline editing renders compact controls for every requested field", () => {
-  for (const label of ["Дата действия", "Время действия", "Название действия", "Описание действия", "Тип действия", "Ответственный менеджер", "Приоритет", "Напоминание"]) {
+  for (const label of ["Время действия", "Название действия", "Описание действия", "Тип действия", "Ответственный менеджер", "Приоритет", "Напоминание"]) {
     assert.match(workspace, new RegExp(`aria-label="${label}"`));
   }
+  assert.match(workspace, /<DatePicker/);
+  assert.match(workspace, /id=\{`action-inline-date-\$\{action\.id\}`\}/);
+  assert.match(workspace, /defaultDate=\{form\.dueAt\.slice\(0, 10\)\}/);
+  assert.match(workspace, />Дата действия<\/label>/);
+  assert.match(datePicker, /<CalenderIcon/);
   assert.match(workspace, /max-h-24 min-h-14/);
+});
+
+test("inline date picker is layered within the action editor without global picker changes", () => {
+  assert.match(workspace, /actions-inline-date/);
+  assert.match(workspace, /\[&_\.flatpickr-calendar\]:!z-\[80\]/);
+  assert.match(workspace, /editingId \? "overflow-visible" : "overflow-auto"/);
 });
 
 test("inline keyboard controls save safe inputs and cancel with Escape", () => {
@@ -44,6 +56,7 @@ test("inline keyboard controls save safe inputs and cancel with Escape", () => {
 });
 
 test("changing inline date or time keeps the existing action duration", () => {
+  assert.match(workspace, /function actionDateToLocalInput/);
   assert.match(workspace, /function moveActionStart/);
   assert.match(workspace, /previousEnd\.getTime\(\) - previousStart\.getTime\(\)/);
   assert.match(workspace, /nextStart\.getTime\(\) \+ duration/);

@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CalendarAction } from "@/components/admin/ActionsCalendarClient";
+import DatePicker from "@/components/form/date-picker";
 
 const ActionsCalendar = dynamic(() => import("@/components/admin/ActionsCalendarClient"), {
   ssr: false,
@@ -74,8 +75,14 @@ function safeUrlDate(value: string | null) {
   return validDate(`${value}T12:00:00`) ? value : todayValue();
 }
 
-function localInput(date: Date) {
+function actionDateToLocalInput(value: unknown) {
+  const date = validDate(value);
+  if (!date) return "";
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function localInput(date: Date) {
+  return actionDateToLocalInput(date);
 }
 
 function emptyForm() {
@@ -93,8 +100,8 @@ function formFromAction(action: ActionItem): ActionForm {
     type: action.type && actionTypes.includes(action.type) ? action.type : "TASK",
     title: action.title || "",
     description: action.description || "",
-    dueAt: localInput(start),
-    endAt: suppliedEnd && suppliedEnd > start ? localInput(suppliedEnd) : "",
+    dueAt: actionDateToLocalInput(start),
+    endAt: suppliedEnd && suppliedEnd > start ? actionDateToLocalInput(suppliedEnd) : "",
     allDay: Boolean(action.allDay),
     priority: action.priority && priorityNames[action.priority] ? action.priority : "NORMAL",
     reminderMinutes: action.reminderMinutes == null ? "" : String(action.reminderMinutes),
@@ -420,7 +427,7 @@ function CalendarSkeleton() { return <div className="min-h-[560px] animate-pulse
 
 function ActionsTable({ actions, selectedIds, setSelectedIds, editingId, form, setForm, busy, onOpen, onEdit, onSave, onCancelEdit, onComplete, openClient, managers }: { actions: ActionItem[]; selectedIds: Set<string>; setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>; editingId: string | null; form: ActionForm; setForm: React.Dispatch<React.SetStateAction<ActionForm>>; busy: boolean; onOpen: (action: ActionItem) => void; onEdit: (action: ActionItem) => void; onSave: () => Promise<void>; onCancelEdit: () => void; onComplete: (action: ActionItem) => void; openClient: (id: string) => void; managers: Person[] }) {
   const now = Date.now();
-  return <div className="overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm"><table className="w-full min-w-[1180px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{["", "Время", "Статус", "Тип", "Клиент", "Действие", "Ответственный", "Приоритет", "Напоминание", "Outcome", ""].map((heading, index) => <th key={index} className="px-3 py-3">{heading}</th>)}</tr></thead><tbody>{[...actions].sort((left,right) => (validDate(left.dueAt)?.getTime() ?? Infinity) - (validDate(right.dueAt)?.getTime() ?? Infinity)).map((action) => {
+  return <div className={`${editingId ? "overflow-visible" : "overflow-auto"} rounded-xl border border-slate-200 bg-white shadow-sm`}><table className="w-full min-w-[1180px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{["", "Время", "Статус", "Тип", "Клиент", "Действие", "Ответственный", "Приоритет", "Напоминание", "Outcome", ""].map((heading, index) => <th key={index} className="px-3 py-3">{heading}</th>)}</tr></thead><tbody>{[...actions].sort((left,right) => (validDate(left.dueAt)?.getTime() ?? Infinity) - (validDate(right.dueAt)?.getTime() ?? Infinity)).map((action) => {
     const due = validDate(action.dueAt); const overdue = Boolean(due && due.getTime() < now && !["CLOSED","CANCELLED"].includes(action.status || "OPEN"));
     const final = isFinalAction(action);
     if (editingId === action.id) return <InlineActionRow key={action.id} action={action} form={form} setForm={setForm} managers={managers} busy={busy} onSave={onSave} onCancel={onCancelEdit} />;
@@ -429,6 +436,11 @@ function ActionsTable({ actions, selectedIds, setSelectedIds, editingId, form, s
 }
 
 function InlineActionRow({ action, form, setForm, managers, busy, onSave, onCancel }: { action: ActionItem; form: ActionForm; setForm: React.Dispatch<React.SetStateAction<ActionForm>>; managers: Person[]; busy: boolean; onSave: () => Promise<void>; onCancel: () => void }) {
+  const handleDateChange = useCallback((_selectedDates: Date[], dateValue: string) => {
+    if (!dateValue) return;
+    setForm((current) => moveActionStart(current, replaceLocalDatePart(current.dueAt, dateValue)));
+  }, [setForm]);
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLTableRowElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -445,7 +457,14 @@ function InlineActionRow({ action, form, setForm, managers, busy, onSave, onCanc
   return <tr className="border-y border-emerald-200 bg-emerald-50/40 align-top" onKeyDown={handleKeyDown}>
     <td className="px-3 py-3"><input type="checkbox" checked={false} disabled aria-label="Выбор недоступен во время редактирования" /></td>
     <td className="min-w-40 space-y-1 px-2 py-2">
-      <input aria-label="Дата действия" type="date" value={form.dueAt.slice(0, 10)} onChange={(event) => { const value = event.target.value; setForm((current) => moveActionStart(current, replaceLocalDatePart(current.dueAt, value))); }} className={`${inputClass} w-full`} />
+      <div className="actions-inline-date relative z-[70] [&_.flatpickr-calendar]:!z-[80] [&_.flatpickr-input]:!h-auto [&_.flatpickr-input]:!rounded-md [&_.flatpickr-input]:!border-slate-200 [&_.flatpickr-input]:!px-2 [&_.flatpickr-input]:!py-1.5 [&_.flatpickr-input]:!text-xs">
+        <label className="sr-only" htmlFor={`action-inline-date-${action.id}`}>Дата действия</label>
+        <DatePicker
+          id={`action-inline-date-${action.id}`}
+          defaultDate={form.dueAt.slice(0, 10)}
+          onChange={handleDateChange}
+        />
+      </div>
       <input aria-label="Время действия" type="time" value={form.dueAt.slice(11, 16)} onChange={(event) => { const value = event.target.value; setForm((current) => moveActionStart(current, replaceLocalTimePart(current.dueAt, value))); }} className={`${inputClass} w-full`} />
     </td>
     <td className="px-2 py-3"><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">{statusNames[action.status || "OPEN"] || statusNames.OPEN}</span></td>
