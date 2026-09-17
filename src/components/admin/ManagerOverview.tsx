@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmojiTextField from "@/components/form/EmojiTextField";
 
 type Person = { id: string; email: string; firstName?: string | null; lastName?: string | null; role?: string };
@@ -39,32 +39,62 @@ export default function ManagerOverview() {
   const [historyPage, setHistoryPage] = useState(1);
   const [sort, setSort] = useState<"time" | "priority">("time");
   const [doneOpen, setDoneOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(date.slice(0, 7));
+  const [calendarCounts, setCalendarCounts] = useState<Record<string, { total: number; completed: number }>>({});
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState("");
+  const [calendarRevision, setCalendarRevision] = useState(0);
   const [data, setData] = useState<OverviewData | null>(null);
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true); setError("");
-    const params = new URLSearchParams({ date, historyPeriod, historyType, historySearch, historyFrom, historyTo, historyPage: String(historyPage), historyPageSize: "15" });
+    const selectedTimezoneOffset = new Date(`${date}T12:00:00`).getTimezoneOffset();
+    const params = new URLSearchParams({ date, timezoneOffset: String(selectedTimezoneOffset), historyPeriod, historyType, historySearch, historyFrom, historyTo, historyPage: String(historyPage), historyPageSize: "15" });
     if (managerId) params.set("managerId", managerId);
     try {
       const response = await fetch(`/api/admin/workspace-overview?${params}`, { cache: "no-store" });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Не удалось загрузить данные");
+      if (requestId !== loadRequestRef.current) return;
       setData(payload); setManagerId((current) => current || payload.selectedManager.id);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось загрузить данные"); setData(null); }
-    finally { setLoading(false); }
+    } catch (reason) { if (requestId === loadRequestRef.current) { setError(reason instanceof Error ? reason.message : "Не удалось загрузить данные"); setData(null); } }
+    finally { if (requestId === loadRequestRef.current) setLoading(false); }
   }, [date, historyFrom, historyPage, historyPeriod, historySearch, historyTo, historyType, managerId]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 180); return () => window.clearTimeout(timer); }, [load]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCalendarCounts({});
+    const timer = window.setTimeout(async () => {
+      setCalendarLoading(true); setCalendarError("");
+      const monthTimezoneOffset = new Date(`${calendarMonth}-15T12:00:00`).getTimezoneOffset();
+      const params = new URLSearchParams({ calendarOnly: "1", calendarMonth, timezoneOffset: String(monthTimezoneOffset) });
+      if (managerId) params.set("managerId", managerId);
+      try {
+        const response = await fetch(`/api/admin/workspace-overview?${params}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(payload?.error || "Не удалось загрузить календарь");
+        if (!controller.signal.aborted && payload?.month === calendarMonth) setCalendarCounts(payload.counts || {});
+      } catch (reason) {
+        if (!controller.signal.aborted) setCalendarError(reason instanceof Error ? reason.message : "Не удалось загрузить календарь");
+      } finally { if (!controller.signal.aborted) setCalendarLoading(false); }
+    }, 120);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [calendarMonth, calendarRevision, managerId]);
 
   async function updateTask(actionId: string, patch: Record<string, unknown>) {
     const response = await fetch("/api/admin/client-actions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actionId, ...patch }) });
     const payload = await response.json().catch(() => null);
     if (!response.ok) { setError(payload?.error || "Не удалось обновить задачу"); return false; }
-    await load(); return true;
+    await load(); setCalendarRevision((value) => value + 1); return true;
   }
 
   async function saveTask() {
@@ -73,7 +103,7 @@ export default function ManagerOverview() {
     const payload = { title: draft.title, description: draft.description, dueAt: new Date(draft.dueAt).toISOString(), priority: draft.priority, status: draft.status, managerId: draft.managerId, clientId: draft.clientId, type: "TASK", reminderMinutes: 15 };
     const response = await fetch("/api/admin/client-actions", { method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft.id ? { actionId: draft.id, ...payload } : payload) });
     const result = await response.json().catch(() => null);
-    if (!response.ok) setError(result?.error || "Не удалось сохранить задачу"); else { setDraft(null); await load(); }
+    if (!response.ok) setError(result?.error || "Не удалось сохранить задачу"); else { setDraft(null); await load(); setCalendarRevision((value) => value + 1); }
     setSaving(false);
   }
 
@@ -85,18 +115,22 @@ export default function ManagerOverview() {
   const selectedDay = new Date(`${date}T12:00:00`);
   const dayStart = new Date(`${date}T00:00:00`).getTime();
   const dayEnd = new Date(`${date}T24:00:00`).getTime();
-  const cutoff = date === localDate() ? Date.now() : dayStart;
+  const cutoff = Date.now();
   const tasks = data.actions.filter((item) => item.type === "TASK");
   const dueToday = tasks.filter((item) => item.dueAt && new Date(item.dueAt).getTime() >= dayStart && new Date(item.dueAt).getTime() < dayEnd);
   const sorter = (left: Action, right: Action) => sort === "priority" ? (priorityWeight[right.priority || "NORMAL"] || 0) - (priorityWeight[left.priority || "NORMAL"] || 0) || new Date(left.dueAt || 0).getTime() - new Date(right.dueAt || 0).getTime() : new Date(left.dueAt || 0).getTime() - new Date(right.dueAt || 0).getTime();
   const overdue = tasks.filter((item) => item.dueAt && new Date(item.dueAt).getTime() < cutoff && !finalStatuses.has(item.status)).sort(sorter);
   const overdueIds = new Set(overdue.map((item) => item.id));
+  const dailyOverdue = overdue.filter((item) => item.dueAt && new Date(item.dueAt).getTime() >= dayStart && new Date(item.dueAt).getTime() < dayEnd);
+  const backlogOverdue = overdue.filter((item) => !dailyOverdue.some((daily) => daily.id === item.id));
   const urgent = dueToday.filter((item) => item.priority === "URGENT" && !finalStatuses.has(item.status) && !overdueIds.has(item.id)).sort(sorter);
   const urgentIds = new Set(urgent.map((item) => item.id));
   const today = dueToday.filter((item) => !finalStatuses.has(item.status) && !urgentIds.has(item.id) && !overdueIds.has(item.id)).sort(sorter);
   const done = dueToday.filter((item) => item.status === "CLOSED").sort(sorter);
-  const remaining = overdue.length + urgent.length + today.length;
+  const remaining = dailyOverdue.length + urgent.length + today.length;
   const canEdit = data.selectedManager.id !== "all" && (data.viewer.id === data.selectedManager.id || data.viewer.role === "ADMIN");
+  const selectPlanDate = (nextDate: string) => { setDate(nextDate); setCalendarMonth(nextDate.slice(0, 7)); setCalendarOpen(false); };
+  const shiftPlanDate = (days: number) => { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + days); selectPlanDate(localDate(next)); };
 
   return <div className="space-y-4" aria-busy={loading}>
     <section className="overflow-hidden rounded-2xl border border-emerald-900/10 bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-800 p-5 text-white shadow-sm sm:p-6">
@@ -109,15 +143,51 @@ export default function ManagerOverview() {
     <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"><Metric label="Задачи сегодня" value={data.metrics.tasksToday} /><Metric label="Выполнено" value={data.metrics.completed} tone="green" /><Metric label="Просрочено" value={data.metrics.overdue} tone={data.metrics.overdue ? "red" : undefined} /><Metric label="Новые клиенты" value={data.metrics.newClients} /><Metric label="Звонки" value={data.metrics.calls} /><Metric label="Встречи" value={data.metrics.meetings} /><Metric label="Активные сделки" value={data.metrics.activeDeals} /><Metric label="Закрытые сделки" value={data.metrics.closedDeals} tone="green" /></section>
 
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,.7fr)]">
-      <Card title={`План на сегодня — ${selectedDay.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}`} action={canEdit ? <button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">+ Добавить задачу</button> : undefined}>
-        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-semibold text-slate-700">Всего {data.metrics.tasksToday} · Выполнено {data.metrics.completed} · Осталось {remaining}</p><div className="flex flex-wrap gap-2"><input type="date" aria-label="Дата плана" value={date} onChange={(event) => setDate(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm" /><select aria-label="Сортировка задач" value={sort} onChange={(event) => setSort(event.target.value as "time" | "priority")} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs"><option value="time">По времени</option><option value="priority">По приоритету</option></select></div></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${data.metrics.progress}%` }} /></div></div>
-        <div className="space-y-5"><TaskGroup title="Просроченные" actions={overdue} kind="overdue" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="Срочные" actions={urgent} kind="urgent" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="На сегодня" actions={today} kind="today" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><div><button type="button" onClick={() => setDoneOpen((value) => !value)} className="mb-2 flex w-full items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-left text-xs font-bold uppercase text-emerald-700"><span>✓ Выполненные · {done.length}</span><span>{doneOpen ? "Скрыть" : "Показать"}</span></button>{doneOpen && <TaskGroup title="" actions={done} kind="done" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} />}</div>{overdue.length + urgent.length + today.length + done.length === 0 && <Empty text="Для выбранной даты задач нет" />}</div>
+      <Card title={<PlanDateNavigator date={date} open={calendarOpen} setOpen={setCalendarOpen} month={calendarMonth} setMonth={setCalendarMonth} counts={calendarCounts} loading={calendarLoading} error={calendarError} selectDate={selectPlanDate} previous={() => shiftPlanDate(-1)} next={() => shiftPlanDate(1)} />} action={canEdit ? <button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">+ Добавить задачу</button> : undefined}>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-semibold text-slate-700">Всего {data.metrics.tasksToday} · Выполнено {data.metrics.completed} · Осталось {remaining}</p><select aria-label="Сортировка задач" value={sort} onChange={(event) => setSort(event.target.value as "time" | "priority")} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs"><option value="time">По времени</option><option value="priority">По приоритету</option></select></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${data.metrics.progress}%` }} /></div></div>
+        <div className="space-y-5"><TaskGroup title="Просроченные ранее" actions={backlogOverdue} kind="overdue" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="Просрочено в выбранный день" actions={dailyOverdue} kind="overdue" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="Срочные" actions={urgent} kind="urgent" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title={`На ${selectedDay.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}`} actions={today} kind="today" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><div><button type="button" onClick={() => setDoneOpen((value) => !value)} className="mb-2 flex w-full items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-left text-xs font-bold uppercase text-emerald-700"><span>✓ Выполненные · {done.length}</span><span>{doneOpen ? "Скрыть" : "Показать"}</span></button>{doneOpen && <TaskGroup title="" actions={done} kind="done" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} />}</div>{dailyOverdue.length + urgent.length + today.length + done.length === 0 && <div><Empty text={`На ${selectedDay.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })} задач пока нет`} />{canEdit && <button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="mx-auto mt-3 block rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">+ Добавить задачу</button>}</div>}</div>
       </Card>
       <div className="space-y-4"><Card title="Ближайшая задача">{data.nextAction ? <ActionPreview action={data.nextAction} /> : <Empty text="Ближайших задач нет" />}</Card>{canEdit && <Card title="Быстрые действия"><div className="grid grid-cols-2 gap-2 text-sm"><button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="col-span-2 flex items-center gap-2 rounded-lg border border-slate-200 p-3 font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"><span className="text-emerald-700">✓</span>Назначить задачу</button><QuickLink href="/crm?tab=clients" label="Создать клиента" icon="＋" /><QuickLink href="/crm?tab=tradeOperations" label="Создать сделку" icon="↗" /></div></Card>}<Card title="Требуют внимания"><div className="space-y-2">{data.attentionClients.map((client) => <a key={client.id} href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} className="block rounded-lg border border-slate-200 p-3 hover:border-amber-300"><div className="flex justify-between gap-3"><b className="text-sm">{name(client)}</b><span className="text-[10px] font-bold uppercase text-amber-700">{client.reason}</span></div><p className="mt-1 truncate text-xs text-slate-500">{client.clientActions[0]?.title || client.email}</p></a>)}{data.attentionClients.length === 0 && <Empty text="Нет клиентов, требующих срочного внимания" />}</div></Card></div>
     </section>
 
     <HistoryCard data={data} load={load} period={historyPeriod} setPeriod={setHistoryPeriod} type={historyType} setType={setHistoryType} search={historySearch} setSearch={setHistorySearch} from={historyFrom} setFrom={setHistoryFrom} to={historyTo} setTo={setHistoryTo} page={historyPage} setPage={setHistoryPage} />
     {draft && <TaskModal draft={draft} setDraft={setDraft} clients={data.clients} managers={data.managers.length ? data.managers : [data.selectedManager]} canAssign={data.viewer.role === "ADMIN"} saving={saving} close={() => setDraft(null)} save={() => void saveTask()} />}
+  </div>;
+}
+
+function PlanDateNavigator({ date, open, setOpen, month, setMonth, counts, loading, error, selectDate, previous, next }: { date: string; open: boolean; setOpen: (value: boolean) => void; month: string; setMonth: (value: string) => void; counts: Record<string, { total: number; completed: number }>; loading: boolean; error: string; selectDate: (value: string) => void; previous: () => void; next: () => void }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isToday = date === localDate();
+  useEffect(() => {
+    const close = (event: PointerEvent) => { if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); };
+  }, [setOpen]);
+  return <div ref={rootRef} className="relative flex flex-wrap items-center gap-1.5">
+    <button type="button" onClick={previous} aria-label="Предыдущий день" className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">←</button>
+    <button type="button" onClick={() => { setMonth(date.slice(0, 7)); setOpen(!open); }} aria-expanded={open} aria-haspopup="dialog" className="rounded-lg border border-transparent px-2 py-1.5 text-left font-bold text-slate-950 transition hover:border-emerald-200 hover:bg-emerald-50">
+      {isToday ? "План на сегодня" : "План на"} · {new Date(`${date}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })} <span aria-hidden>📅</span>
+    </button>
+    <button type="button" onClick={next} aria-label="Следующий день" className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">→</button>
+    <button type="button" onClick={() => selectDate(localDate())} disabled={isToday} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-default disabled:text-slate-300">Сегодня</button>
+    {open && <CalendarPopover month={month} setMonth={setMonth} selected={date} counts={counts} loading={loading} error={error} selectDate={selectDate} />}
+  </div>;
+}
+
+function CalendarPopover({ month, setMonth, selected, counts, loading, error, selectDate }: { month: string; setMonth: (value: string) => void; selected: string; counts: Record<string, { total: number; completed: number }>; loading: boolean; error: string; selectDate: (value: string) => void }) {
+  const [yearText, monthText] = month.split("-");
+  const year = Number(yearText); const monthIndex = Number(monthText) - 1;
+  const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+  const firstOffset = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+  const cells = Array.from({ length: 42 }, (_, index) => { const day = index - firstOffset + 1; return day >= 1 && day <= days ? day : null; });
+  const formatKey = (day: number) => `${yearText}-${monthText}-${String(day).padStart(2, "0")}`;
+  const moveMonth = (amount: number) => { const next = new Date(year, monthIndex + amount, 1); setMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`); };
+  return <div role="dialog" aria-label="Выбор даты плана" className="fixed left-3 right-3 top-24 z-[160] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-[370px]">
+    <div className="flex items-center justify-between gap-2"><button type="button" onClick={() => moveMonth(-1)} aria-label="Предыдущий месяц" className="grid size-9 place-items-center rounded-lg border hover:bg-slate-50">‹</button><div className="flex min-w-0 items-center gap-2"><select aria-label="Месяц" value={monthIndex} onChange={(event) => setMonth(`${year}-${String(Number(event.target.value) + 1).padStart(2, "0")}`)} className="h-9 min-w-0 rounded-lg border border-slate-200 px-2 text-sm font-semibold">{monthNames.map((item, index) => <option key={item} value={index}>{item}</option>)}</select><input aria-label="Год" type="number" min={1900} max={2200} value={year} onChange={(event) => { const nextYear = Math.max(1900, Math.min(2200, Number(event.target.value))); if (nextYear) setMonth(`${nextYear}-${monthText}`); }} className="h-9 w-24 rounded-lg border border-slate-200 px-2 text-sm font-semibold" /></div><button type="button" onClick={() => moveMonth(1)} aria-label="Следующий месяц" className="grid size-9 place-items-center rounded-lg border hover:bg-slate-50">›</button></div>
+    <div className="mt-3 grid grid-cols-7 gap-1">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((item) => <div key={item} className="py-1 text-center text-[10px] font-bold uppercase text-slate-400">{item}</div>)}{cells.map((day, index) => day ? (() => { const key = formatKey(day); const count = counts[key]?.total || 0; const chosen = key === selected; const today = key === localDate(); return <button key={key} type="button" onClick={() => selectDate(key)} aria-label={`${day} ${monthNames[monthIndex]}: ${count} задач`} aria-current={today ? "date" : undefined} className={`relative flex h-11 flex-col items-center justify-center rounded-lg border text-sm font-semibold transition ${chosen ? "border-emerald-600 bg-emerald-600 text-white" : today ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50"}`}><span>{day}</span>{count > 0 && <span className={`absolute right-0.5 top-0.5 min-w-4 rounded-full px-1 text-[9px] font-bold leading-4 ${chosen ? "bg-white text-emerald-700" : count >= 5 ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-700"}`}>{count}</span>}{today && <span className={`absolute bottom-0.5 size-1 rounded-full ${chosen ? "bg-white" : "bg-emerald-600"}`} />}</button>; })() : <div key={`blank-${index}`} className="h-11" />)}</div>
+    <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3"><button type="button" onClick={() => selectDate(localDate())} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Сегодня</button><span className="text-[11px] text-slate-400">{loading ? "Загрузка задач…" : error || "Число — количество задач"}</span></div>
   </div>;
 }
 
@@ -143,7 +213,7 @@ function HistoryCard({ data, load, period, setPeriod, type, setType, search, set
   return <Card title="История действий"><div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[170px_170px_minmax(220px,1fr)_auto]"><select value={period} onChange={(event) => { setPeriod(event.target.value); setPage(1); }} className="h-10 rounded-lg border px-3 text-sm"><option value="today">Сегодня</option><option value="yesterday">Вчера</option><option value="7days">Последние 7 дней</option><option value="30days">Последние 30 дней</option><option value="custom">Произвольный период</option></select><select value={type} onChange={(event) => { setType(event.target.value); setPage(1); }} className="h-10 rounded-lg border px-3 text-sm"><option value="all">Все типы</option><option value="actions">Задачи и события</option><option value="notes">Заметки</option><option value="logins">Входы</option></select><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Поиск по истории..." className="h-10 rounded-lg border px-3 text-sm" /><button type="button" onClick={() => void load()} className="rounded-lg border px-4 py-2 text-sm font-semibold">Обновить</button></div>{period === "custom" && <div className="mb-4 flex gap-2"><input aria-label="Начало периода" type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 rounded-lg border px-3 text-sm" /><input aria-label="Конец периода" type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 rounded-lg border px-3 text-sm" /></div>}<div className="divide-y">{data.history.map((item) => <a key={item.id} href={item.href} className="grid gap-1 py-3 text-sm hover:bg-slate-50 sm:grid-cols-[130px_180px_1fr] sm:px-2"><time className="font-semibold text-slate-500">{new Date(item.createdAt).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><b>{item.actor}</b><span className="text-slate-600">{item.description}</span></a>)}{data.history.length === 0 && <Empty text="За выбранный период действий нет" />}</div><div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-slate-500"><span>Страница {data.historyPagination.page} · найдено {data.historyPagination.total}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="rounded-lg border px-3 py-2 disabled:opacity-40">Назад</button><button disabled={!data.historyPagination.hasNext} onClick={() => setPage((v) => v + 1)} className="rounded-lg border px-3 py-2 disabled:opacity-40">Далее</button></div></div></Card>;
 }
 
-function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) { return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-bold text-slate-950">{title}</h3>{action}</div>{children}</section>; }
+function Card({ title, action, children }: { title: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) { return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="font-bold text-slate-950">{title}</div>{action}</div>{children}</section>; }
 function Field({ label, wide, children }: { label: string; wide?: boolean; children: React.ReactNode }) { return <label className={`text-xs font-semibold text-slate-600 ${wide ? "sm:col-span-2" : ""}`}>{label}<div className="mt-1">{children}</div></label>; }
 function Metric({ label, value, tone }: { label: string; value: number; tone?: "green" | "red" }) { return <div className={`rounded-xl border bg-white p-3 shadow-sm ${tone === "red" ? "border-red-200" : tone === "green" ? "border-emerald-200" : "border-slate-200"}`}><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className={`mt-2 text-2xl font-bold ${tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-700" : "text-slate-950"}`}>{value}</p></div>; }
 function ActionPreview({ action }: { action: Action }) { return <div className="rounded-xl bg-slate-950 p-4 text-white"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Задача</p><h4 className="mt-2 font-bold">{action.title}</h4><p className="mt-2 text-xs text-slate-300">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "Без срока"}</p><p className="mt-1 text-xs text-slate-400">{name(action.user)}</p><a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(action.user.id)}`} className="mt-4 inline-flex rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950">Открыть клиента →</a></div>; }

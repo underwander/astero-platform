@@ -16,6 +16,12 @@ function addDays(value: Date, days: number) {
   return new Date(value.getTime() + days * 86_400_000);
 }
 
+function dateBoundary(value: string | null, timezoneOffset: number) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!match) return startOfDay(value);
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) + timezoneOffset * 60_000);
+}
+
 function personName(value?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
   return [value?.firstName, value?.lastName].filter(Boolean).join(" ") || value?.email || "Сотрудник";
 }
@@ -81,10 +87,38 @@ export async function GET(req: Request) {
     const managerIds = requestedManagerId === "all"
       ? allManagers.map((item) => item.id)
       : [requestedManagerId];
-    const selectedDay = startOfDay(params.get("date"));
+    const rawTimezoneOffset = Number(params.get("timezoneOffset") || 0);
+    const timezoneOffset = Number.isFinite(rawTimezoneOffset) ? Math.max(-840, Math.min(840, rawTimezoneOffset)) : 0;
+    const selectedDay = dateBoundary(params.get("date"), timezoneOffset);
     const dayEnd = addDays(selectedDay, 1);
+    const now = new Date();
     const clientWhere = requestedManagerId === "all" ? { managerId: { in: managerIds } } : { managerId: requestedManagerId };
     const actionScope = requestedManagerId === "all" ? { managerId: { in: managerIds } } : { managerId: requestedManagerId };
+
+    if (params.get("calendarOnly") === "1") {
+      const calendarMonth = params.get("calendarMonth") || "";
+      const match = /^(\d{4})-(\d{2})$/.exec(calendarMonth);
+      if (!match) return Response.json({ error: "Некорректный месяц" }, { status: 400 });
+      const year = Number(match[1]);
+      const monthIndex = Number(match[2]) - 1;
+      if (year < 1900 || year > 2200 || monthIndex < 0 || monthIndex > 11) return Response.json({ error: "Некорректный месяц" }, { status: 400 });
+      const rangeStart = new Date(Date.UTC(year, monthIndex, 1) + timezoneOffset * 60_000);
+      const rangeEnd = new Date(Date.UTC(year, monthIndex + 1, 1) + timezoneOffset * 60_000);
+      const monthTasks = await prisma.clientAction.findMany({
+        where: { ...actionScope, type: "TASK", dueAt: { gte: rangeStart, lt: rangeEnd } },
+        select: { dueAt: true, status: true },
+      });
+      const counts: Record<string, { total: number; completed: number }> = {};
+      for (const task of monthTasks) {
+        if (!task.dueAt) continue;
+        const localTime = new Date(task.dueAt.getTime() - timezoneOffset * 60_000);
+        const key = localTime.toISOString().slice(0, 10);
+        counts[key] ??= { total: 0, completed: 0 };
+        counts[key].total += 1;
+        if (task.status === "CLOSED") counts[key].completed += 1;
+      }
+      return Response.json({ month: calendarMonth, counts }, { headers: { "Cache-Control": "no-store" } });
+    }
 
     const actions = await prisma.clientAction.findMany({
       where: {
@@ -92,7 +126,7 @@ export async function GET(req: Request) {
         type: "TASK",
         OR: [
           { dueAt: { gte: selectedDay, lt: dayEnd } },
-          { dueAt: { lt: selectedDay }, status: { notIn: CLOSED } },
+          { dueAt: { lt: now }, status: { notIn: CLOSED } },
           { dueAt: { gte: dayEnd, lt: addDays(dayEnd, 7) }, status: { notIn: CLOSED } },
         ],
       },
@@ -121,10 +155,8 @@ export async function GET(req: Request) {
 
     const scheduledToday = actions.filter((item) => item.dueAt && item.dueAt >= selectedDay && item.dueAt < dayEnd);
     const completedToday = scheduledToday.filter((item) => item.status === "CLOSED");
-    const todayStart = startOfDay(null);
-    const overdueCutoff = selectedDay.getTime() === todayStart.getTime() ? new Date() : selectedDay;
-    const overdue = actions.filter((item) => item.dueAt && item.dueAt < overdueCutoff && !CLOSED.includes(item.status));
-    const nextAction = actions.find((item) => item.dueAt && item.dueAt >= new Date() && !CLOSED.includes(item.status)) || null;
+    const overdue = actions.filter((item) => item.dueAt && item.dueAt < now && !CLOSED.includes(item.status));
+    const nextAction = actions.find((item) => item.dueAt && item.dueAt >= now && !CLOSED.includes(item.status)) || null;
 
     const attentionClients = await prisma.user.findMany({
       where: {
