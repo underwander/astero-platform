@@ -8,6 +8,8 @@ import CopyValueButton from "@/components/admin/CopyValueButton";
 import { calculateTradeProfit, formatPrice } from "@/lib/market-instruments";
 import { visibleTransactionDescription } from "@/lib/deposit-comment";
 import ActionsWorkspace from "@/components/admin/ActionsWorkspace";
+import ManagerOverview from "@/components/admin/ManagerOverview";
+import EmojiTextField from "@/components/form/EmojiTextField";
 
 type ManagerRef = {
   id: string;
@@ -833,10 +835,6 @@ export default function AsteroCrm() {
     (client.clientActions || []).map((action) => ({ ...action, client }))
   ).filter((action) => !clientSearch.trim() || searchedClientIds.has(action.client.id));
   const openActions = allActions.filter((action) => action.status !== "CLOSED");
-  const overdueActions = openActions.filter((action) => new Date(action.dueAt).getTime() < now);
-  const pendingWithdrawals = withdrawals.filter((item) => item.status === "PENDING");
-  const pendingKyc = verificationDocuments.filter((doc) => doc.status === "PENDING");
-  const totalBalance = clients.reduce((sum, client) => sum + Number(client.balance || 0), 0);
   const filteredActions = allActions.filter((action) => {
     const due = new Date(action.dueAt);
     const start = new Date();
@@ -1573,35 +1571,7 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "desktop" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-              <Metric title="Клиенты" value={loading ? "..." : clients.length} />
-              <Metric title="Менеджеры" value={managers.length} />
-              <Metric title="Баланс клиентов" value={`€${totalBalance.toFixed(2)}`} />
-              <Metric title="Открытые действия" value={openActions.length} />
-              <Metric title="Просрочено" value={overdueActions.length} danger={overdueActions.length > 0} />
-              <Metric title="KYC pending" value={pendingKyc.length} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Panel title="Ближайшие действия">
-                <ActionList actions={openActions.slice(0, 8)} managers={managers} onUpdate={updateAction} onDelete={deleteAction} showClient />
-              </Panel>
-              <Panel title="Финансы и верификация">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <MiniStat title="Заявки на вывод" value={pendingWithdrawals.length} />
-                  <MiniStat title="Документы KYC" value={pendingKyc.length} />
-                </div>
-                <div className="mt-4 space-y-2">
-                  {pendingWithdrawals.slice(0, 4).map((item) => (
-                    <div key={item.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                      <b>{item.user.email}</b> — €{Number(item.amount).toFixed(2)} · {item.method}
-                    </div>
-                  ))}
-                  {pendingWithdrawals.length === 0 && <Empty text="Нет срочных финансовых заявок" />}
-                </div>
-              </Panel>
-            </div>
-          </div>
+          <ManagerOverview />
         )}
 
         {activeTab === "clients" && (
@@ -2351,8 +2321,8 @@ function AnnouncementsAdminPanel() {
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[420px_1fr]">
       <Panel title="Редактор объявления">
         <div className="space-y-3">
-          <input className={inputClass} placeholder="Заголовок" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-          <textarea className={areaClass} placeholder="Текст объявления" value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} />
+          <EmojiTextField className={inputClass} placeholder="Заголовок" value={draft.title} onChange={(value) => setDraft({ ...draft, title: value })} />
+          <EmojiTextField multiline className={areaClass} placeholder="Текст объявления" value={draft.text} onChange={(value) => setDraft({ ...draft, text: value })} />
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-semibold text-slate-500">
               Размер
@@ -2548,19 +2518,19 @@ function LandingContentAdminPanel() {
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <label className="text-xs font-semibold text-slate-500">
                 Заголовок RU
-                <input className={`${inputClass} mt-1`} value={selected.titleRu} onChange={(event) => updateDraft({ titleRu: event.target.value })} />
+                <EmojiTextField className={`${inputClass} mt-1`} value={selected.titleRu} onChange={(value) => updateDraft({ titleRu: value })} />
               </label>
               <label className="text-xs font-semibold text-slate-500">
                 Заголовок EN
-                <input className={`${inputClass} mt-1`} value={selected.titleEn} onChange={(event) => updateDraft({ titleEn: event.target.value })} />
+                <EmojiTextField className={`${inputClass} mt-1`} value={selected.titleEn} onChange={(value) => updateDraft({ titleEn: value })} />
               </label>
               <label className="text-xs font-semibold text-slate-500">
                 Описание RU
-                <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyRu} onChange={(event) => updateDraft({ bodyRu: event.target.value })} />
+                <EmojiTextField multiline className={`${areaClass} mt-1 min-h-32`} value={selected.bodyRu} onChange={(value) => updateDraft({ bodyRu: value })} />
               </label>
               <label className="text-xs font-semibold text-slate-500">
                 Описание EN
-                <textarea className={`${areaClass} mt-1 min-h-32`} value={selected.bodyEn} onChange={(event) => updateDraft({ bodyEn: event.target.value })} />
+                <EmojiTextField multiline className={`${areaClass} mt-1 min-h-32`} value={selected.bodyEn} onChange={(value) => updateDraft({ bodyEn: value })} />
               </label>
             </div>
 
@@ -2596,10 +2566,6 @@ function LandingContentAdminPanel() {
 
 function Metric({ title, value, danger }: { title: string; value: string | number; danger?: boolean }) {
   return <div className="rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white px-3.5 py-3 shadow-[var(--crm-shadow)]"><p className="truncate text-[11px] font-medium text-slate-500" title={title}>{title}</p><p className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-600" : "text-slate-950"}`}>{value}</p></div>;
-}
-
-function MiniStat({ title, value }: { title: string; value: string | number }) {
-  return <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><p className="text-xs text-slate-500">{title}</p><p className="mt-0.5 text-xl font-semibold tabular-nums text-slate-950">{value}</p></div>;
 }
 
 function Badge({ value }: { value: string }) {
@@ -2953,10 +2919,10 @@ function ClientProfileUtip({
                 <input className={`${inputClass} h-9 rounded-lg`} type="number" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
                 <button onClick={() => depositToUser(selectedClient.id)} className="rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-slate-950">OK</button>
               </div>
-              <input
+              <EmojiTextField
                 className={`${inputClass} mt-2 h-9 rounded-lg`}
                 value={depositComment}
-                onChange={(event) => setDepositComment(event.target.value)}
+                onChange={setDepositComment}
                 maxLength={500}
                 placeholder="Комментарий / описание (необязательно)"
               />
@@ -3017,7 +2983,7 @@ function ClientProfileUtip({
               ))}
             </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_auto]">
-              <textarea className={`${areaClass} min-h-20 rounded-lg`} placeholder="Заметка по клиенту" value={noteText} onChange={(event) => setNoteText(event.target.value)} />
+              <EmojiTextField multiline className={`${areaClass} min-h-20 rounded-lg`} placeholder="Заметка по клиенту" value={noteText} onChange={setNoteText} />
               <select className={`${inputClass} h-10 rounded-lg`} value={noteStatus} onChange={(event) => setNoteStatus(event.target.value)}>
                 <option value="OPEN">Открыто</option>
                 <option value="IMPORTANT">Важно</option>
@@ -3085,7 +3051,7 @@ function ClientProfileUtip({
             ))}
           </div>
           <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-[1fr_190px_150px_150px_190px_auto]">
-            <input className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} />
+            <EmojiTextField className={`${inputClass} h-10 rounded-lg`} placeholder="Действие" value={actionForm.title} onChange={(value) => setActionForm({ ...actionForm, title: value })} />
             <input className={`${inputClass} h-10 rounded-lg`} type="datetime-local" value={actionForm.dueAt} onChange={(event) => setActionForm({ ...actionForm, dueAt: event.target.value })} />
             <select className={`${inputClass} h-10 rounded-lg`} value={actionForm.reminderMinutes} onChange={(event) => setActionForm({ ...actionForm, reminderMinutes: event.target.value })}>
               <option value="">Без напоминания</option>
@@ -3105,7 +3071,7 @@ function ClientProfileUtip({
             </select>
             <button onClick={addAction} className="rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-slate-950">Добавить</button>
           </div>
-          <textarea className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} />
+          <EmojiTextField multiline className={`${areaClass} mb-3 min-h-16 rounded-lg`} placeholder="Описание действия" value={actionForm.description} onChange={(value) => setActionForm({ ...actionForm, description: value })} />
           <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px]">
             <input className={`${inputClass} h-10 rounded-lg`} placeholder="Поиск по действиям" value={actionSearch} onChange={(event) => setActionSearch(event.target.value)} />
             <select className={`${inputClass} h-10 rounded-lg`} value={actionStatusFilter} onChange={(event) => setActionStatusFilter(event.target.value as typeof actionStatusFilter)}>
@@ -3703,7 +3669,7 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
 function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void; onDelete: (id: string) => void }) {
   const [text, setText] = useState(note.text);
   const isImportant = note.status === "IMPORTANT";
-  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><textarea className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-semibold text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={(event) => setText(event.target.value)} /><select className="h-10 rounded-lg border border-slate-200 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-semibold text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><EmojiTextField multiline className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-semibold text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={setText} /><select className="h-10 rounded-lg border border-slate-200 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-semibold text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
 }
 
 function ActionList({ actions, onUpdate, onDelete, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean }) {
@@ -4162,11 +4128,12 @@ function SupportPanel({
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-              <textarea
+              <EmojiTextField
+                multiline
                 className={areaClass}
                 placeholder="Ответ клиенту..."
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={setText}
               />
               <button
                 onClick={onSend}
@@ -4435,10 +4402,11 @@ function SupportPanelV2({
                     >
                       {editingMessageId === message.id ? (
                         <div className="space-y-2">
-                          <textarea
+                          <EmojiTextField
+                            multiline
                             className="min-h-40 w-[min(720px,calc(100vw-96px))] rounded-xl border border-white/20 bg-white px-3 py-2 text-sm text-slate-900 outline-none"
                             value={editingText}
-                            onChange={(event) => setEditingText(event.target.value)}
+                            onChange={setEditingText}
                           />
                           <div className="flex gap-2">
                             <button
@@ -4516,11 +4484,12 @@ function SupportPanelV2({
                 />
               </label>
               <div className="min-w-0">
-                <textarea
+                <EmojiTextField
+                  multiline
                   className={areaClass}
                   placeholder="Ответ клиенту..."
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={setText}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
