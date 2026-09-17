@@ -6,7 +6,7 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 const statuses = new Set(["OPEN", "IN_PROGRESS", "POSTPONED", "CLOSED", "CANCELLED"]);
 const priorities = new Set(["LOW", "NORMAL", "HIGH", "URGENT"]);
 const actionTypes = new Set(["CALL", "EMAIL", "WHATSAPP", "TELEGRAM", "MEETING", "KYC", "DEPOSIT_FOLLOW_UP", "FOLLOW_UP", "TASK", "OTHER"]);
-const editableFields = ["title", "description", "type", "priority", "dueAt", "endAt", "allDay", "managerId", "reminderMinutes"];
+const editableFields = ["title", "description", "type", "priority", "dueAt", "endAt", "allDay", "managerId", "reminderMinutes", "userId", "clientId"];
 
 async function session() {
   const store = await cookies();
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const dueAt = new Date(body.dueAt); if (Number.isNaN(dueAt.getTime())) return Response.json({ error: "Некорректная дата" }, { status: 400 });
     const minutes = body.reminderMinutes === null || body.reminderMinutes === "" || body.reminderMinutes === undefined ? null : Number(body.reminderMinutes);
     const action = await prisma.$transaction(async tx => {
-      const created = await tx.clientAction.create({ data: { userId, managerId: actor.role === "MANAGER" ? actor.sub : body.managerId || null, title: String(body.title).trim(), description: String(body.description || "").trim() || null, type: String(body.type || "TASK"), priority: priorities.has(body.priority) ? body.priority : "NORMAL", dueAt, endAt: body.endAt ? new Date(body.endAt) : null, allDay: Boolean(body.allDay), reminderMinutes: minutes, reminderAt: reminderAt(dueAt, minutes), reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } });
+      const created = await tx.clientAction.create({ data: { userId, managerId: actor.role === "MANAGER" ? actor.sub : body.managerId || null, title: String(body.title).trim(), description: String(body.description || "").trim() || null, type: String(body.type || "TASK"), priority: priorities.has(body.priority) ? body.priority : "NORMAL", status: statuses.has(body.status) ? body.status : "OPEN", dueAt, endAt: body.endAt ? new Date(body.endAt) : null, allDay: Boolean(body.allDay), reminderMinutes: minutes, reminderAt: reminderAt(dueAt, minutes), reminderState: minutes === null ? "DISMISSED" : "SCHEDULED", ...(body.status === "CLOSED" ? { completedAt: new Date(), completedByUserId: actor.sub, reminderState: "COMPLETED" } : {}) } });
       await tx.clientActionHistory.create({ data: { actionId: created.id, userId: actor.sub, event: "CREATED", newValue: JSON.stringify(created) } }); return created;
     }); return Response.json(action);
   } catch (error) { console.error("Client action create error:", error); return Response.json({ error: "Server error" }, { status: 500 }); }
@@ -55,19 +55,26 @@ export async function PATCH(req: Request) {
     }
     if (body.title !== undefined && (typeof body.title !== "string" || !body.title.trim())) return Response.json({ error: "Укажите название действия" }, { status: 400 });
     if (body.type !== undefined && !actionTypes.has(String(body.type))) return Response.json({ error: "Некорректный тип действия" }, { status: 400 });
+    const nextUserId = body.clientId || body.userId;
+    if (nextUserId !== undefined) {
+      const nextClient = await prisma.user.findUnique({ where: { id: String(nextUserId) }, select: { managerId: true } });
+      if (!nextClient || (actor.role === "MANAGER" && nextClient.managerId !== actor.sub)) return Response.json({ error: "Недостаточно прав" }, { status: 403 });
+    }
     const dueAt = body.dueAt !== undefined ? new Date(body.dueAt) : previous.dueAt;
     if (!dueAt || Number.isNaN(dueAt.getTime())) return Response.json({ error: "Некорректная дата" }, { status: 400 });
     const endAt = body.endAt !== undefined ? (body.endAt ? new Date(body.endAt) : null) : previous.endAt;
     if (endAt && (Number.isNaN(endAt.getTime()) || endAt <= dueAt)) return Response.json({ error: "Окончание должно быть позже начала" }, { status: 400 });
     const minutes = body.reminderMinutes !== undefined ? (body.reminderMinutes === null || body.reminderMinutes === "" ? null : Number(body.reminderMinutes)) : previous.reminderMinutes;
     if (minutes !== null && (!Number.isFinite(minutes) || minutes < 0)) return Response.json({ error: "Некорректное напоминание" }, { status: 400 });
-    const event = body.operation === "snooze" ? "REMINDER_SNOOZED" : body.status === "CLOSED" ? "COMPLETED" : body.status === "CANCELLED" ? "CANCELLED" : body.dueAt ? "RESCHEDULED" : "EDITED";
+    const reopening = ["CLOSED", "CANCELLED"].includes(previous.status) && body.status && !["CLOSED", "CANCELLED"].includes(body.status);
+    const event = body.operation === "snooze" ? "REMINDER_SNOOZED" : reopening ? "REOPENED" : body.status === "CLOSED" ? "COMPLETED" : body.status === "CANCELLED" ? "CANCELLED" : body.dueAt ? "RESCHEDULED" : "EDITED";
     const result = await prisma.$transaction(async tx => {
       const action = await tx.clientAction.update({ where: { id: body.actionId }, data: {
         ...(typeof body.title === "string" && body.title.trim() ? { title: body.title.trim() } : {}), ...(typeof body.description === "string" ? { description: body.description.trim() || null } : {}),
         ...(body.type ? { type: String(body.type) } : {}), ...(priorities.has(body.priority) ? { priority: body.priority } : {}), ...(body.status && statuses.has(body.status) ? { status: body.status } : {}),
         ...(body.dueAt ? { dueAt, reminderAt: reminderAt(dueAt, minutes), reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}), ...(body.endAt !== undefined ? { endAt } : {}), ...(body.allDay !== undefined ? { allDay: Boolean(body.allDay) } : {}),
         ...(body.managerId !== undefined ? { managerId: actor.role === "MANAGER" ? actor.sub : body.managerId || null } : {}), ...(body.reminderMinutes !== undefined ? { reminderMinutes: minutes, reminderAt: dueAt ? reminderAt(dueAt, minutes) : null, reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}),
+        ...(nextUserId !== undefined ? { userId: String(nextUserId) } : {}), ...(reopening ? { completedAt: null, completedByUserId: null, cancelledAt: null, outcome: null, outcomeNote: null, reminderState: minutes === null ? "DISMISSED" : "SCHEDULED" } : {}),
         ...(body.operation === "snooze" ? { reminderAt: new Date(Date.now() + Number(body.snoozeMinutes || 5) * 60_000), reminderState: "SNOOZED" } : {}), ...(body.status === "CLOSED" ? { completedAt: new Date(), completedByUserId: actor.sub, outcome: body.outcome || "OTHER", outcomeNote: body.outcomeNote || null, reminderState: "COMPLETED" } : {}), ...(body.status === "CANCELLED" ? { cancelledAt: new Date(), reminderState: "CANCELLED" } : {}) } });
       await tx.clientActionHistory.create({ data: { actionId: action.id, userId: actor.sub, event, oldValue: JSON.stringify(previous), newValue: JSON.stringify(action) } });
       let nextAction = null; if (body.nextAction?.title && body.nextAction?.dueAt) { const nextDue = new Date(body.nextAction.dueAt); const nextMinutes = Number(body.nextAction.reminderMinutes ?? 15); nextAction = await tx.clientAction.create({ data: { userId: previous.userId, managerId: body.nextAction.managerId || previous.managerId, title: body.nextAction.title, type: body.nextAction.type || previous.type, priority: body.nextAction.priority || "NORMAL", dueAt: nextDue, reminderMinutes: nextMinutes, reminderAt: reminderAt(nextDue, nextMinutes) } }); await tx.clientActionHistory.create({ data: { actionId: nextAction.id, userId: actor.sub, event: "NEXT_ACTION_CREATED", newValue: JSON.stringify(nextAction) } }); }

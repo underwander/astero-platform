@@ -89,6 +89,7 @@ export async function GET(req: Request) {
     const actions = await prisma.clientAction.findMany({
       where: {
         ...actionScope,
+        type: "TASK",
         OR: [
           { dueAt: { gte: selectedDay, lt: dayEnd } },
           { dueAt: { lt: selectedDay }, status: { notIn: CLOSED } },
@@ -103,29 +104,37 @@ export async function GET(req: Request) {
       take: 200,
     });
 
-    const [newClients, activeDeals, closedDeals, notesToday] = await Promise.all([
+    const [newClients, activeDeals, closedDeals, notesToday, calls, meetings, availableClients] = await Promise.all([
       prisma.user.count({ where: { ...clientWhere, createdAt: { gte: selectedDay, lt: dayEnd } } }),
       prisma.trade.count({ where: { user: clientWhere, closedAt: null } }),
       prisma.trade.count({ where: { user: clientWhere, closedAt: { gte: selectedDay, lt: dayEnd } } }),
       prisma.clientNote.count({ where: { managerId: requestedManagerId === "all" ? { in: managerIds } : requestedManagerId, createdAt: { gte: selectedDay, lt: dayEnd } } }),
+      prisma.clientAction.count({ where: { ...actionScope, type: "CALL", dueAt: { gte: selectedDay, lt: dayEnd } } }),
+      prisma.clientAction.count({ where: { ...actionScope, type: "MEETING", dueAt: { gte: selectedDay, lt: dayEnd } } }),
+      prisma.user.findMany({
+        where: { ...clientWhere, role: "CLIENT" },
+        select: { id: true, email: true, firstName: true, lastName: true },
+        orderBy: [{ firstName: "asc" }, { email: "asc" }],
+        take: 500,
+      }),
     ]);
 
     const scheduledToday = actions.filter((item) => item.dueAt && item.dueAt >= selectedDay && item.dueAt < dayEnd);
     const completedToday = scheduledToday.filter((item) => item.status === "CLOSED");
-    const overdue = actions.filter((item) => item.dueAt && item.dueAt < selectedDay && !CLOSED.includes(item.status));
-    const calls = scheduledToday.filter((item) => item.type === "CALL").length;
-    const meetings = scheduledToday.filter((item) => item.type === "MEETING").length;
+    const todayStart = startOfDay(null);
+    const overdueCutoff = selectedDay.getTime() === todayStart.getTime() ? new Date() : selectedDay;
+    const overdue = actions.filter((item) => item.dueAt && item.dueAt < overdueCutoff && !CLOSED.includes(item.status));
     const nextAction = actions.find((item) => item.dueAt && item.dueAt >= new Date() && !CLOSED.includes(item.status)) || null;
 
     const attentionClients = await prisma.user.findMany({
       where: {
         ...clientWhere,
-        clientActions: { some: { status: { notIn: CLOSED }, dueAt: { lt: dayEnd } } },
+        clientActions: { some: { type: "TASK", status: { notIn: CLOSED }, dueAt: { lt: dayEnd } } },
       },
       select: {
         id: true, email: true, firstName: true, lastName: true,
         clientActions: {
-          where: { status: { notIn: CLOSED }, dueAt: { lt: dayEnd } },
+          where: { type: "TASK", status: { notIn: CLOSED }, dueAt: { lt: dayEnd } },
           select: { id: true, title: true, dueAt: true, priority: true },
           orderBy: { dueAt: "asc" }, take: 1,
         },
@@ -206,6 +215,7 @@ export async function GET(req: Request) {
       viewer: { id: session.sub, role: session.role, canInspectTeam },
       selectedManager: selectedManager || { id: "all", firstName: "Вся", lastName: "команда", email: "" },
       managers: canInspectTeam ? allManagers : [],
+      clients: availableClients,
       selectedDate: selectedDay.toISOString(),
       metrics: {
         tasksToday: scheduledToday.length, completed: completedToday.length, overdue: overdue.length,

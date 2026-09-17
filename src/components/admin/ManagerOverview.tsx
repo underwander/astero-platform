@@ -1,211 +1,152 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import EmojiTextField from "@/components/form/EmojiTextField";
 
 type Person = { id: string; email: string; firstName?: string | null; lastName?: string | null; role?: string };
-type Action = {
-  id: string; title: string; description?: string | null; dueAt?: string | null; endAt?: string | null;
-  status: string; priority?: string; type?: string; user: Person; manager?: Person | null;
-};
+type Action = { id: string; title: string; description?: string | null; dueAt?: string | null; status: string; priority?: string; type?: string; managerId?: string | null; user: Person; manager?: Person | null };
 type HistoryItem = { id: string; createdAt: string; actor: string; description: string; type: string; href: string };
 type OverviewData = {
-  viewer: { id: string; role: string; canInspectTeam: boolean };
-  selectedManager: Person; managers: Person[]; selectedDate: string;
+  viewer: { id: string; role: string; canInspectTeam: boolean }; selectedManager: Person; managers: Person[]; clients: Person[];
   metrics: { tasksToday: number; completed: number; overdue: number; newClients: number; calls: number; meetings: number; activeDeals: number; closedDeals: number; notes: number; progress: number };
   nextAction: Action | null; actions: Action[];
-  attentionClients: Array<Person & { reason: string; clientActions: Array<{ id: string; title: string; dueAt?: string | null; priority?: string }> }>;
-  history: HistoryItem[]; historyPagination: { page: number; pageSize: number; total: number; hasNext: boolean };
+  attentionClients: Array<Person & { reason: string; clientActions: Array<{ id: string; title: string; dueAt?: string | null }> }>;
+  history: HistoryItem[]; historyPagination: { page: number; total: number; hasNext: boolean };
 };
+type TaskDraft = { id?: string; title: string; description: string; dueAt: string; priority: string; status: string; managerId: string; clientId: string };
 
-const closed = new Set(["CLOSED", "CANCELLED"]);
+const finalStatuses = new Set(["CLOSED", "CANCELLED"]);
 const statusLabels: Record<string, string> = { OPEN: "Запланировано", IN_PROGRESS: "В работе", POSTPONED: "Перенесено", CLOSED: "Выполнено", CANCELLED: "Отменено" };
 const priorityLabels: Record<string, string> = { LOW: "Низкий", NORMAL: "Обычный", HIGH: "Высокий", URGENT: "Срочный" };
-const typeLabels: Record<string, string> = { TASK: "Задача", CALL: "Звонок", MEETING: "Встреча", EMAIL: "Письмо", FOLLOW_UP: "Повторный контакт", OTHER: "Другое" };
+const priorityWeight: Record<string, number> = { URGENT: 4, HIGH: 3, NORMAL: 2, LOW: 1 };
 
-function name(person?: Person | null) {
-  return [person?.firstName, person?.lastName].filter(Boolean).join(" ") || person?.email || "Сотрудник";
-}
-
-function localDateInput(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 6) return "Доброй ночи";
-  if (hour < 12) return "Доброе утро";
-  if (hour < 18) return "Добрый день";
-  return "Добрый вечер";
-}
+function name(person?: Person | null) { return [person?.firstName, person?.lastName].filter(Boolean).join(" ") || person?.email || "Сотрудник"; }
+function localDate(date = new Date()) { const offset = date.getTimezoneOffset() * 60_000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
+function localDateTime(value?: string | null) { const date = value ? new Date(value) : new Date(Date.now() + 3_600_000); const offset = date.getTimezoneOffset() * 60_000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
+function greeting() { const hour = new Date().getHours(); return hour < 6 ? "Доброй ночи" : hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер"; }
+function emptyTask(managerId: string, date: string, clientId = ""): TaskDraft { return { title: "", description: "", dueAt: `${date}T09:00`, priority: "NORMAL", status: "OPEN", managerId, clientId }; }
+function taskDraft(action: Action): TaskDraft { return { id: action.id, title: action.title, description: action.description || "", dueAt: localDateTime(action.dueAt), priority: action.priority || "NORMAL", status: action.status, managerId: action.manager?.id || action.managerId || "", clientId: action.user.id }; }
 
 export default function ManagerOverview() {
   const [managerId, setManagerId] = useState("");
   const [managerSearch, setManagerSearch] = useState("");
-  const [date, setDate] = useState(localDateInput());
+  const [date, setDate] = useState(localDate());
   const [historyPeriod, setHistoryPeriod] = useState("today");
   const [historyType, setHistoryType] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
-  const [historyFrom, setHistoryFrom] = useState(localDateInput());
-  const [historyTo, setHistoryTo] = useState(localDateInput());
+  const [historyFrom, setHistoryFrom] = useState(localDate());
+  const [historyTo, setHistoryTo] = useState(localDate());
   const [historyPage, setHistoryPage] = useState(1);
+  const [sort, setSort] = useState<"time" | "priority">("time");
+  const [doneOpen, setDoneOpen] = useState(false);
   const [data, setData] = useState<OverviewData | null>(null);
+  const [draft, setDraft] = useState<TaskDraft | null>(null);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     const params = new URLSearchParams({ date, historyPeriod, historyType, historySearch, historyFrom, historyTo, historyPage: String(historyPage), historyPageSize: "15" });
     if (managerId) params.set("managerId", managerId);
     try {
       const response = await fetch(`/api/admin/workspace-overview?${params}`, { cache: "no-store" });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Не удалось загрузить данные");
-      setData(payload);
-      setManagerId((current) => current || payload.selectedManager.id);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось загрузить данные");
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+      setData(payload); setManagerId((current) => current || payload.selectedManager.id);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось загрузить данные"); setData(null); }
+    finally { setLoading(false); }
   }, [date, historyFrom, historyPage, historyPeriod, historySearch, historyTo, historyType, managerId]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 180); return () => window.clearTimeout(timer); }, [load]);
 
-  async function updateAction(actionId: string, patch: Record<string, unknown>) {
+  async function updateTask(actionId: string, patch: Record<string, unknown>) {
     const response = await fetch("/api/admin/client-actions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actionId, ...patch }) });
     const payload = await response.json().catch(() => null);
-    if (!response.ok) { setError(payload?.error || "Не удалось обновить задачу"); return; }
-    await load();
+    if (!response.ok) { setError(payload?.error || "Не удалось обновить задачу"); return false; }
+    await load(); return true;
   }
 
-  const filteredManagers = useMemo(() => {
-    const query = managerSearch.trim().toLocaleLowerCase("ru");
-    return (data?.managers || []).filter((item) => !query || `${name(item)} ${item.email}`.toLocaleLowerCase("ru").includes(query));
-  }, [data?.managers, managerSearch]);
+  async function saveTask() {
+    if (!draft || !draft.title.trim() || !draft.dueAt || !draft.clientId) { setError("Укажите название, клиента и срок задачи"); return; }
+    setSaving(true); setError("");
+    const payload = { title: draft.title, description: draft.description, dueAt: new Date(draft.dueAt).toISOString(), priority: draft.priority, status: draft.status, managerId: draft.managerId, clientId: draft.clientId, type: "TASK", reminderMinutes: 15 };
+    const response = await fetch("/api/admin/client-actions", { method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft.id ? { actionId: draft.id, ...payload } : payload) });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) setError(result?.error || "Не удалось сохранить задачу"); else { setDraft(null); await load(); }
+    setSaving(false);
+  }
 
+  const filteredManagers = useMemo(() => { const query = managerSearch.trim().toLocaleLowerCase("ru"); return (data?.managers || []).filter((item) => !query || `${name(item)} ${item.email}`.toLocaleLowerCase("ru").includes(query)); }, [data?.managers, managerSearch]);
   if (!data && loading) return <OverviewSkeleton />;
   if (!data) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-700">{error || "Обзор недоступен"}</div>;
 
   const selectedName = data.selectedManager.id === "all" ? "команда" : name(data.selectedManager).split(" ")[0];
   const selectedDay = new Date(`${date}T12:00:00`);
-  const todayActions = data.actions.filter((item) => item.dueAt && localDateInput(new Date(item.dueAt)) === date);
-  const overdue = data.actions.filter((item) => item.dueAt && new Date(item.dueAt) < new Date(`${date}T00:00:00`) && !closed.has(item.status));
-  const inProgress = todayActions.filter((item) => item.status === "IN_PROGRESS");
-  const done = todayActions.filter((item) => item.status === "CLOSED");
-  const planned = todayActions.filter((item) => item.status === "OPEN" || item.status === "POSTPONED");
-  const future = data.actions.filter((item) => item.dueAt && new Date(item.dueAt) >= new Date(`${date}T24:00:00`) && !closed.has(item.status));
-  const readOnly = data.selectedManager.id !== data.viewer.id;
+  const dayStart = new Date(`${date}T00:00:00`).getTime();
+  const dayEnd = new Date(`${date}T24:00:00`).getTime();
+  const cutoff = date === localDate() ? Date.now() : dayStart;
+  const tasks = data.actions.filter((item) => item.type === "TASK");
+  const dueToday = tasks.filter((item) => item.dueAt && new Date(item.dueAt).getTime() >= dayStart && new Date(item.dueAt).getTime() < dayEnd);
+  const sorter = (left: Action, right: Action) => sort === "priority" ? (priorityWeight[right.priority || "NORMAL"] || 0) - (priorityWeight[left.priority || "NORMAL"] || 0) || new Date(left.dueAt || 0).getTime() - new Date(right.dueAt || 0).getTime() : new Date(left.dueAt || 0).getTime() - new Date(right.dueAt || 0).getTime();
+  const overdue = tasks.filter((item) => item.dueAt && new Date(item.dueAt).getTime() < cutoff && !finalStatuses.has(item.status)).sort(sorter);
+  const overdueIds = new Set(overdue.map((item) => item.id));
+  const urgent = dueToday.filter((item) => item.priority === "URGENT" && !finalStatuses.has(item.status) && !overdueIds.has(item.id)).sort(sorter);
+  const urgentIds = new Set(urgent.map((item) => item.id));
+  const today = dueToday.filter((item) => !finalStatuses.has(item.status) && !urgentIds.has(item.id) && !overdueIds.has(item.id)).sort(sorter);
+  const done = dueToday.filter((item) => item.status === "CLOSED").sort(sorter);
+  const remaining = overdue.length + urgent.length + today.length;
+  const canEdit = data.selectedManager.id !== "all" && (data.viewer.id === data.selectedManager.id || data.viewer.role === "ADMIN");
 
-  return (
-    <div className="space-y-4" aria-busy={loading}>
-      <section className="overflow-hidden rounded-2xl border border-emerald-900/10 bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-800 p-5 text-white shadow-sm sm:p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Рабочий день · {selectedDay.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{greeting()}, {selectedName}!</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">Сегодня запланировано {data.metrics.tasksToday} задач, {data.metrics.meetings} встреч и {data.metrics.calls} звонков. {data.metrics.overdue > 0 ? `Просрочено: ${data.metrics.overdue}.` : "Просроченных задач нет."}</p>
-          </div>
-          {data.viewer.canInspectTeam && <div className="w-full rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur xl:max-w-sm">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-emerald-100">Просмотр менеджера</label>
-            <input value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Найти сотрудника..." className="mt-2 h-9 w-full rounded-lg border border-white/15 bg-slate-950/35 px-3 text-sm text-white outline-none placeholder:text-white/45 focus:border-emerald-300" />
-            <select value={managerId} onChange={(event) => { setManagerId(event.target.value); setHistoryPage(1); }} className="mt-2 h-10 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-sm text-white outline-none focus:border-emerald-300">
-              <option value={data.viewer.id}>Мой обзор</option>
-              <option value="all">Общая сводка команды</option>
-              {filteredManagers.filter((item) => item.id !== data.viewer.id).map((item) => <option key={item.id} value={item.id}>{name(item)} · {item.email}</option>)}
-            </select>
-          </div>}
-        </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <div><div className="mb-2 flex items-center justify-between text-xs"><span>Дневной план</span><b>{data.metrics.progress}%</b></div><div className="h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${data.metrics.progress}%` }} /></div></div>
-          <div className="text-sm text-emerald-50"><b>{data.metrics.completed}</b> из <b>{data.metrics.tasksToday}</b> выполнено</div>
-        </div>
-      </section>
+  return <div className="space-y-4" aria-busy={loading}>
+    <section className="overflow-hidden rounded-2xl border border-emerald-900/10 bg-gradient-to-br from-slate-950 via-emerald-950 to-emerald-800 p-5 text-white shadow-sm sm:p-6">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Рабочий день · {selectedDay.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}</p><h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{greeting()}, {selectedName}!</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">Сегодня {data.metrics.tasksToday} задач. Выполнено {data.metrics.completed}, осталось {remaining}. Встречи и звонки не входят в план задач.</p></div>
+        {data.viewer.canInspectTeam && <div className="w-full rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur xl:max-w-sm"><label className="text-[11px] font-semibold uppercase tracking-wider text-emerald-100">Просмотр менеджера</label><input value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Найти сотрудника..." className="mt-2 h-9 w-full rounded-lg border border-white/15 bg-slate-950/35 px-3 text-sm text-white outline-none placeholder:text-white/45 focus:border-emerald-300" /><select value={managerId} onChange={(event) => { setManagerId(event.target.value); setHistoryPage(1); }} className="mt-2 h-10 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-sm text-white outline-none focus:border-emerald-300"><option value={data.viewer.id}>Мой обзор</option><option value="all">Общая сводка команды</option>{filteredManagers.filter((item) => item.id !== data.viewer.id).map((item) => <option key={item.id} value={item.id}>{name(item)} · {item.email}</option>)}</select></div>}
+      </div><div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto] md:items-end"><div><div className="mb-2 flex items-center justify-between text-xs"><span>Дневной план</span><b>{data.metrics.progress}%</b></div><div className="h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${data.metrics.progress}%` }} /></div></div><div className="text-sm text-emerald-50"><b>{data.metrics.completed}</b> из <b>{data.metrics.tasksToday}</b> выполнено</div></div>
+    </section>
+    {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
+    {data.selectedManager.id === "all" && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">Общая сводка доступна только для просмотра. Выберите менеджера, чтобы редактировать задачи.</div>}
+    <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"><Metric label="Задачи сегодня" value={data.metrics.tasksToday} /><Metric label="Выполнено" value={data.metrics.completed} tone="green" /><Metric label="Просрочено" value={data.metrics.overdue} tone={data.metrics.overdue ? "red" : undefined} /><Metric label="Новые клиенты" value={data.metrics.newClients} /><Metric label="Звонки" value={data.metrics.calls} /><Metric label="Встречи" value={data.metrics.meetings} /><Metric label="Активные сделки" value={data.metrics.activeDeals} /><Metric label="Закрытые сделки" value={data.metrics.closedDeals} tone="green" /></section>
 
-      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
-      {readOnly && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">Режим просмотра: данные выбранного менеджера доступны без действий от его имени.</div>}
-
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        <Metric label="Задачи сегодня" value={data.metrics.tasksToday} />
-        <Metric label="Выполнено" value={data.metrics.completed} tone="green" />
-        <Metric label="Просрочено" value={data.metrics.overdue} tone={data.metrics.overdue ? "red" : undefined} />
-        <Metric label="Новые клиенты" value={data.metrics.newClients} />
-        <Metric label="Звонки" value={data.metrics.calls} />
-        <Metric label="Встречи" value={data.metrics.meetings} />
-        <Metric label="Активные сделки" value={data.metrics.activeDeals} />
-        <Metric label="Закрытые сделки" value={data.metrics.closedDeals} tone="green" />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,.7fr)]">
-        <Card title="План на сегодня" action={!readOnly ? <a href="/crm?tab=actions" className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">+ Добавить задачу</a> : undefined}>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="text-xs font-semibold text-slate-500">Дата</label>
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm" />
-            <button type="button" onClick={() => setDate(localDateInput())} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Сегодня</button>
-          </div>
-          <div className="space-y-5">
-            <TaskGroup title="Просроченные" actions={overdue} tone="red" onUpdate={updateAction} readOnly={readOnly} />
-            <TaskGroup title="На сегодня" actions={planned} onUpdate={updateAction} readOnly={readOnly} />
-            <TaskGroup title="В работе" actions={inProgress} tone="blue" onUpdate={updateAction} readOnly={readOnly} />
-            <TaskGroup title="Выполненные" actions={done} tone="green" onUpdate={updateAction} readOnly={readOnly} />
-            <TaskGroup title="Предстоящие" actions={future} onUpdate={updateAction} readOnly={readOnly} />
-          </div>
-        </Card>
-
-        <div className="space-y-4">
-          <Card title="Ближайшее действие">
-            {data.nextAction ? <ActionPreview action={data.nextAction} /> : <Empty text="Ближайших действий нет" />}
-          </Card>
-          {!readOnly && <Card title="Быстрые действия">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <QuickLink href="/crm?tab=clients" label="Создать клиента" icon="＋" />
-              <QuickLink href="/crm?tab=tradeOperations" label="Создать сделку" icon="↗" />
-              <QuickLink href="/crm?tab=actions" label="Добавить задачу" icon="✓" />
-              <QuickLink href="/crm?tab=actions" label="Встреча" icon="◷" />
-              <QuickLink href="/crm?tab=clients" label="Добавить заметку" icon="✎" wide />
-            </div>
-          </Card>}
-          <Card title="Требуют внимания">
-            <div className="space-y-2">
-              {data.attentionClients.map((client) => <a key={client.id} href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} className="block rounded-lg border border-slate-200 p-3 transition hover:border-amber-300 hover:bg-amber-50/40"><div className="flex justify-between gap-3"><b className="text-sm text-slate-900">{name(client)}</b><span className="text-[10px] font-bold uppercase text-amber-700">{client.reason}</span></div><p className="mt-1 truncate text-xs text-slate-500">{client.clientActions[0]?.title || client.email}</p></a>)}
-              {data.attentionClients.length === 0 && <Empty text="Нет клиентов, требующих срочного внимания" />}
-            </div>
-          </Card>
-        </div>
-      </section>
-
-      <Card title="История действий">
-        <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[170px_170px_minmax(220px,1fr)_auto]">
-          <select value={historyPeriod} onChange={(event) => { setHistoryPeriod(event.target.value); setHistoryPage(1); }} className="h-10 rounded-lg border border-slate-200 px-3 text-sm"><option value="today">Сегодня</option><option value="yesterday">Вчера</option><option value="7days">Последние 7 дней</option><option value="30days">Последние 30 дней</option><option value="custom">Произвольный период</option></select>
-          <select value={historyType} onChange={(event) => { setHistoryType(event.target.value); setHistoryPage(1); }} className="h-10 rounded-lg border border-slate-200 px-3 text-sm"><option value="all">Все типы</option><option value="actions">Задачи и события</option><option value="notes">Заметки</option><option value="logins">Входы</option></select>
-          <input value={historySearch} onChange={(event) => { setHistorySearch(event.target.value); setHistoryPage(1); }} placeholder="Поиск по истории..." className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
-          <button type="button" onClick={() => void load()} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold">Обновить</button>
-        </div>
-        {historyPeriod === "custom" && <div className="mb-4 flex flex-wrap gap-2"><input aria-label="Начало периода" type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm" /><input aria-label="Конец периода" type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm" /></div>}
-        <div className="divide-y divide-slate-100">
-          {data.history.map((item) => <a key={item.id} href={item.href} className="grid gap-1 py-3 text-sm transition hover:bg-slate-50 sm:grid-cols-[130px_180px_1fr] sm:px-2"><time className="font-semibold text-slate-500">{new Date(item.createdAt).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><b className="text-slate-900">{item.actor}</b><span className="text-slate-600">{item.description}</span></a>)}
-          {data.history.length === 0 && <Empty text="За выбранный период действий нет" />}
-        </div>
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500"><span>Страница {data.historyPagination.page} · найдено {data.historyPagination.total}</span><div className="flex gap-2"><button disabled={historyPage <= 1} onClick={() => setHistoryPage((value) => Math.max(1, value - 1))} className="rounded-lg border px-3 py-2 disabled:opacity-40">Назад</button><button disabled={!data.historyPagination.hasNext} onClick={() => setHistoryPage((value) => value + 1)} className="rounded-lg border px-3 py-2 disabled:opacity-40">Далее</button></div></div>
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,.7fr)]">
+      <Card title={`План на сегодня — ${selectedDay.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}`} action={canEdit ? <button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">+ Добавить задачу</button> : undefined}>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-semibold text-slate-700">Всего {data.metrics.tasksToday} · Выполнено {data.metrics.completed} · Осталось {remaining}</p><div className="flex flex-wrap gap-2"><input type="date" aria-label="Дата плана" value={date} onChange={(event) => setDate(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm" /><select aria-label="Сортировка задач" value={sort} onChange={(event) => setSort(event.target.value as "time" | "priority")} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs"><option value="time">По времени</option><option value="priority">По приоритету</option></select></div></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${data.metrics.progress}%` }} /></div></div>
+        <div className="space-y-5"><TaskGroup title="Просроченные" actions={overdue} kind="overdue" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="Срочные" actions={urgent} kind="urgent" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><TaskGroup title="На сегодня" actions={today} kind="today" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} /><div><button type="button" onClick={() => setDoneOpen((value) => !value)} className="mb-2 flex w-full items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-left text-xs font-bold uppercase text-emerald-700"><span>✓ Выполненные · {done.length}</span><span>{doneOpen ? "Скрыть" : "Показать"}</span></button>{doneOpen && <TaskGroup title="" actions={done} kind="done" canEdit={canEdit} onEdit={(action) => setDraft(taskDraft(action))} onUpdate={updateTask} />}</div>{overdue.length + urgent.length + today.length + done.length === 0 && <Empty text="Для выбранной даты задач нет" />}</div>
       </Card>
-    </div>
-  );
+      <div className="space-y-4"><Card title="Ближайшая задача">{data.nextAction ? <ActionPreview action={data.nextAction} /> : <Empty text="Ближайших задач нет" />}</Card>{canEdit && <Card title="Быстрые действия"><div className="grid grid-cols-2 gap-2 text-sm"><button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="col-span-2 flex items-center gap-2 rounded-lg border border-slate-200 p-3 font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"><span className="text-emerald-700">✓</span>Назначить задачу</button><QuickLink href="/crm?tab=clients" label="Создать клиента" icon="＋" /><QuickLink href="/crm?tab=tradeOperations" label="Создать сделку" icon="↗" /></div></Card>}<Card title="Требуют внимания"><div className="space-y-2">{data.attentionClients.map((client) => <a key={client.id} href={`/crm?tab=clientCard&clientId=${encodeURIComponent(client.id)}`} className="block rounded-lg border border-slate-200 p-3 hover:border-amber-300"><div className="flex justify-between gap-3"><b className="text-sm">{name(client)}</b><span className="text-[10px] font-bold uppercase text-amber-700">{client.reason}</span></div><p className="mt-1 truncate text-xs text-slate-500">{client.clientActions[0]?.title || client.email}</p></a>)}{data.attentionClients.length === 0 && <Empty text="Нет клиентов, требующих срочного внимания" />}</div></Card></div>
+    </section>
+
+    <HistoryCard data={data} load={load} period={historyPeriod} setPeriod={setHistoryPeriod} type={historyType} setType={setHistoryType} search={historySearch} setSearch={setHistorySearch} from={historyFrom} setFrom={setHistoryFrom} to={historyTo} setTo={setHistoryTo} page={historyPage} setPage={setHistoryPage} />
+    {draft && <TaskModal draft={draft} setDraft={setDraft} clients={data.clients} managers={data.managers.length ? data.managers : [data.selectedManager]} canAssign={data.viewer.role === "ADMIN"} saving={saving} close={() => setDraft(null)} save={() => void saveTask()} />}
+  </div>;
 }
 
-function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-bold text-slate-950">{title}</h3>{action}</div>{children}</section>;
-}
-function Metric({ label, value, tone }: { label: string; value: number; tone?: "green" | "red" }) {
-  return <div className={`rounded-xl border bg-white p-3 shadow-sm ${tone === "red" ? "border-red-200" : tone === "green" ? "border-emerald-200" : "border-slate-200"}`}><p className="text-[11px] font-semibold leading-4 text-slate-500">{label}</p><p className={`mt-2 text-2xl font-bold ${tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-700" : "text-slate-950"}`}>{value}</p></div>;
-}
-function TaskGroup({ title, actions, tone, onUpdate, readOnly = false }: { title: string; actions: Action[]; tone?: "red" | "green" | "blue"; onUpdate: (id: string, patch: Record<string, unknown>) => Promise<void>; readOnly?: boolean }) {
+function TaskGroup({ title, actions, kind, canEdit, onEdit, onUpdate }: { title: string; actions: Action[]; kind: "overdue" | "urgent" | "today" | "done"; canEdit: boolean; onEdit: (action: Action) => void; onUpdate: (id: string, patch: Record<string, unknown>) => Promise<boolean> }) {
   if (!actions.length) return null;
-  const colors = tone === "red" ? "bg-red-50 text-red-700" : tone === "green" ? "bg-emerald-50 text-emerald-700" : tone === "blue" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-700";
-  return <div><div className="mb-2 flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${colors}`}>{title}</span><span className="text-xs text-slate-400">{actions.length}</span></div><div className="space-y-2">{actions.map((action) => <div key={action.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="text-sm text-slate-950">{action.title}</b><span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold">{priorityLabels[action.priority || "NORMAL"]}</span></div><p className="mt-1 text-xs text-slate-500">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "Без срока"} · {typeLabels[action.type || "TASK"] || action.type} · {name(action.user)}</p>{action.description && <p className="mt-1 line-clamp-2 text-xs text-slate-600">{action.description}</p>}</div><div className="flex shrink-0 flex-wrap gap-1">{readOnly ? <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600">{statusLabels[action.status] || action.status}</span> : <><select aria-label={`Статус: ${action.title}`} value={action.status} disabled={closed.has(action.status)} onChange={(event) => void onUpdate(action.id, { status: event.target.value })} className="h-8 rounded-lg border border-slate-200 px-2 text-xs"><option value="OPEN">Запланировано</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Выполнено</option></select>{!closed.has(action.status) && <><button onClick={() => void onUpdate(action.id, { status: "CLOSED" })} className="rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white">Готово</button><button onClick={() => { const next = new Date(action.dueAt || Date.now()); next.setDate(next.getDate() + 1); void onUpdate(action.id, { dueAt: next.toISOString(), status: "POSTPONED" }); }} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold">+1 день</button></>}</>}<a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(action.user.id)}`} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold">Клиент</a></div></div></div>)}</div></div>;
+  const cls = kind === "overdue" ? "bg-red-50 text-red-700" : kind === "urgent" ? "bg-orange-50 text-orange-700" : kind === "done" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700";
+  return <div>{title && <div className="mb-2 flex items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${cls}`}>{title}</span><span className="text-xs text-slate-400">{actions.length}</span></div>}<div className="space-y-3">{actions.map((action) => <TaskCard key={action.id} action={action} kind={kind} canEdit={canEdit} onEdit={() => onEdit(action)} onUpdate={onUpdate} />)}</div></div>;
 }
-function ActionPreview({ action }: { action: Action }) { return <div className="rounded-xl bg-slate-950 p-4 text-white"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">{typeLabels[action.type || "TASK"] || action.type}</p><h4 className="mt-2 font-bold">{action.title}</h4><p className="mt-2 text-xs text-slate-300">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "Без срока"}</p><p className="mt-1 text-xs text-slate-400">{name(action.user)}</p><a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(action.user.id)}`} className="mt-4 inline-flex rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950">Открыть запись →</a></div>; }
-function QuickLink({ href, label, icon, wide }: { href: string; label: string; icon: string; wide?: boolean }) { return <a href={href} className={`flex items-center gap-2 rounded-lg border border-slate-200 p-3 font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 ${wide ? "col-span-2" : ""}`}><span className="text-emerald-700">{icon}</span>{label}</a>; }
-function Empty({ text }: { text: string }) { return <p className="rounded-lg border border-dashed border-slate-200 px-3 py-5 text-center text-sm text-slate-400">{text}</p>; }
-function OverviewSkeleton() { return <div className="space-y-4" role="status" aria-label="Загрузка обзора"><div className="h-48 animate-pulse rounded-2xl bg-slate-200" /><div className="grid grid-cols-2 gap-3 md:grid-cols-4"><div className="h-24 animate-pulse rounded-xl bg-slate-100" /><div className="h-24 animate-pulse rounded-xl bg-slate-100" /><div className="h-24 animate-pulse rounded-xl bg-slate-100" /><div className="h-24 animate-pulse rounded-xl bg-slate-100" /></div></div>; }
+
+function TaskCard({ action, kind, canEdit, onEdit, onUpdate }: { action: Action; kind: "overdue" | "urgent" | "today" | "done"; canEdit: boolean; onEdit: () => void; onUpdate: (id: string, patch: Record<string, unknown>) => Promise<boolean> }) {
+  const accent = action.priority === "URGENT" ? "border-l-red-500" : action.priority === "HIGH" ? "border-l-orange-500" : action.priority === "LOW" ? "border-l-slate-300" : "border-l-sky-500";
+  const due = action.dueAt ? new Date(action.dueAt) : null; const minutes = due ? Math.round((due.getTime() - Date.now()) / 60_000) : null;
+  const near = kind !== "overdue" && kind !== "done" && minutes !== null && minutes >= 0 && minutes <= 120 ? (minutes < 60 ? `Через ${Math.max(1, minutes)} мин.` : `Через ${Math.round(minutes / 60)} ч.`) : null;
+  return <article className={`rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm ${accent} ${kind === "done" ? "opacity-65" : "transition hover:-translate-y-0.5 hover:shadow-md"}`}><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{kind === "done" && <span className="text-emerald-600">✓</span>}<h4 className={`text-base font-bold text-slate-950 ${kind === "done" ? "line-through decoration-slate-400" : ""}`}>{action.title}</h4><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${action.priority === "URGENT" ? "bg-red-100 text-red-700" : action.priority === "HIGH" ? "bg-orange-100 text-orange-700" : action.priority === "LOW" ? "bg-slate-100 text-slate-600" : "bg-sky-100 text-sky-700"}`}>{action.priority === "URGENT" ? "! " : ""}{priorityLabels[action.priority || "NORMAL"]}</span>{kind === "overdue" && <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">Просрочено</span>}{near && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">⏱ {near}</span>}</div><p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>◷ {due ? due.toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Без срока"}</span><span>• {statusLabels[action.status] || action.status}</span><a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(action.user.id)}`} className="font-semibold text-emerald-700 hover:underline">{name(action.user)}</a></p>{action.description && <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-slate-600">{action.description}</p>}</div>{canEdit && <div className="flex shrink-0 flex-wrap gap-2">{kind !== "done" && <button type="button" onClick={onEdit} aria-label={`Редактировать задачу: ${action.title}`} title="Редактировать" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-sky-50">✎</button>}{kind === "overdue" && <button type="button" onClick={() => { const next = new Date(action.dueAt || Date.now()); next.setDate(next.getDate() + 1); void onUpdate(action.id, { dueAt: next.toISOString(), status: "POSTPONED" }); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">+1 день</button>}{kind === "done" ? <button type="button" onClick={() => void onUpdate(action.id, { status: "IN_PROGRESS" })} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700">Вернуть в работу</button> : <button type="button" onClick={() => void onUpdate(action.id, { status: "CLOSED" })} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">✓ Выполнить</button>}</div>}</div></article>;
+}
+
+function TaskModal({ draft, setDraft, clients, managers, canAssign, saving, close, save }: { draft: TaskDraft; setDraft: React.Dispatch<React.SetStateAction<TaskDraft | null>>; clients: Person[]; managers: Person[]; canAssign: boolean; saving: boolean; close: () => void; save: () => void }) {
+  const change = (patch: Partial<TaskDraft>) => setDraft((current) => current ? { ...current, ...patch } : current);
+  return <div className="fixed inset-0 z-[150] grid place-items-center bg-slate-950/50 p-3 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && close()}><div role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b px-5 py-4"><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Тип: Задача</p><h3 id="task-modal-title" className="mt-1 text-xl font-bold">{draft.id ? "Редактировать задачу" : "Назначить задачу"}</h3></div><button onClick={close} aria-label="Закрыть" className="grid size-9 place-items-center rounded-lg hover:bg-slate-100">✕</button></div><div className="grid gap-4 p-5 sm:grid-cols-2"><Field label="Название задачи *" wide><EmojiTextField autoFocus required value={draft.title} onChange={(value) => change({ title: value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field><Field label="Описание" wide><EmojiTextField multiline value={draft.description} onChange={(value) => change({ description: value })} className="min-h-28 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></Field><Field label="Дата и время *"><input required type="datetime-local" value={draft.dueAt} onChange={(event) => change({ dueAt: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field><Field label="Приоритет"><select value={draft.priority} onChange={(event) => change({ priority: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option value="LOW">Низкий</option><option value="NORMAL">Обычный</option><option value="HIGH">Высокий</option><option value="URGENT">Срочный</option></select></Field><Field label="Статус"><select value={draft.status} onChange={(event) => change({ status: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option value="OPEN">Запланировано</option><option value="IN_PROGRESS">В работе</option><option value="POSTPONED">Перенесено</option><option value="CLOSED">Выполнено</option></select></Field><Field label="Связанный клиент *"><select required value={draft.clientId} onChange={(event) => change({ clientId: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option value="">Выберите клиента</option>{clients.map((client) => <option key={client.id} value={client.id}>{name(client)} · {client.email}</option>)}</select></Field>{canAssign && <Field label="Ответственный менеджер" wide><select value={draft.managerId} onChange={(event) => change({ managerId: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option value="">Не назначен</option>{managers.map((manager) => <option key={manager.id} value={manager.id}>{name(manager)}</option>)}</select></Field>}</div><div className="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onClick={close} className="rounded-lg border px-4 py-2 text-sm font-semibold">Отмена</button><button type="button" disabled={saving} onClick={save} className="rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить"}</button></div></div></div>;
+}
+
+function HistoryCard({ data, load, period, setPeriod, type, setType, search, setSearch, from, setFrom, to, setTo, page, setPage }: { data: OverviewData; load: () => Promise<void>; period: string; setPeriod: (v: string) => void; type: string; setType: (v: string) => void; search: string; setSearch: (v: string) => void; from: string; setFrom: (v: string) => void; to: string; setTo: (v: string) => void; page: number; setPage: React.Dispatch<React.SetStateAction<number>> }) {
+  return <Card title="История действий"><div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[170px_170px_minmax(220px,1fr)_auto]"><select value={period} onChange={(event) => { setPeriod(event.target.value); setPage(1); }} className="h-10 rounded-lg border px-3 text-sm"><option value="today">Сегодня</option><option value="yesterday">Вчера</option><option value="7days">Последние 7 дней</option><option value="30days">Последние 30 дней</option><option value="custom">Произвольный период</option></select><select value={type} onChange={(event) => { setType(event.target.value); setPage(1); }} className="h-10 rounded-lg border px-3 text-sm"><option value="all">Все типы</option><option value="actions">Задачи и события</option><option value="notes">Заметки</option><option value="logins">Входы</option></select><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Поиск по истории..." className="h-10 rounded-lg border px-3 text-sm" /><button type="button" onClick={() => void load()} className="rounded-lg border px-4 py-2 text-sm font-semibold">Обновить</button></div>{period === "custom" && <div className="mb-4 flex gap-2"><input aria-label="Начало периода" type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="h-9 rounded-lg border px-3 text-sm" /><input aria-label="Конец периода" type="date" value={to} onChange={(event) => setTo(event.target.value)} className="h-9 rounded-lg border px-3 text-sm" /></div>}<div className="divide-y">{data.history.map((item) => <a key={item.id} href={item.href} className="grid gap-1 py-3 text-sm hover:bg-slate-50 sm:grid-cols-[130px_180px_1fr] sm:px-2"><time className="font-semibold text-slate-500">{new Date(item.createdAt).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><b>{item.actor}</b><span className="text-slate-600">{item.description}</span></a>)}{data.history.length === 0 && <Empty text="За выбранный период действий нет" />}</div><div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-slate-500"><span>Страница {data.historyPagination.page} · найдено {data.historyPagination.total}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="rounded-lg border px-3 py-2 disabled:opacity-40">Назад</button><button disabled={!data.historyPagination.hasNext} onClick={() => setPage((v) => v + 1)} className="rounded-lg border px-3 py-2 disabled:opacity-40">Далее</button></div></div></Card>;
+}
+
+function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) { return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-bold text-slate-950">{title}</h3>{action}</div>{children}</section>; }
+function Field({ label, wide, children }: { label: string; wide?: boolean; children: React.ReactNode }) { return <label className={`text-xs font-semibold text-slate-600 ${wide ? "sm:col-span-2" : ""}`}>{label}<div className="mt-1">{children}</div></label>; }
+function Metric({ label, value, tone }: { label: string; value: number; tone?: "green" | "red" }) { return <div className={`rounded-xl border bg-white p-3 shadow-sm ${tone === "red" ? "border-red-200" : tone === "green" ? "border-emerald-200" : "border-slate-200"}`}><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className={`mt-2 text-2xl font-bold ${tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-700" : "text-slate-950"}`}>{value}</p></div>; }
+function ActionPreview({ action }: { action: Action }) { return <div className="rounded-xl bg-slate-950 p-4 text-white"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Задача</p><h4 className="mt-2 font-bold">{action.title}</h4><p className="mt-2 text-xs text-slate-300">{action.dueAt ? new Date(action.dueAt).toLocaleString("ru-RU") : "Без срока"}</p><p className="mt-1 text-xs text-slate-400">{name(action.user)}</p><a href={`/crm?tab=clientCard&clientId=${encodeURIComponent(action.user.id)}`} className="mt-4 inline-flex rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950">Открыть клиента →</a></div>; }
+function QuickLink({ href, label, icon }: { href: string; label: string; icon: string }) { return <a href={href} className="flex items-center gap-2 rounded-lg border p-3 font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"><span className="text-emerald-700">{icon}</span>{label}</a>; }
+function Empty({ text }: { text: string }) { return <p className="rounded-lg border border-dashed px-3 py-5 text-center text-sm text-slate-400">{text}</p>; }
+function OverviewSkeleton() { return <div className="space-y-4" role="status" aria-label="Загрузка обзора"><div className="h-48 animate-pulse rounded-2xl bg-slate-200" /><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl bg-slate-100" />)}</div></div>; }
