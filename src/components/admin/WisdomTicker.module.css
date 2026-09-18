@@ -99,32 +99,6 @@
   background: radial-gradient(circle at 12% 10%, rgba(52, 211, 153, 0.17), transparent 24rem), linear-gradient(115deg, #041f1a, #052e25 52%, #063d31);
 }
 
-.glass {
-  --ticker-edge-left: #ffffff;
-  --ticker-edge-right: #ffffff;
-  border-color: #d1fae5;
-  background: #ffffff;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
-  animation: none;
-}
-
-.glass .header { color: #047857; }
-.glass .item { color: #12372c; }
-.glass .author { color: #07835f; }
-.glass .quote { text-shadow: none; animation: none; }
-
-:global(.dark) .glass {
-  --ticker-edge-left: #ffffff;
-  --ticker-edge-right: #ffffff;
-  border-color: #d1fae5;
-  background: #ffffff;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
-}
-
-:global(.dark) .glass .header { color: #047857; }
-:global(.dark) .glass .item { color: #12372c; }
-:global(.dark) .glass .author { color: #07835f; }
-
 @media (prefers-reduced-motion: reduce) {
   .root, .quote { animation: none; }
   .track { width: 100%; animation: none; transform: none; will-change: auto; }

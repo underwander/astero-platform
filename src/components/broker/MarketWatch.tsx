@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { formatPrice, getInstrument, marketGroups, marketInstruments, type MarketGroup } from "@/lib/market-instruments";
 import { useLanguage } from "@/context/LanguageContext";
-import DashboardPanelIcon from "./DashboardPanelIcon";
-import { ShootingStarIcon } from "@/icons";
 
 export type MarketSymbol = {
   symbol: string;
@@ -69,8 +67,7 @@ export default function MarketWatch({ compact = false }: { compact?: boolean }) 
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="mb-4 flex items-center gap-3">
-        <DashboardPanelIcon><ShootingStarIcon /></DashboardPanelIcon>
+      <div className="mb-4">
         <h2 className="text-base font-bold text-slate-900 dark:text-white">{language === "ru" ? "Котировки" : "Quotes"}</h2>
       </div>
 

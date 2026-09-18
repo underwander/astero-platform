@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import DashboardPanelIcon from "./DashboardPanelIcon";
-import { PieChartIcon } from "@/icons";
 
 const inputClass =
   "h-[76px] w-full rounded-xl border border-emerald-100 bg-white px-4 pr-16 text-3xl font-black text-slate-950 outline-none transition placeholder:text-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-emerald-400/10 dark:bg-slate-950 dark:text-white";
@@ -17,10 +15,7 @@ export default function ProfitCalculator() {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="flex items-center gap-3">
-        <DashboardPanelIcon><PieChartIcon /></DashboardPanelIcon>
-        <h2 className="text-base font-black text-slate-900 dark:text-white">{language === "ru" ? "Калькулятор прибыли" : "Profit calculator"}</h2>
-      </div>
+      <h2 className="text-base font-black text-slate-900 dark:text-white">{language === "ru" ? "Калькулятор прибыли" : "Profit calculator"}</h2>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[280px_1fr] md:items-end">
         <label>

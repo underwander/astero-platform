@@ -46,31 +46,20 @@ test("client dashboard reuses the ticker below account metrics", () => {
   const calculator = dashboard.indexOf("<ProfitCalculator />");
   assert.ok(metrics >= 0 && ticker > metrics && calculator > ticker);
   assert.match(clientTicker, /import\("@\/components\/admin\/WisdomTicker"\)/);
-  assert.match(clientTicker, /variant="glass"/);
+  assert.match(clientTicker, /<WisdomTicker \/>/);
 });
 
-test("client dashboard uses an isolated white surface with reduced motion support", () => {
+test("client dashboard keeps its original direct component layout", () => {
   const dashboard = readFileSync("src/app/(admin)/dashboard/page.tsx", "utf8");
-  const styles = readFileSync("src/app/(admin)/dashboard/DashboardLiquidGlass.module.css", "utf8");
   for (const panel of ["ProfitCalculator", "TransferHistory", "AnnouncementsBoard", "MarketWatch", "TraderNews", "LegalDocumentsPanel"]) {
-    assert.match(dashboard, new RegExp(`styles\\.glassPanel[^<]*<${panel}`));
+    assert.match(dashboard, new RegExp(`<${panel}`));
   }
-  assert.match(styles, /background: #ffffff/);
-  assert.doesNotMatch(styles, /radial-gradient|backdrop-filter/);
-  assert.match(styles, /prefers-reduced-motion: reduce/);
-  assert.match(styles, /\.glassPanel:empty/);
-  assert.match(dashboard, /styles\.glassPanel\} \$\{styles\.modalPanel/);
-  assert.match(styles, /\.modalPanel[\s\S]*overflow: visible/);
+  assert.doesNotMatch(dashboard, /DashboardLiquidGlass|styles\.glassPanel|styles\.shell/);
 });
 
-test("client dashboard icons reuse the landing visual tokens", () => {
-  const landing = readFileSync("src/components/landing/AsteroLanding.tsx", "utf8");
-  const icon = readFileSync("src/components/broker/DashboardPanelIcon.tsx", "utf8");
+test("client dashboard uses the original metric card artwork", () => {
   const metrics = readFileSync("src/components/ecommerce/BrokerMetrics.tsx", "utf8");
-  assert.match(landing, /size-12 items-center justify-center rounded-2xl/);
-  assert.match(landing, /accent === "emerald" \? "bg-emerald-400"/);
-  assert.match(icon, /size-12 shrink-0 items-center justify-center rounded-2xl/);
-  assert.match(icon, /bg-emerald-400 text-slate-950/);
-  assert.match(metrics, /<DashboardPanelIcon>/);
-  assert.doesNotMatch(metrics, /bg-gradient-to-br from-\[#0f5132\]/);
+  assert.match(metrics, /bg-gradient-to-br from-\[#0f5132\]/);
+  assert.match(metrics, /<svg width="26" height="26"/);
+  assert.doesNotMatch(metrics, /DashboardPanelIcon/);
 });

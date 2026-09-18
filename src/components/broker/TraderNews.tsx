@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import DashboardPanelIcon from "./DashboardPanelIcon";
-import { PageIcon } from "@/icons";
 
 type NewsItem = {
   title: string;
@@ -35,8 +33,7 @@ export default function TraderNews() {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="mb-4 flex items-center gap-3">
-        <DashboardPanelIcon><PageIcon /></DashboardPanelIcon>
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-black text-slate-950 dark:text-white">{language === "ru" ? "Новости трейдера" : "Trader news"}</h2>
       </div>
 

@@ -1,8 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import DashboardPanelIcon from "./DashboardPanelIcon";
-import { BellIcon } from "@/icons";
 
 type Announcement = {
   id: string;
@@ -34,10 +32,7 @@ export default function AnnouncementsBoard() {
 
   return (
     <section className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="flex items-center gap-3">
-        <DashboardPanelIcon><BellIcon /></DashboardPanelIcon>
-        <h2 className="text-base font-black text-slate-950 dark:text-white">Доска объявлений</h2>
-      </div>
+      <h2 className="text-base font-black text-slate-950 dark:text-white">Доска объявлений</h2>
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {items.map((item) => {
           const imageUrl = item.imageBase64 && item.imageMimeType ? `data:${item.imageMimeType};base64,${item.imageBase64}` : "";

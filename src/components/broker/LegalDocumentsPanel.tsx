@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { clientAgreementEn, clientAgreementRu } from "@/components/broker/legalDocumentContent";
-import DashboardPanelIcon from "./DashboardPanelIcon";
-import { DocsIcon } from "@/icons";
 
 type Lang = "ru" | "en";
 
@@ -225,10 +223,6 @@ export default function LegalDocumentsPanel() {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="mb-4 flex items-center gap-3">
-        <DashboardPanelIcon><DocsIcon /></DashboardPanelIcon>
-        <h2 className="text-base font-black text-slate-950 dark:text-white">{lang === "ru" ? "Документы" : "Documents"}</h2>
-      </div>
       <div className="flex flex-wrap gap-2 text-xs">
         {documents.map((item) => (
           <button
