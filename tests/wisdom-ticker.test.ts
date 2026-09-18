@@ -37,3 +37,28 @@ test("ticker is rendered once immediately after today's metrics", () => {
   assert.doesNotMatch(crm, /<WisdomTicker \/>/);
   assert.equal((overview.match(/<WisdomTicker \/>/g) || []).length, 1);
 });
+
+test("client dashboard reuses the ticker below account metrics", () => {
+  const dashboard = readFileSync("src/app/(admin)/dashboard/page.tsx", "utf8");
+  const clientTicker = readFileSync("src/components/broker/ClientWisdomTicker.tsx", "utf8");
+  const metrics = dashboard.indexOf("<BrokerMetrics />");
+  const ticker = dashboard.indexOf("<ClientWisdomTicker />");
+  const calculator = dashboard.indexOf("<ProfitCalculator />");
+  assert.ok(metrics >= 0 && ticker > metrics && calculator > ticker);
+  assert.match(clientTicker, /import\("@\/components\/admin\/WisdomTicker"\)/);
+  assert.match(clientTicker, /variant="glass"/);
+});
+
+test("client dashboard glass skin is isolated and accessible", () => {
+  const dashboard = readFileSync("src/app/(admin)/dashboard/page.tsx", "utf8");
+  const styles = readFileSync("src/app/(admin)/dashboard/DashboardLiquidGlass.module.css", "utf8");
+  for (const panel of ["ProfitCalculator", "TransferHistory", "AnnouncementsBoard", "MarketWatch", "TraderNews", "LegalDocumentsPanel"]) {
+    assert.match(dashboard, new RegExp(`styles\\.glassPanel[^<]*<${panel}`));
+  }
+  assert.match(styles, /backdrop-filter: blur\(/);
+  assert.match(styles, /@supports not/);
+  assert.match(styles, /prefers-reduced-motion: reduce/);
+  assert.match(styles, /\.glassPanel:empty/);
+  assert.match(dashboard, /styles\.glassPanel\} \$\{styles\.modalPanel/);
+  assert.match(styles, /\.modalPanel[\s\S]*overflow: visible/);
+});

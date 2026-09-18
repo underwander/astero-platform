@@ -20,11 +20,11 @@ function QuoteGroup({ quotes, duplicate = false }: { quotes: WisdomQuote[]; dupl
   );
 }
 
-export default function WisdomTicker() {
+export default function WisdomTicker({ variant = "crm" }: { variant?: "crm" | "glass" }) {
   const quotes = useMemo(() => selectRandomQuotes(wisdomQuotes, DISPLAYED_QUOTES), []);
 
   return (
-    <aside className={styles.root} tabIndex={0} aria-label="Мудрые мысли. Наведите курсор или установите фокус, чтобы остановить движение.">
+    <aside className={`${styles.root} ${variant === "glass" ? styles.glass : ""}`} tabIndex={0} aria-label="Мудрые мысли. Наведите курсор или установите фокус, чтобы остановить движение.">
       <div className={styles.header}><span className={styles.spark} aria-hidden="true">✦</span> Мысль и вдохновение</div>
       <div className={styles.viewport}>
         <div className={styles.track} style={{ "--ticker-duration": "175s" } as React.CSSProperties}>
