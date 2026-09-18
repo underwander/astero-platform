@@ -10,6 +10,7 @@ import { visibleTransactionDescription } from "@/lib/deposit-comment";
 import ActionsWorkspace from "@/components/admin/ActionsWorkspace";
 import ManagerOverview from "@/components/admin/ManagerOverview";
 import EmojiTextField from "@/components/form/EmojiTextField";
+import LongTextPreview from "@/components/ui/LongTextPreview";
 
 type ManagerRef = {
   id: string;
@@ -990,7 +991,7 @@ export default function AsteroCrm() {
 
   async function changeClientPassword(userId: string, nextPassword?: string) {
     const password = nextPassword || passwords[userId];
-    if (!password || password.length < 6) return alert("Пароль минимум 6 символов");
+    if (!password || password.length < 8) return alert("Пароль минимум 8 символов");
     const res = await fetch("/api/admin/users/change-password", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1000,7 +1001,7 @@ export default function AsteroCrm() {
     if (!res.ok) return alert(data.error || "Ошибка смены пароля");
     setPasswords((prev) => ({ ...prev, [userId]: "" }));
     await loadAdminData();
-    alert(nextPassword ? `Новый пароль клиента: ${nextPassword}` : "Пароль изменён");
+    alert("Пароль клиента безопасно сброшен. Старый пароль не раскрывается и недоступен для просмотра.");
   }
 
   async function updateUser(userId: string, payload: Partial<User> & { password?: string }) {
@@ -1715,6 +1716,7 @@ export default function AsteroCrm() {
             onUpdateUser={updateUser}
             onDeleteClient={(client) => deleteUser(client.id, client.email)}
             onDeleteDocument={deleteDocument}
+            canResetPassword={currentAdminRole === "ADMIN"}
           />
         )}
 
@@ -2154,7 +2156,7 @@ function SecurityPanel() {
         </div>
         <p className="mt-2 text-xs text-slate-500">Используются выбранные выше причина и внутренняя заметка. Популярные домены не блокируются автоматически.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {identityRules.map((rule) => <div key={rule.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div className="min-w-0"><p className="truncate font-semibold text-slate-900" title={rule.value}>{rule.kind === "DOMAIN" ? "@" : ""}{rule.value}</p><p className="text-xs text-slate-500">{rule.reason || "Причина не указана"} · {rule.expiresAt ? `до ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "постоянно"}</p><p className="text-[11px] text-slate-400">{rule.createdBy || "legacy"}{rule.note ? ` · ${rule.note}` : ""}</p></div><button type="button" onClick={() => deleteIdentityRule(rule.id, rule.value)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Разблокировать</button></div>)}
+          {identityRules.map((rule) => <div key={rule.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div className="min-w-0"><LongTextPreview text={`${rule.kind === "DOMAIN" ? "@" : ""}${rule.value}`} lines={1} className="font-semibold text-slate-900" /><p className="text-xs text-slate-500">{rule.reason || "Причина не указана"} · {rule.expiresAt ? `до ${new Date(rule.expiresAt).toLocaleString("ru-RU")}` : "постоянно"}</p><LongTextPreview text={`${rule.createdBy || "legacy"}${rule.note ? ` · ${rule.note}` : ""}`} lines={2} className="text-[11px] text-slate-400" /></div><button type="button" onClick={() => deleteIdentityRule(rule.id, rule.value)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Разблокировать</button></div>)}
           {identityRules.length === 0 && <Empty text="Блокировок email и доменов нет" />}
         </div>
       </Panel>
@@ -2193,9 +2195,9 @@ function SecurityPanel() {
                   <td className="p-3"><Badge value={event.outcome || (event.type === "LOGIN_SUCCESS" ? "SUCCESS" : event.type === "LOGIN_FAILED" ? "FAILED" : "INFO")} /></td>
                   <td className="p-3 font-semibold">{event.type}</td>
                   <td className="p-3">{event.ip ? <span className="inline-flex items-center gap-1"><span>{event.ip}</span><CopyValueButton value={event.ip} label="IP" /></span> : "-"}</td>
-                  <td className="p-3"><p className="max-w-56 truncate" title={event.email || event.user?.email || ""}>{event.email || event.user?.email || "-"}</p><p className="text-[10px] font-bold text-slate-400">{event.classification || (event.user ? "KNOWN_ACCOUNT" : "UNKNOWN_VISITOR")}</p></td>
+                  <td className="p-3"><LongTextPreview text={event.email || event.user?.email || "-"} lines={1} className="max-w-56" /><p className="text-[10px] font-bold text-slate-400">{event.classification || (event.user ? "KNOWN_ACCOUNT" : "UNKNOWN_VISITOR")}</p></td>
                   <td className="p-3">{event.device || "-"} · {event.browser || "-"} · {event.os || "-"}</td>
-                  <td className="max-w-[340px] p-3"><details><summary className="cursor-pointer truncate font-medium" title={event.description}>{event.failureReason ? `${event.failureReason}: ` : ""}{event.description}</summary><div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600"><p><b>Описание:</b> {event.description}</p><p><b>Локация:</b> {[event.city, event.country].filter(Boolean).join(", ") || "Неизвестно"} (приблизительно по IP)</p><p><b>Путь:</b> {event.path || "-"}</p><p><b>Request ID:</b> {event.requestId || "Нет данных"}</p><p><b>Сигналы:</b> {event.signals ? event.signals.replace(/[\[\]"]/g, "").replace(/,/g, ", ") : "Нет дополнительных сигналов"}</p></div></details></td>
+                  <td className="max-w-[340px] p-3"><details><summary className="cursor-pointer font-medium"><LongTextPreview text={`${event.failureReason ? `${event.failureReason}: ` : ""}${event.description}`} lines={2} /></summary><div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600"><p><b>Описание:</b> {event.description}</p><p><b>Локация:</b> {[event.city, event.country].filter(Boolean).join(", ") || "Неизвестно"} (приблизительно по IP)</p><p><b>Путь:</b> {event.path || "-"}</p><p><b>Request ID:</b> {event.requestId || "Нет данных"}</p><p><b>Сигналы:</b> {event.signals ? event.signals.replace(/[\[\]"]/g, "").replace(/,/g, ", ") : "Нет дополнительных сигналов"}</p></div></details></td>
                 </tr>
               ))}
               {events.length === 0 && (
@@ -2565,7 +2567,7 @@ function LandingContentAdminPanel() {
 }
 
 function Metric({ title, value, danger }: { title: string; value: string | number; danger?: boolean }) {
-  return <div className="rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white px-3.5 py-3 shadow-[var(--crm-shadow)]"><p className="truncate text-[11px] font-medium text-slate-500" title={title}>{title}</p><p className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-600" : "text-slate-950"}`}>{value}</p></div>;
+  return <div className="rounded-[var(--crm-radius)] border border-[var(--crm-border)] bg-white px-3.5 py-3 shadow-[var(--crm-shadow)]"><LongTextPreview text={title} lines={1} className="text-[11px] font-medium text-slate-500" /><p className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-600" : "text-slate-950"}`}>{value}</p></div>;
 }
 
 function Badge({ value }: { value: string }) {
@@ -2640,6 +2642,7 @@ function ClientProfileUtip({
   onUpdateUser,
   onDeleteClient,
   onDeleteDocument,
+  canResetPassword,
 }: {
   selectedClient: User;
   managers: User[];
@@ -2681,6 +2684,7 @@ function ClientProfileUtip({
   onUpdateUser: (userId: string, payload: Partial<User> & { password?: string }) => void;
   onDeleteClient: (client: User) => void;
   onDeleteDocument: (documentId: string) => void;
+  canResetPassword: boolean;
 }) {
   const [clientSection, setClientSection] = useState<
     "overview" | "history" | "documents" | "accounts" | "operations" | "deposits" | "requests" | "tickets" | "mailing"
@@ -2926,11 +2930,14 @@ function ClientProfileUtip({
                 maxLength={500}
                 placeholder="Комментарий / описание (необязательно)"
               />
-              <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Смена пароля</label>
-              <div className="flex gap-2">
-                <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" type={showPasswords ? "text" : "password"} />
-                <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">OK</button>
-              </div>
+              {canResetPassword && <>
+                <label className="mt-3 text-[11px] font-bold uppercase text-slate-400">Пароль</label>
+                <p className="mb-1 text-[11px] leading-4 text-slate-500">Текущий пароль хранится только как хеш и не может быть показан. Администратор может задать новый.</p>
+                <div className="flex gap-2">
+                  <input className={`${inputClass} h-9 rounded-lg`} value={passwords[selectedClient.id] || ""} onChange={(event) => setPasswords({ ...passwords, [selectedClient.id]: event.target.value })} placeholder="Новый пароль" autoComplete="new-password" type={showPasswords ? "text" : "password"} />
+                  <button onClick={() => changeClientPassword(selectedClient.id)} className="rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white">Сбросить</button>
+                </div>
+              </>}
             </UtipInfoPanel>
           </div>}
 
@@ -3005,7 +3012,7 @@ function ClientProfileUtip({
                 <option value="updated">По изменению</option>
               </select>
             </div>
-            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+            <div className="mt-3 space-y-3">
               {visibleNotes.map((note) => <NoteCard key={note.id} note={note} onUpdate={updateNote} onDelete={deleteNote} />)}
               {sortedNotes.length === 0 && <Empty text={(selectedClient.clientNotes || []).length === 0 ? "Заметок пока нет" : "По фильтру заметок нет"} />}
             </div>
@@ -3452,7 +3459,7 @@ function UtipRow({ label, value, copyValue }: { label: string; value: string; co
     <div className="grid grid-cols-[130px_1fr] border-b border-slate-200 py-1.5 text-xs last:border-b-0">
       <span className="text-slate-500">{label}</span>
       <span className="flex min-w-0 items-center gap-2 break-words font-bold text-slate-900">
-        <span>{value}</span>
+        <LongTextPreview text={value} lines={2} className="min-w-0 flex-1" />
         {copyValue && (
           <button
             type="button"
@@ -3668,8 +3675,36 @@ function Info({ label, value, sub }: { label: string; value: string; sub?: strin
 
 function NoteCard({ note, onUpdate, onDelete }: { note: ClientNote; onUpdate: (id: string, payload: Partial<{ status: string; text: string }>) => void; onDelete: (id: string) => void }) {
   const [text, setText] = useState(note.text);
+  const [editing, setEditing] = useState(false);
   const isImportant = note.status === "IMPORTANT";
-  return <div className={`rounded-xl border p-3 ${isImportant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]"><EmojiTextField multiline className={`min-h-16 rounded-lg border px-3 py-2 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white text-base font-semibold text-amber-900" : "border-slate-200 text-sm"}`} value={text} onChange={setText} /><select className="h-10 rounded-lg border border-slate-200 px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select><button onClick={() => onUpdate(note.id, { text })} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Сохранить</button><button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Удалить</button></div><p className={`mt-2 text-[11px] ${isImportant ? "font-semibold text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p></div>;
+  function save() {
+    if (!text.trim() || text === note.text) return;
+    onUpdate(note.id, { text });
+    setEditing(false);
+  }
+  return (
+    <article className={`rounded-xl border p-4 ${isImportant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-xl text-2xl ${isImportant ? "bg-amber-100" : "bg-emerald-50"}`}>📝</span>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <EmojiTextField multiline autoFocus className={`min-h-32 w-full rounded-lg border px-3 py-3 text-sm leading-6 text-slate-700 outline-none focus:border-emerald-500 ${isImportant ? "border-amber-200 bg-white font-semibold text-amber-900" : "border-slate-200"}`} value={text} onChange={setText} />
+          ) : (
+            <LongTextPreview text={note.text} lines={4} className={`min-h-12 text-sm leading-6 ${isImportant ? "font-semibold text-amber-900" : "text-slate-700"}`} ariaLabel="Показать заметку полностью" />
+          )}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-3">
+        <select className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs" value={note.status} onChange={(event) => onUpdate(note.id, { status: event.target.value })}><option value="OPEN">Открыто</option><option value="IMPORTANT">Важно</option><option value="CLOSED">Закрыто</option></select>
+        {editing ? <>
+          <button onClick={save} disabled={!text.trim() || text === note.text} className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Сохранить</button>
+          <button type="button" onClick={() => { setText(note.text); setEditing(false); }} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">Отмена</button>
+        </> : <button type="button" onClick={() => setEditing(true)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">Редактировать</button>}
+        <button type="button" onClick={() => onDelete(note.id)} className="h-10 rounded-lg bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100">Удалить</button>
+        <p className={`ml-auto text-[11px] ${isImportant ? "font-semibold text-amber-700" : "text-slate-400"}`}>{isImportant ? "Важно · " : "Изменено: "}{new Date(note.updatedAt || note.createdAt).toLocaleString("ru-RU")}</p>
+      </div>
+    </article>
+  );
 }
 
 function ActionList({ actions, onUpdate, onDelete, managers, showClient }: { actions: (ClientAction & { client?: User })[]; onUpdate: (id: string, payload: Partial<{ title: string; description: string; status: string; dueAt: string; managerId: string }>) => void; onDelete: (id: string) => void; managers: User[]; showClient?: boolean }) {
@@ -4007,7 +4042,7 @@ function MiniCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2">
       <p className="text-[10px] font-semibold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 truncate font-semibold text-slate-900">{value}</p>
+      <LongTextPreview text={value} lines={1} className="mt-1 font-semibold text-slate-900" />
     </div>
   );
 }
@@ -4084,9 +4119,7 @@ function SupportPanel({
                   {count}
                 </span>
               </div>
-              <p className="mt-2 truncate text-xs text-slate-500">
-                {last?.message || "Сообщений пока нет"}
-              </p>
+              <LongTextPreview text={last?.message || "Сообщений пока нет"} lines={2} className="mt-2 text-xs text-slate-500" />
             </a>
           ))}
 
@@ -4751,7 +4784,7 @@ function TradeTable({
                     )}
                   </td>
                   <td className="p-3">{trade.profit === null ? "-" : `€${Number(trade.profit).toFixed(2)}`}</td>
-                  <td className="max-w-[220px] truncate p-3 text-slate-500">{trade.comment || "-"}</td>
+                  <td className="max-w-[220px] p-3 text-slate-500"><LongTextPreview text={trade.comment || "-"} lines={2} /></td>
                   <td className="p-3">
                     {isOpen ? (
                       <button onClick={() => onClose(trade)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white">Закрыть</button>
@@ -5008,11 +5041,7 @@ function WithdrawalDetails({ item }: { item: Withdrawal }) {
 );
   }
 
-  return (
-    <p className="max-w-xs truncate text-slate-500">
-      {item.destination || item.details || "-"}
-    </p>
-  );
+  return <LongTextPreview text={item.destination || item.details || "-"} lines={2} className="max-w-xs text-slate-500" />;
 }
 
 function parseWithdrawalDetails(item: Withdrawal) {

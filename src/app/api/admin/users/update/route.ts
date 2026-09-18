@@ -1,6 +1,7 @@
 import { ensureCrmSchema } from "@/lib/crm-schema";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { getRequestSession } from "@/lib/api-auth";
+import { canAccessCrmClient, hasCrmPermission } from "@/lib/crm-permissions";
 
 function clean(value: unknown) {
   if (typeof value !== "string") return null;
@@ -11,6 +12,10 @@ function clean(value: unknown) {
 export async function PATCH(req: Request) {
   try {
     await ensureCrmSchema();
+    const session = await getRequestSession();
+    if (!session || !hasCrmPermission(session, "EDIT_ASSIGNED_CLIENT")) {
+      return Response.json({ error: "Session expired" }, { status: 401 });
+    }
 
     const {
       userId,
@@ -30,6 +35,11 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "UserId required" }, { status: 400 });
     }
 
+    const existing = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, managerId: true } });
+    if (!existing || !canAccessCrmClient(session, existing)) {
+      return Response.json({ error: "Недостаточно прав" }, { status: 403 });
+    }
+
     const data: Record<string, unknown> = {
       firstName: clean(firstName),
       lastName: clean(lastName),
@@ -41,15 +51,10 @@ export async function PATCH(req: Request) {
 
     if (typeof email === "string" && email.trim()) data.email = email.trim().toLowerCase();
     if (typeof kycStatus === "string" && kycStatus.trim()) data.kycStatus = kycStatus.trim();
-    if (typeof managerId === "string") data.managerId = managerId.trim() || null;
+    if (typeof managerId === "string") data.managerId = session.role === "ADMIN" ? managerId.trim() || null : session.sub;
 
     if (typeof password === "string" && password.trim()) {
-      if (password.trim().length < 6) {
-        return Response.json({ error: "Password must be at least 6 characters" }, { status: 400 });
-      }
-      const rawPassword = password.trim();
-      data.password = await bcrypt.hash(rawPassword, 10);
-      data.plainPassword = null;
+      return Response.json({ error: "Используйте защищённую операцию сброса пароля" }, { status: 400 });
     }
 
     const user = await prisma.user.update({

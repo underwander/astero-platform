@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import LongTextPreview from "@/components/ui/LongTextPreview";
 
 type Deposit = {
   id: string;
@@ -224,7 +225,7 @@ export default function DepositsPage() {
                         </div>
                       </td>
                       <td className="max-w-[360px] px-4 py-4">
-                        <p className="truncate font-semibold text-slate-700 dark:text-slate-300">{deposit.sourceDetails || "-"}</p>
+                        <LongTextPreview text={deposit.sourceDetails || "-"} lines={2} className="font-semibold text-slate-700 dark:text-slate-300" />
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge status={deposit.status} isRu={isRu} />
