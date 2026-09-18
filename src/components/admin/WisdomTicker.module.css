@@ -100,37 +100,30 @@
 }
 
 .glass {
-  --ticker-edge-left: rgba(240, 253, 250, 0.96);
-  --ticker-edge-right: rgba(224, 242, 241, 0.96);
-  border-color: rgba(255, 255, 255, 0.76);
-  background:
-    radial-gradient(circle at 12% 15%, rgba(255, 255, 255, 0.86), transparent 30%),
-    radial-gradient(circle at 85% 80%, rgba(52, 211, 153, 0.2), transparent 28%),
-    linear-gradient(120deg, rgba(240, 253, 250, 0.78), rgba(209, 250, 229, 0.56) 52%, rgba(204, 251, 241, 0.66));
-  box-shadow: 0 18px 45px rgba(15, 118, 110, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.92), inset 0 -1px 0 rgba(16, 185, 129, 0.1);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  --ticker-edge-left: #ffffff;
+  --ticker-edge-right: #ffffff;
+  border-color: #d1fae5;
+  background: #ffffff;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+  animation: none;
 }
 
 .glass .header { color: #047857; }
 .glass .item { color: #12372c; }
 .glass .author { color: #07835f; }
-.glass .quote { text-shadow: 0 0 18px rgba(16, 185, 129, 0.1); }
+.glass .quote { text-shadow: none; animation: none; }
 
 :global(.dark) .glass {
-  --ticker-edge-left: rgba(9, 31, 27, 0.97);
-  --ticker-edge-right: rgba(8, 45, 36, 0.97);
-  border-color: rgba(167, 243, 208, 0.18);
-  background:
-    radial-gradient(circle at 12% 15%, rgba(167, 243, 208, 0.12), transparent 30%),
-    radial-gradient(circle at 85% 80%, rgba(20, 184, 166, 0.13), transparent 28%),
-    linear-gradient(120deg, rgba(9, 31, 27, 0.9), rgba(6, 78, 59, 0.68));
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --ticker-edge-left: #ffffff;
+  --ticker-edge-right: #ffffff;
+  border-color: #d1fae5;
+  background: #ffffff;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
 }
 
-:global(.dark) .glass .header { color: #a7f3d0; }
-:global(.dark) .glass .item { color: #ecfdf5; }
-:global(.dark) .glass .author { color: #6ee7b7; }
+:global(.dark) .glass .header { color: #047857; }
+:global(.dark) .glass .item { color: #12372c; }
+:global(.dark) .glass .author { color: #07835f; }
 
 @media (prefers-reduced-motion: reduce) {
   .root, .quote { animation: none; }

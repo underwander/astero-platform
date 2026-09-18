@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { visibleTransactionDescription } from "@/lib/deposit-comment";
+import DashboardPanelIcon from "./DashboardPanelIcon";
+import { TimeIcon } from "@/icons";
 
 type BalanceHistoryItem = {
   id: string;
@@ -39,7 +41,8 @@ export default function TransferHistory() {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center gap-3">
+        <DashboardPanelIcon><TimeIcon /></DashboardPanelIcon>
         <h2 className="text-base font-black text-slate-950 dark:text-white">{language === "ru" ? "История операций" : "Operation history"}</h2>
       </div>
 

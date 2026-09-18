@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { calculateTradeProfit } from "@/lib/market-instruments";
 import { clearClientAuthState } from "@/lib/client-auth";
+import DashboardPanelIcon from "@/components/broker/DashboardPanelIcon";
+import { DollarLineIcon, DownloadIcon, EnvelopeIcon, PieChartIcon } from "@/icons";
+import type { ReactNode } from "react";
 
 type Trade = {
   id: string;
@@ -99,9 +102,9 @@ export default function BrokerMetrics() {
     <div className="space-y-4">
       {error && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.35fr]">
-        <AccountCard label={t("clientEmail")} value={email || t("clientCabinet")} loading={loading} />
-        <AccountCard label={t("funds")} value={`€${equity.toFixed(2)}`} loading={loading} />
-        <AccountCard label={t("availableToWithdraw")} value={`€${available.toFixed(2)}`} loading={loading} />
+        <AccountCard icon={<EnvelopeIcon />} label={t("clientEmail")} value={email || t("clientCabinet")} loading={loading} />
+        <AccountCard icon={<DollarLineIcon />} label={t("funds")} value={`€${equity.toFixed(2)}`} loading={loading} />
+        <AccountCard icon={<DownloadIcon />} label={t("availableToWithdraw")} value={`€${available.toFixed(2)}`} loading={loading} />
         <TerminalCard openLabel={t("open")} terminalLabel={t("terminal")} />
       </div>
     </div>
@@ -112,34 +115,28 @@ function TerminalCard({ openLabel, terminalLabel }: { openLabel: string; termina
   return (
     <Link
       href="/terminal"
-      className="group relative flex min-h-32 items-center justify-center overflow-hidden rounded-xl border border-emerald-200/50 bg-gradient-to-br from-[#0f5132] via-[#159447] to-[#47d77f] p-5 text-center text-white shadow-lg shadow-emerald-950/15 transition hover:-translate-y-0.5 hover:border-white/70 hover:shadow-xl hover:shadow-emerald-950/25 focus:outline-none focus:ring-4 focus:ring-emerald-300/40"
+      className="group relative flex min-h-32 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 text-center text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-300/30"
     >
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_45%,rgba(0,0,0,0.12))]" />
-      <div className="absolute right-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-sm transition group-hover:bg-white/30">
+      <div className="absolute right-4 top-4 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 transition group-hover:bg-emerald-100">
         {openLabel}
       </div>
-      <div className="absolute bottom-3 left-4 right-4 h-px bg-white/25" />
       <div className="relative z-10 flex flex-col items-center gap-2">
-        <span className="flex size-11 items-center justify-center rounded-full bg-white/18 shadow-inner shadow-white/10 transition group-hover:scale-105 group-hover:bg-white/25">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 18H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M7 15V9M12 15V5M17 15V11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M6 11H8M11 8H13M16 13H18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </span>
-        <p className="text-lg font-black tracking-wide text-white drop-shadow-sm">{terminalLabel}</p>
+        <DashboardPanelIcon><PieChartIcon /></DashboardPanelIcon>
+        <p className="text-lg font-black tracking-wide text-slate-950">{terminalLabel}</p>
       </div>
     </Link>
   );
 }
 
-function AccountCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
+function AccountCard({ icon, label, value, loading }: { icon: ReactNode; label: string; value: string; loading: boolean }) {
   return (
-    <div className="relative min-h-32 overflow-hidden rounded-xl border border-emerald-200/30 bg-gradient-to-br from-[#0f5132] via-[#15803d] to-[#37c871] p-4 text-white shadow-lg shadow-emerald-950/15">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_42%,rgba(0,0,0,0.18))]" />
-      <div className="relative flex h-full flex-col justify-between">
-        <p className="text-xs font-black uppercase tracking-[0.08em] text-white/90 drop-shadow-sm">{label}</p>
-        <p className="mt-5 break-words text-xl font-black leading-tight text-white drop-shadow-sm sm:text-2xl">{loading ? "..." : value}</p>
+    <div className="relative min-h-32 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
+      <div className="relative flex h-full items-center gap-4">
+        <DashboardPanelIcon>{icon}</DashboardPanelIcon>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.08em] text-slate-500">{label}</p>
+          <p className="mt-2 break-words text-xl font-black leading-tight text-slate-950 sm:text-2xl">{loading ? "..." : value}</p>
+        </div>
       </div>
     </div>
   );

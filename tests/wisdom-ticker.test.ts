@@ -49,16 +49,28 @@ test("client dashboard reuses the ticker below account metrics", () => {
   assert.match(clientTicker, /variant="glass"/);
 });
 
-test("client dashboard glass skin is isolated and accessible", () => {
+test("client dashboard uses an isolated white surface with reduced motion support", () => {
   const dashboard = readFileSync("src/app/(admin)/dashboard/page.tsx", "utf8");
   const styles = readFileSync("src/app/(admin)/dashboard/DashboardLiquidGlass.module.css", "utf8");
   for (const panel of ["ProfitCalculator", "TransferHistory", "AnnouncementsBoard", "MarketWatch", "TraderNews", "LegalDocumentsPanel"]) {
     assert.match(dashboard, new RegExp(`styles\\.glassPanel[^<]*<${panel}`));
   }
-  assert.match(styles, /backdrop-filter: blur\(/);
-  assert.match(styles, /@supports not/);
+  assert.match(styles, /background: #ffffff/);
+  assert.doesNotMatch(styles, /radial-gradient|backdrop-filter/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
   assert.match(styles, /\.glassPanel:empty/);
   assert.match(dashboard, /styles\.glassPanel\} \$\{styles\.modalPanel/);
   assert.match(styles, /\.modalPanel[\s\S]*overflow: visible/);
+});
+
+test("client dashboard icons reuse the landing visual tokens", () => {
+  const landing = readFileSync("src/components/landing/AsteroLanding.tsx", "utf8");
+  const icon = readFileSync("src/components/broker/DashboardPanelIcon.tsx", "utf8");
+  const metrics = readFileSync("src/components/ecommerce/BrokerMetrics.tsx", "utf8");
+  assert.match(landing, /size-12 items-center justify-center rounded-2xl/);
+  assert.match(landing, /accent === "emerald" \? "bg-emerald-400"/);
+  assert.match(icon, /size-12 shrink-0 items-center justify-center rounded-2xl/);
+  assert.match(icon, /bg-emerald-400 text-slate-950/);
+  assert.match(metrics, /<DashboardPanelIcon>/);
+  assert.doesNotMatch(metrics, /bg-gradient-to-br from-\[#0f5132\]/);
 });
