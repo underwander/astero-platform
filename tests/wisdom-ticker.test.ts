@@ -26,3 +26,14 @@ test("ticker is seamless, pauses on hover and respects reduced motion", () => {
   assert.match(styles, /\.root:hover \.track/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
+
+test("ticker is rendered once immediately after today's metrics", () => {
+  const overview = readFileSync("src/components/admin/ManagerOverview.tsx", "utf8");
+  const crm = readFileSync("src/components/admin/AsteroCrm.tsx", "utf8");
+  const metrics = overview.indexOf('label="Задачи сегодня"');
+  const ticker = overview.indexOf("<WisdomTicker />", metrics);
+  const plan = overview.indexOf('xl:grid-cols-[minmax(0,1.7fr)', ticker);
+  assert.ok(metrics >= 0 && ticker > metrics && plan > ticker);
+  assert.doesNotMatch(crm, /<WisdomTicker \/>/);
+  assert.equal((overview.match(/<WisdomTicker \/>/g) || []).length, 1);
+});

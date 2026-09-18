@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import ManualQuotesPanel from "@/components/admin/ManualQuotesPanel";
 import CrmPagination, { useCrmPagination } from "@/components/admin/CrmPagination";
 import CopyValueButton from "@/components/admin/CopyValueButton";
@@ -12,8 +11,6 @@ import ActionsWorkspace from "@/components/admin/ActionsWorkspace";
 import ManagerOverview from "@/components/admin/ManagerOverview";
 import EmojiTextField from "@/components/form/EmojiTextField";
 import LongTextPreview from "@/components/ui/LongTextPreview";
-
-const WisdomTicker = dynamic(() => import("@/components/admin/WisdomTicker"), { ssr: false });
 
 type ManagerRef = {
   id: string;
@@ -1575,10 +1572,7 @@ export default function AsteroCrm() {
         )}
 
         {activeTab === "desktop" && (
-          <div className="min-w-0 space-y-4">
-            <WisdomTicker />
-            <ManagerOverview />
-          </div>
+          <ManagerOverview />
         )}
 
         {activeTab === "clients" && (

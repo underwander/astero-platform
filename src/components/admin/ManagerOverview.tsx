@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import EmojiTextField from "@/components/form/EmojiTextField";
+
+const WisdomTicker = dynamic(() => import("@/components/admin/WisdomTicker"), { ssr: false });
 
 type Person = { id: string; email: string; firstName?: string | null; lastName?: string | null; role?: string };
 type Action = { id: string; title: string; description?: string | null; dueAt?: string | null; status: string; priority?: string; type?: string; managerId?: string | null; user: Person; manager?: Person | null };
@@ -141,6 +144,8 @@ export default function ManagerOverview() {
     {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
     {data.selectedManager.id === "all" && <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">Общая сводка доступна только для просмотра. Выберите менеджера, чтобы редактировать задачи.</div>}
     <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8"><Metric label="Задачи сегодня" value={data.metrics.tasksToday} /><Metric label="Выполнено" value={data.metrics.completed} tone="green" /><Metric label="Просрочено" value={data.metrics.overdue} tone={data.metrics.overdue ? "red" : undefined} /><Metric label="Новые клиенты" value={data.metrics.newClients} /><Metric label="Звонки" value={data.metrics.calls} /><Metric label="Встречи" value={data.metrics.meetings} /><Metric label="Активные сделки" value={data.metrics.activeDeals} /><Metric label="Закрытые сделки" value={data.metrics.closedDeals} tone="green" /></section>
+
+    <WisdomTicker />
 
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,.7fr)]">
       <Card title={<PlanDateNavigator date={date} open={calendarOpen} setOpen={setCalendarOpen} month={calendarMonth} setMonth={setCalendarMonth} counts={calendarCounts} loading={calendarLoading} error={calendarError} selectDate={selectPlanDate} previous={() => shiftPlanDate(-1)} next={() => shiftPlanDate(1)} />} action={canEdit ? <button onClick={() => setDraft(emptyTask(data.selectedManager.id, date, data.clients[0]?.id))} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800">+ Добавить задачу</button> : undefined}>
